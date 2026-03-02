@@ -5,6 +5,7 @@ from django.views.decorators.http import require_http_methods
 from modelmasterapp.models import *
 from django.db.models import OuterRef, Subquery, Exists, F, TextField
 from django.db.models.functions import Cast
+from django.db.models.fields.json import KeyTextTransform
 from django.core.paginator import Paginator
 import math
 import json
@@ -157,7 +158,7 @@ class Jig_Unloading_MainTable(TemplateView):
         ).values('polish_finish__polish_finish')[:1]
         
         jig_unload = JigCompleted.objects.select_related('bath_numbers').annotate(
-            plating_color_cast=Cast('draft_data__plating_color', TextField()),
+            plating_color_cast=KeyTextTransform('plating_color', 'draft_data'),
             polish_finish_name=Subquery(polish_finish_subquery)
         ).filter(
             plating_color_cast__in=plating_patterns
@@ -166,7 +167,7 @@ class Jig_Unloading_MainTable(TemplateView):
         # ENHANCED FILTER: Also get jigs where plating_color is not in draft_data 
         # but can be determined from TotalStockModel or RecoveryStockModel
         jigs_without_plating_in_draft = JigCompleted.objects.select_related('bath_numbers').annotate(
-            plating_color_cast=Cast('draft_data__plating_color', TextField()),
+            plating_color_cast=KeyTextTransform('plating_color', 'draft_data'),
             polish_finish_name=Subquery(polish_finish_subquery)
         ).filter(
             plating_color_cast__isnull=True  # draft_data has no plating_color
