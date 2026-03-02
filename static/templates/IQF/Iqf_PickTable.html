@@ -1220,7 +1220,7 @@
             </h5>
             
             <!-- Hidden input for scanner -->
-            <input type="text" id="scanHiddenInput" style="position: absolute; left: -9999px; opacity: 0;" autocomplete="off" />
+            <input type="text" id="scanHiddenInput" style="position: absolute; left: -9999px; opacity: 0;" />
             
             <!-- Status message -->
             <div id="scanMessage" style="display: none; margin-top: 8px; padding: 6px 12px; border-radius: 4px; font-size: 14px; font-weight: 600;"></div>
@@ -2715,8 +2715,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 <tbody>
             `;
           
-            // ✅ Sort traysData by tray_id alphabetically (ASC) to match the backend
-            const sortedTrays = traysData.slice().sort((a, b) => (a.tray_id || '').localeCompare(b.tray_id || ''));
+            // ✅ Sort traysData by tray_quantity ascending
+            const sortedTrays = traysData.slice().sort((a, b) => (a.tray_quantity || 0) - (b.tray_quantity || 0));
           
             sortedTrays.forEach((tray, idx) => {
               html += `
@@ -3009,17 +3009,13 @@ function populateRejectionVerificationFromDraft(verificationsData, selectAllStat
 
   // Render only trays from draft, using your requested style
   verificationsData.forEach((tray, i) => {
-    // ✅ FIXED: Strictly respect the saved flag from backend
-    const isTopTrayFlag = tray.is_top_tray === true; 
-    const topTrayLabel = isTopTrayFlag ? ' (Top Tray)' : '';
-    
+    const isTopTray = i === 0 ? ' (Top Tray)' : '';
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td style="padding: 6px;">${i + 1}${topTrayLabel}</td>
+      <td style="padding: 6px;">${i + 1}${isTopTray}</td>
       <td style="padding: 6px;">
         <input type="text" class="rejection-tray-id-input" 
                value="${tray.tray_id}" 
-               data-is-top-tray="${isTopTrayFlag}"
                style="width: 100%; padding: 4px; font-size: 13px; background-color: #e8f5e9; border: 2px solid #28a745;" 
                readonly />
       </td>
@@ -3377,11 +3373,10 @@ async function calculateOptimalRejectionDistribution(allRemainingTrays, lotId) {
   
   // 2. ✅ Get ALL available tray IDs (excluding ONLY valid delink candidates)
   const availableTrayIds = allRemainingTrays
-    .filter(tray => tray.rejected_tray) // ✅ ONLY use trays marked for rejection
     .filter(tray => !validScannedDelinkTrays.includes(tray.tray_id))  
-    .map(tray => tray.tray_id)
-    .sort((a, b) => a.localeCompare(b)); // ✅ Sort alphabetically to match backend sequence
-  console.log('🎯 Available tray IDs for rejection (preserved order):', availableTrayIds);
+      .map(tray => tray.tray_id)
+    .sort(); // Sort for consistent ordering
+  console.log('🎯 Available tray IDs for rejection:', availableTrayIds);
 
   if (availableTrayIds.length === 0) {
     return {
@@ -3411,7 +3406,7 @@ async function calculateOptimalRejectionDistribution(allRemainingTrays, lotId) {
     console.error('❌ Error fetching IQF rejection data:', error);
     return {
       success: false,
-      error: 'Failed to fetch IQF rejection data'
+      error: 'Failed to fetch IQF rejection quantity'
     };
   }
   
@@ -3440,36 +3435,29 @@ async function calculateOptimalRejectionDistribution(allRemainingTrays, lotId) {
     };
   }
   
-  // 5. ✅ FIXED DISTRIBUTION ALGORITHM - REMAINDER FIRST, THEN FULL TRAYS
+  // 5. ✅ FIXED DISTRIBUTION ALGORITHM - FIXED QUANTITIES, SHUFFLE TRAY IDs
   const distributedTrays = [];
   
-  // Calculate fixed distribution pattern (11, 12, 12 for qty=35, capacity=12)
+  // Calculate fixed distribution pattern (4, 12, 12, 12 for qty=40, capacity=12)
   const remainder = iqfRejectionQty % trayCapacity;
   const fullTraysNeeded = Math.floor(iqfRejectionQty / trayCapacity);
   
   const fixedQuantities = [];
-  // ✅ Put remainder at the START (requested as Top Tray)
   if (remainder > 0) {
-    fixedQuantities.push(remainder); // First: 11
+    fixedQuantities.push(remainder); // First: 4 (Top Tray)
   }
-  
-  // ✅ Then fill full trays
   for (let i = 0; i < fullTraysNeeded; i++) {
-    fixedQuantities.push(trayCapacity); // Pattern: 11, 12, 12...
+    fixedQuantities.push(trayCapacity); // Then: 12, 12, 12
   }
   
-  console.log('📊 Fixed quantities pattern (Remainder at START):', fixedQuantities);
+  console.log('📊 Fixed quantities pattern:', fixedQuantities);
   
   // 6. ✅ Assign fixed quantities to available tray IDs
   for (let i = 0; i < fixedQuantities.length && i < availableTrayIds.length; i++) {
-    const currentQty = fixedQuantities[i];
-    // Mark as top tray if it's the one with the partial quantity (the remainder) at index 0
-    const isTopTray = (remainder > 0 && i === 0);
-    
     distributedTrays.push({
       tray_id: availableTrayIds[i],
-      distributed_qty: currentQty,
-      is_top_tray: isTopTray
+      distributed_qty: fixedQuantities[i],
+      is_top_tray: i === 0 && remainder > 0
     });
   }
   
@@ -3521,14 +3509,13 @@ async function renderOptimalRejectionTable(allRemainingTrays, lotId) {
   // ✅ Build table rows with FIXED quantities and shuffled tray IDs
   let tableRows = '';
   distributedTrays.forEach((tray, i) => {
-    const isTopTrayLabel = tray.is_top_tray ? ' (Top Tray)' : '';
+    const isTopTray = tray.is_top_tray ? ' (Top Tray)' : '';
     tableRows += `
       <tr>
-        <td style="padding: 6px;">${i + 1}${isTopTrayLabel}</td>
+        <td style="padding: 6px;">${i + 1}${isTopTray}</td>
         <td style="padding: 6px;">
           <input type="text" class="rejection-tray-id-input" 
                  value="${tray.tray_id}" 
-                 data-is-top-tray="${tray.is_top_tray}"
                  style="width: 100%; padding: 4px; font-size: 13px; background-color: #e8f5e9; border: 2px solid #28a745;" 
                  readonly />
         </td>
@@ -3733,7 +3720,6 @@ function showReadOnlyRejectionData(lotId, detailsDiv) {
       // ✅ NEW: Rejected Tray ID Table (similar to Brass QC)
       let rejectedTrayIdRows = '';
       const rejectedTrayIds = data.rejected_tray_ids || [];
-      console.log('📋 [DEBUG] Received Rejected Tray IDs:', rejectedTrayIds);
       
       if (rejectedTrayIds.length > 0) {
         // Sort: top_tray first, then by ID
@@ -3744,7 +3730,6 @@ function showReadOnlyRejectionData(lotId, detailsDiv) {
         });
 
         rejectedTrayIds.forEach((trayObj, index) => {
-          console.log(`🔍 [DEBUG] Tray ${index+1}: ID=${trayObj.tray_id}, top_tray=${trayObj.top_tray}, is_top_tray=${trayObj.is_top_tray}`);
           const displaySno = trayObj.top_tray ? '1 (Top Tray)' : (index + 1);
           rejectedTrayIdRows += `
             <tr>
@@ -4671,22 +4656,15 @@ function loadTrayRejectionDraft(draftData) {
       console.log('❌ [DRAFT-LOAD] No tray_rejections array found or invalid format');
     }
     
-    // ✅ FIXED: Restore accepted trays AFTER table updates have completed with RETRY logic
+    // ✅ FIXED: Restore accepted trays AFTER table updates have completed
     if (draftData.accepted_trays && Array.isArray(draftData.accepted_trays)) {
       console.log('🔄 [DRAFT-LOAD] Restoring accepted trays data:', draftData.accepted_trays);
       
-      let retryCount = 0;
-      const loadAcceptedTrays = () => {
+      // Add delay to ensure table is fully rendered after quantity changes
+      setTimeout(() => {
         const rows = document.querySelectorAll('#accepted-tray-table-body tr');
-        console.log(`🔍 [DRAFT-LOAD] Found ${rows.length} accepted tray rows for restoration (Attempt ${retryCount + 1})`);
+        console.log(`🔍 [DRAFT-LOAD] Found ${rows.length} accepted tray rows for restoration`);
         
-        // Wait because updateAcceptedTrayTable rebuilds this async
-        if (rows.length === 0 && retryCount < 20) {
-          retryCount++;
-          setTimeout(loadAcceptedTrays, 200);
-          return;
-        }
-
         draftData.accepted_trays.forEach((tray, index) => {
           if (rows[index] && tray.tray_id) {
             const trayInput = rows[index].querySelector('.accepted-tray-id-input');
@@ -4703,11 +4681,7 @@ function loadTrayRejectionDraft(draftData) {
             console.log(`⚠️ [DRAFT-LOAD] Row ${index + 1} not found or no tray_id in data`);
           }
         });
-      };
-
-      // Start the retry logic
-      setTimeout(loadAcceptedTrays, 300);
-      
+      }, 200); // Small delay to ensure table updates are complete
     } else {
       console.log('ℹ️ [DRAFT-LOAD] No accepted_trays data to restore');
     }
@@ -5019,7 +4993,6 @@ function processAllTrayData(lotId, isDraft, successMessage) {
           tray_id: trayId,
           verified: checkbox ? checkbox.checked : false,
           qty: qty,
-          is_top_tray: input.dataset.isTopTray === 'true', // ✅ Send top_tray flag
           is_draft_entry: true // Custom flag for draft handling
         });
       } else {
@@ -5028,8 +5001,7 @@ function processAllTrayData(lotId, isDraft, successMessage) {
           verifications.push({
             tray_id: trayId,
             verified: true,
-            qty: qty,
-            is_top_tray: input.dataset.isTopTray === 'true' // ✅ Send top_tray flag
+            qty: qty
           });
         }
       }
@@ -5092,15 +5064,17 @@ function processAllTrayData(lotId, isDraft, successMessage) {
             msgP.textContent = "Draft saved successfully!";
           }
         } else {
-          // For final submit, close the modal and stay on pick table
-          // ✅ FIXED: Don't reload/navigate - just close the modal
-          const modal = document.querySelector('#newPopupModal');
-          if (modal) {
-            modal.classList.remove('open');
-          }
-          
-          // Refresh the table data to reflect changes
-          loadPickTableData();
+          // For final submit, close all related modals and return to pick table
+          const newPopupModal = document.getElementById('newPopupModal');
+          const trayScanModal = document.getElementById('trayScanModal');
+          const trayScanModalDayPlanning = document.getElementById('trayScanModal_DayPlanning');
+
+          if (newPopupModal) newPopupModal.classList.remove('open');
+          if (trayScanModal) trayScanModal.classList.remove('open');
+          if (trayScanModalDayPlanning) trayScanModalDayPlanning.classList.remove('open');
+
+          // Navigate explicitly to IQF pick table after successful verification submit
+          window.location.href = '/iqf/iqf_picktable/';
           
           // Show success message
           if (msgP) {
@@ -8249,12 +8223,6 @@ closeNewPopupBtn.addEventListener("click", () => {
               if (acceptBtn) acceptBtn.disabled = false;
               if (rejectBtn) rejectBtn.disabled = false;
 
-              // Store checkbox lot_id for highlighting after page reload
-              const currentLotId = checkbox.getAttribute('data-lot-id');
-              if (currentLotId) {
-                sessionStorage.setItem('iqfCheckboxHighlightLotId', currentLotId);
-              }
-
                 window.location.reload();
 
             } else {
@@ -10688,15 +10656,10 @@ document.addEventListener("DOMContentLoaded", function() {
   // Listen for clicks on Eye, Accept, and Reject buttons
   document.querySelectorAll('.tray-scan-btn-Jig, .btn-twitter, .btn-youtube').forEach(function(link) {
     link.addEventListener('click', function(event) {
-      // Remove highlight from all rows (both highlight systems)
+      // Remove highlight from all rows
       document.querySelectorAll('tbody tr').forEach(function(row) {
         row.classList.remove('iqf-row-action-highlight');
-        row.classList.remove('dp-row-action-highlight');
       });
-      // Also restore any scanner-highlighted row to its original position
-      if (typeof iqfRestorePreviousRowPosition === 'function') {
-        iqfRestorePreviousRowPosition();
-      }
       // Move the clicked row to the top and highlight
       var row = event.target.closest('tr');
       if (row && row.parentNode) {
@@ -10744,8 +10707,6 @@ document.addEventListener("DOMContentLoaded", function() {
       row.classList.remove('highlighted-tray-scan');
     });
   }
-  // Expose globally so scanner highlight can clear this system
-  window.iqfRestoreRowHighlight = restoreRowHighlight;
 
   // Swap close button position and clear highlight for all close buttons
   function swapAndClearCloseBtns() {
@@ -10902,287 +10863,419 @@ document.addEventListener("DOMContentLoaded", function () {
 <script nonce="{{ csp_nonce }}">
 // ==========================================
 // BARCODE SCANNER FUNCTIONALITY - IQF
-// (Aligned with BrassAudit scan button behavior)
 // ==========================================
 document.addEventListener("DOMContentLoaded", function () {
-  // ✅ Check for pending scans after page load (for pagination scanning)
-  setTimeout(() => {
-    iqfCheckPendingScanAfterPageLoad();
-    iqfCheckPendingCheckboxAfterPageLoad();
-  }, 500);
-
-  // ✅ Clear any highlighted row state on page load (for pagination)
-  window.currentHighlightedRow = null;
-  window.currentHighlightedLotId = null;
-  window.originalRowPosition = null;
-
+  // Scanner elements
   const scanBtn = document.getElementById("scanButton");
-  const scanInput = document.getElementById("scanHiddenInput");
   const scanStatus = document.getElementById("scanStatusMessage");
-
-  if (!scanBtn || !scanInput || !scanStatus) {
+  const scanInput = document.getElementById("scanHiddenInput");
+  
+  // Scanner state
+  let isScanning = false;
+  
+  if (!scanBtn || !scanStatus || !scanInput) {
     console.log("❌ [IQF SCANNER] Required scanner elements not found");
     return;
   }
-
+  
   console.log("✅ [IQF SCANNER] Scanner elements found and initialized");
-
-  // ─── SCAN BUTTON CLICK HANDLER ───
-  scanBtn.addEventListener("click", function () {
-    const modal = document.getElementById("trayScanModal_DayPlanning");
-    if (modal && modal.style.display === "block") {
-      // If tray scan modal is open, focus the modal's validate input instead
-      const pleaseScanIndicator = document.getElementById("pleaseScanIndicator");
-      if (pleaseScanIndicator) pleaseScanIndicator.style.display = "inline";
-      const validateInput = document.getElementById("trayValidateInput");
-      if (validateInput) validateInput.focus();
-      console.log("🎯 [IQF SCANNER] PLEASE SCAN (modal)");
-    } else {
-      // Normal scanning — focus the hidden input so barcode scanner keystrokes go there
+  
+  // Start scanning function
+  function startScanning() {
+    if (isScanning) return;
+    
+    isScanning = true;
+    scanInput.value = "";
+    scanInput.focus();
+    
+    scanBtn.innerHTML = '<i class="fa fa-stop" style="margin-right: 6px;"></i>Stop';
+    scanStatus.style.display = "inline";
+    scanStatus.textContent = "PLEASE SCAN";
+    
+    console.log("🎯 [IQF SCANNER] Scanning started");
+  }
+  
+  // Stop scanning function
+  function stopScanning() {
+    if (!isScanning) return;
+    
+    isScanning = false;
+    scanInput.value = "";
+    scanInput.blur();
+    
+    scanBtn.innerHTML = '<i class="fa fa-qrcode" style="margin-right: 6px;"></i>Scan';
+    scanStatus.style.display = "none";
+    
+    console.log("⏹️ [IQF SCANNER] Scanning stopped");
+  }
+  
+  // Show scan error function
+  function showScanError(message) {
+    scanStatus.style.color = "#dc3545";
+    scanStatus.textContent = message;
+    scanStatus.style.display = "inline";
+    scanInput.value = "";
+    
+    // Keep scanner active for retry
+    if (isScanning) {
       scanInput.focus();
-      scanStatus.textContent = "PLEASE SCAN";
-      scanStatus.style.display = "inline-block";
-      scanStatus.style.color = "#28a745";
-      console.log("🎯 [IQF SCANNER] PLEASE SCAN");
-    }
-
-    // If modal is open, also trigger trayValidateBtn actions
-    if (modal && modal.style.display === "block") {
+      
+      // Reset to scanning mode after error
       setTimeout(() => {
-        const topTrayRow = document.querySelector('#trayScanDetails_DayPlanning tbody tr:first-child');
-        if (topTrayRow) {
-          const editIcon = topTrayRow.querySelector('.edit-tray-qty');
-          if (editIcon) editIcon.style.display = 'inline-block';
+        if (isScanning) {
+          scanStatus.style.color = "#28a745";
+          scanStatus.textContent = "PLEASE SCAN";
         }
-        const redoBtn = document.getElementById("trayQtyRedoBtn");
-        if (redoBtn) redoBtn.style.display = 'inline-block';
-      }, 100);
+      }, 3000);
     }
-  });
-
-  // ─── HIDDEN INPUT KEYDOWN HANDLER (barcode scanner fires Enter after scan) ───
-  scanInput.addEventListener("keydown", function (e) {
-    if (e.key !== "Enter") return;
-
-    const trayId = scanInput.value.trim();
-
-    // Wait until user enters at least 8 characters before validating
-    if (trayId.length < 8) {
-      scanStatus.style.display = "inline-block";
-      scanStatus.style.color = "#28a745";
-      scanStatus.textContent = "PLEASE SCAN";
-      return;
-    }
-
-    // ─── API CALL: Look up lot_id for this tray_id ───
+  }
+  
+  // Function to validate and process barcode
+  function validateBarcode(trayId) {
+    console.log("🔍 [IQF SCANNER] Processing tray ID:", trayId);
+    
+    // Find priority row (Draft first, then first available)
+    openPriorityRowModal(trayId);
+    
+    // Optional: Log API response for debugging (doesn't affect modal opening)
     fetch(`/iqf/get_lot_id_for_tray/?tray_id=${encodeURIComponent(trayId)}`)
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.lot_id) {
-          console.log("✅ [IQF SCANNER] Scanned Tray ID:", trayId, "Lot ID:", data.lot_id);
-
-          // Find the row with this lot_id
-          const row = document.querySelector(`tr[data-stock-lot-id="${data.lot_id}"]`);
-          if (row) {
-            // Close any open modals and highlight the row
-            const trayScanModal = document.getElementById('trayScanModal');
-            const dayPlanningModal = document.getElementById('trayScanModal_DayPlanning');
-            if (trayScanModal && trayScanModal.style.display !== 'none') trayScanModal.style.display = 'none';
-            if (dayPlanningModal && dayPlanningModal.style.display !== 'none') dayPlanningModal.style.display = 'none';
-
-            scanInput.value = "";
-            scanStatus.textContent = "PLEASE SCAN";
-            iqfHighlightAndMoveRowToTop(row, data.lot_id, true);
-          } else {
-            // Row NOT found on current page — search across paginated pages
-            const currentUrl = new URL(window.location);
-            const currentPage = currentUrl.searchParams.get('page') || '1';
-            scanStatus.style.color = "#dc3545";
-            scanStatus.textContent = "Lot not found on current page, searching...";
-            iqfSearchLotIdAcrossPages(data.lot_id, trayId, currentPage);
-          }
-
-          if (row) {
-            scanStatus.style.color = "#28a745";
-            scanStatus.textContent = "PLEASE SCAN";
-          }
+        if (data.success) {
+          console.log("✅ [IQF SCANNER] Tray found in system - ID:", trayId, "Lot:", data.lot_id);
         } else {
-          // Invalid tray ID
-          scanStatus.style.display = "inline-block";
-          scanStatus.style.color = "#dc3545";
-          scanStatus.textContent = "Invalid Tray ID!";
-          scanInput.value = "";
-          scanInput.focus();
+          console.log("⚠️ [IQF SCANNER] Tray not in system, manual entry required:", trayId);
         }
       })
-      .catch(() => {
-        scanStatus.style.display = "inline-block";
-        scanStatus.style.color = "#dc3545";
-        scanStatus.textContent = "Network error!";
-        scanInput.value = "";
-        scanInput.focus();
+      .catch((error) => {
+        console.log("⚠️ [IQF SCANNER] API error (modal still opened):", error);
       });
+  }
+  
+  // Function to find and open priority row modal (Draft first, then first available)
+  function openPriorityRowModal(trayId) {
+    console.log("🎯 [IQF SCANNER] Finding priority row for tray ID:", trayId);
+    
+    const allDataRows = document.querySelectorAll('#order-listing tbody tr');
+    
+    if (allDataRows.length === 0) {
+      showScanError("No data available in the table!");
+      return;
+    }
+    
+    let targetRow = null;
+    let rowType = "";
+    
+    // Step 1: Look for the first "Draft" status row
+    for (let i = 0; i < allDataRows.length; i++) {
+      const row = allDataRows[i];
+      const lotStatusCell = row.cells[14]; // Lot Status is the 15th column (index 14)
+      
+      if (lotStatusCell) {
+        const statusText = lotStatusCell.textContent.trim();
+        console.log(`🔍 [IQF SCANNER] Row ${i + 1} lot status:`, statusText);
+        
+        if (statusText.includes('Draft')) {
+          console.log("✨ [IQF SCANNER] Found Draft row at position", i + 1);
+          targetRow = row;
+          rowType = "Draft";
+          break;
+        }
+      }
+    }
+    
+    // Step 2: If no Draft found, use the first available row
+    if (!targetRow) {
+      console.log("📝 [IQF SCANNER] No Draft rows found, using first available row");
+      targetRow = allDataRows[0];
+      rowType = "First Available";
+    }
+    
+    // Find the View button in the target row (in Action column)
+    const viewBtn = targetRow.querySelector('a[href="#"]');
+    
+    if (!viewBtn) {
+      showScanError("View button not available for the selected row!");
+      return;
+    }
+    
+    const rowIndex = Array.from(allDataRows).indexOf(targetRow) + 1;
+    console.log(`🎯 [IQF SCANNER] Opening ${rowType} modal for row ${rowIndex}`);
+    
+    // Store the scanned tray ID globally so it can be used when modal opens
+    window.scannedTrayIdForIQFModal = trayId;
+    
+    // Click the View button to open modal
+    viewBtn.click();
+    
+    // Pre-fill tray ID in modal after it opens
+    setTimeout(() => {
+      fillTrayIdInIQFModal(trayId);
+    }, 500);
+    
+    scanStatus.style.color = "#28a745";
+    scanStatus.textContent = `${rowType} modal opened!`;
+    
+    // Stop scanning after successful modal opening
+    setTimeout(() => {
+      stopScanning();
+    }, 2000);
+  }
+  
+  // Function to find and fill next empty tray ID slot in IQF modals
+  function findAndFillNextEmptyTraySlot(modal, trayId) {
+    console.log("🔍 [IQF DRAFT] Searching for next empty tray ID slot in Draft modal");
+    
+    // Find all tray ID input fields in the modal
+    const trayIdInputs = modal.querySelectorAll([
+      'input[placeholder*="Tray ID"]',
+      'input[placeholder*="tray ID"]', 
+      'input[placeholder*="Enter Tray"]',
+      'input[id*="tray"]',
+      'input[name*="tray"]',
+      'input[data-tray-id]',
+      'input[type="text"]:not([placeholder*="validation"]):not([placeholder*="info"])'
+    ].join(', '));
+    
+    if (trayIdInputs.length === 0) {
+      console.log("⚠️ [IQF DRAFT] No tray ID inputs found, using any text input as fallback");
+      const allTextInputs = modal.querySelectorAll('input[type="text"]');
+      if (allTextInputs.length > 0) {
+        allTextInputs[0].focus();
+        allTextInputs[0].value = trayId;
+        console.log("📝 [IQF DRAFT] Used fallback text input");
+        allTextInputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      return;
+    }
+    
+    console.log(`🔍 [IQF DRAFT] Found ${trayIdInputs.length} tray ID input fields`);
+    
+    // Find the first truly empty slot
+    let targetInput = null;
+    let targetSlotIndex = -1;
+    
+    // Search through all inputs to find the first truly empty one
+    for (let i = 0; i < trayIdInputs.length; i++) {
+      const input = trayIdInputs[i];
+      const currentValue = input.value ? input.value.trim() : '';
+      
+      console.log(`🔍 [IQF DRAFT] Checking slot ${i + 1}: "${currentValue}" (${currentValue ? 'filled' : 'empty'})`);
+      
+      if (!currentValue || currentValue === '') {
+        targetInput = input;
+        targetSlotIndex = i + 1;
+        console.log(`✨ [IQF DRAFT] Found first empty slot at position ${targetSlotIndex}`);
+        break;
+      }
+    }
+    
+    // Fill the target slot or warn if all are filled
+    if (targetInput) {
+      targetInput.focus();
+      targetInput.value = trayId;
+      console.log(`📝 [IQF DRAFT] Pre-filled tray ID "${trayId}" in slot ${targetSlotIndex}`);
+      
+      // Trigger input event for any validation
+      targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+      targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+      
+      // Update scan status with slot information
+      scanStatus.textContent = `IQF Draft slot ${targetSlotIndex} filled!`;
+      
+      // ✅ NEW: Auto-trigger validation for Draft modal after filling
+      setTimeout(() => {
+        autoTriggerTrayValidation(modal, trayId, `Draft Slot ${targetSlotIndex}`);
+      }, 200);
+    } else {
+      // All slots are filled - warn user instead of overwriting
+      console.log("⚠️ [IQF DRAFT] All slots are filled - cannot add more tray IDs");
+      scanStatus.style.color = "#dc3545";
+      scanStatus.textContent = "All tray slots filled!";
+      
+      // Still focus on the last input for user awareness
+      const lastInput = trayIdInputs[trayIdInputs.length - 1];
+      if (lastInput) {
+        lastInput.focus();
+      }
+      
+      // Reset scanner status after warning
+      setTimeout(() => {
+        if (isScanning) {
+          scanStatus.style.color = "#28a745";
+          scanStatus.textContent = "PLEASE SCAN";
+        }
+      }, 3000);
+    }
+  }
+  
+  // Function to fill tray ID in IQF modal
+  function fillTrayIdInIQFModal(trayId) {
+    // Look for IQF specific modal
+    const iqfModal = document.querySelector('[id*="iqf"], [class*="iqf"], [data-modal*="iqf"]');
+    const genericModal = document.querySelector('.modal:not([style*="display: none"])');
+    const activeModal = iqfModal || genericModal;
+    
+    if (!activeModal) {
+      console.log("⚠️ [IQF SCANNER] No active modal found");
+      return;
+    }
+    
+    console.log("🎯 [IQF SCANNER] Found active modal, filling tray ID");
+    
+    // Check if this is a Draft modal by looking for existing filled tray IDs
+    const existingTrayInputs = activeModal.querySelectorAll('input[type="text"]');
+    let isDraftModal = false;
+    
+    for (const input of existingTrayInputs) {
+      if (input.value && input.value.trim() && input.placeholder && input.placeholder.toLowerCase().includes('tray')) {
+        isDraftModal = true;
+        break;
+      }
+    }
+    
+    if (isDraftModal) {
+      console.log("🔍 [IQF SCANNER] Detected Draft modal, using smart slot filling");
+      findAndFillNextEmptyTraySlot(activeModal, trayId);
+    } else {
+      // Regular modal - fill first tray ID input
+      const trayIdInput = activeModal.querySelector('input[placeholder*="Tray ID"], input[placeholder*="tray ID"], input[placeholder*="Enter Tray"], input[type="text"]');
+      if (trayIdInput) {
+        trayIdInput.focus();
+        trayIdInput.value = trayId;
+        console.log("📝 [IQF SCANNER] Pre-filled tray ID in regular modal:", trayId);
+        
+        // Trigger input event for any validation
+        trayIdInput.dispatchEvent(new Event('input', { bubbles: true }));
+        trayIdInput.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // Auto-trigger validation for regular modal after filling
+        autoTriggerTrayValidation(activeModal, trayId, 'Regular');
+      }
+    }
+  }
+  
+  // ✅ NEW: Auto-trigger tray validation after barcode scan
+  function autoTriggerTrayValidation(modal, trayId, modalType) {
+    console.log(`🚀 [IQF SCANNER] Auto-triggering validation for ${modalType} modal with tray ID: ${trayId}`);
+    
+    // Wait a moment for the tray ID to be properly filled
+    setTimeout(() => {
+      // Look for validation button with various possible selectors
+      const validationBtn = modal.querySelector([
+        'button[id*="trayValidate"]',           // #trayValidateBtn or similar
+        'button[class*="tray-validate"]',       // .tray-validate-btn or similar  
+        'button[onclick*="validate"]',          // onclick="validateTray()" or similar
+        'button:contains("Validate")',          // Button with "Validate" text
+        'input[type="button"][value*="Validate"]', // Input button with Validate value
+        '.btn:contains("Validate")',            // Any button with Validate text
+        '#trayValidateBtn',                     // Specific ID if known
+        'button[data-action="validate"]'        // Data attribute approach
+      ].join(', '));
+      
+      // Alternative approach: look for buttons with "validate" in text content
+      let validateButton = validationBtn;
+      if (!validateButton) {
+        const allButtons = modal.querySelectorAll('button, input[type="button"], input[type="submit"]');
+        for (const btn of allButtons) {
+          const btnText = btn.textContent || btn.value || btn.title || '';
+          if (btnText.toLowerCase().includes('validate') || btnText.toLowerCase().includes('check')) {
+            validateButton = btn;
+            console.log("🔍 [IQF SCANNER] Found validation button by text:", btnText);
+            break;
+          }
+        }
+      }
+      
+      if (validateButton && !validateButton.disabled) {
+        console.log("✅ [IQF SCANNER] Auto-clicking Tray Validate button");
+        validateButton.click();
+        
+        // Update scanner status
+        scanStatus.style.color = "#28a745";
+        scanStatus.textContent = `Validation triggered for ${modalType} modal!`;
+        
+        // Auto-stop scanning after successful validation trigger
+        setTimeout(() => {
+          stopScanning();
+        }, 2000);
+      } else {
+        console.log("⚠️ [IQF SCANNER] Tray Validate button not found or disabled");
+        console.log("Available buttons in modal:", Array.from(modal.querySelectorAll('button')).map(b => b.textContent || b.id || b.className));
+        
+        // Show warning but don't stop scanner
+        scanStatus.style.color = "#ff8c00";
+        scanStatus.textContent = "Tray filled - manual validation needed";
+      }
+    }, 300); // Small delay to ensure tray ID is properly set
+  }
+  
+  // Button click handler
+  scanBtn.addEventListener("click", function () {
+    if (isScanning) {
+      stopScanning();
+    } else {
+      startScanning();
+    }
   });
-
+  
+  // Listen for Enter key (traditional scanner behavior)
+  scanInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && isScanning) {
+      e.preventDefault();
+      const trayId = scanInput.value.trim();
+      if (trayId.length >= 4) {
+        validateBarcode(trayId);
+      }
+    }
+  });
+  
+  // Listen for input events (rapid typing or paste operations)
+  scanInput.addEventListener("input", function (e) {
+    if (isScanning) {
+      const currentValue = scanInput.value.trim();
+      
+      // Auto-trigger on length threshold (common scanner behavior)
+      if (currentValue.length >= 8) {
+        setTimeout(() => {
+          if (isScanning && scanInput.value.trim() === currentValue) {
+            validateBarcode(currentValue);
+          }
+        }, 100);
+      }
+    }
+  });
+  
+  // Listen for paste events (scanner apps that paste)
+  scanInput.addEventListener("paste", function (e) {
+    if (isScanning) {
+      setTimeout(() => {
+        const pastedValue = scanInput.value.trim();
+        if (pastedValue.length >= 4) {
+          validateBarcode(pastedValue);
+        }
+      }, 50);
+    }
+  });
+  
+  // Auto-stop scanning after inactivity
+  let inactivityTimer;
+  function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    if (isScanning) {
+      inactivityTimer = setTimeout(() => {
+        console.log("⏰ [IQF SCANNER] Auto-stopping due to inactivity");
+        stopScanning();
+      }, 30000); // 30 seconds
+    }
+  }
+  
+  scanInput.addEventListener("focus", resetInactivityTimer);
+  scanInput.addEventListener("input", resetInactivityTimer);
+  scanInput.addEventListener("keydown", resetInactivityTimer);
+  
   console.log("✅ [IQF SCANNER] Barcode scanner initialized successfully");
 });
-
-// ✅ Auto-trigger tray validation function for barcode scanner (IQF)
-function iqfAutoTriggerTrayValidation(scannedTrayId) {
-  const validateInput = document.getElementById("trayValidateInput");
-  const modal = document.getElementById("trayScanModal_DayPlanning");
-
-  if (!validateInput || !modal) return;
-  if (modal.style.display !== "block") return;
-
-  // Fill the input with scanned tray ID
-  validateInput.value = scannedTrayId;
-  validateInput.focus();
-
-  // Trigger validation by simulating Enter key press
-  const enterEvent = new KeyboardEvent('keydown', {
-    key: 'Enter',
-    code: 'Enter',
-    keyCode: 13,
-    which: 13,
-    bubbles: true
-  });
-  validateInput.dispatchEvent(enterEvent);
-}
-
-// ✅ Search for lot_id across pages when not found on current page (IQF)
-function iqfSearchLotIdAcrossPages(lotId, trayId, currentPage) {
-  const maxPages = 10;
-  let pageToCheck = parseInt(sessionStorage.getItem('iqfPendingScanNextPage') || '1');
-
-  const existingLotId = sessionStorage.getItem('iqfPendingScanLotId');
-  if (!existingLotId || existingLotId !== lotId) {
-    pageToCheck = 1;
-  }
-
-  function checkNextPage() {
-    if (pageToCheck > maxPages) {
-      sessionStorage.removeItem('iqfPendingScanLotId');
-      sessionStorage.removeItem('iqfPendingScanTrayId');
-      sessionStorage.removeItem('iqfPendingScanOriginalPage');
-      sessionStorage.removeItem('iqfPendingScanNextPage');
-      const scanStatus = document.getElementById("scanStatusMessage");
-      const scanInput = document.getElementById("scanHiddenInput");
-      if (scanStatus) {
-        scanStatus.style.color = "#dc3545";
-        scanStatus.textContent = "Tray found but lot not visible on any page";
-      }
-      if (scanInput) { scanInput.value = ""; scanInput.focus(); }
-      return;
-    }
-
-    if (pageToCheck.toString() === currentPage) {
-      pageToCheck++;
-      checkNextPage();
-      return;
-    }
-
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set('page', pageToCheck);
-
-    sessionStorage.setItem('iqfPendingScanLotId', lotId);
-    sessionStorage.setItem('iqfPendingScanTrayId', trayId);
-    sessionStorage.setItem('iqfPendingScanOriginalPage', currentPage);
-    sessionStorage.setItem('iqfPendingScanNextPage', (pageToCheck + 1).toString());
-
-    window.location.href = newUrl.toString();
-  }
-  checkNextPage();
-}
-
-// ✅ Highlight and move row to top (IQF)
-function iqfHighlightAndMoveRowToTop(row, lotId, restorePrevious = true) {
-  if (restorePrevious && window.currentHighlightedRow && window.originalRowPosition) {
-    iqfRestorePreviousRowPosition();
-  }
-  // Also clear the iqf-row-action-highlight system to prevent double highlights
-  if (typeof window.iqfRestoreRowHighlight === 'function') {
-    window.iqfRestoreRowHighlight();
-  }
-  document.querySelectorAll('tbody tr').forEach(function(r) {
-    r.classList.remove('iqf-row-action-highlight');
-  });
-
-  const tableBody = row.parentElement;
-  const allRows = Array.from(tableBody.children);
-  const originalIndex = allRows.indexOf(row);
-
-  window.currentHighlightedRow = row;
-  window.currentHighlightedLotId = lotId;
-  window.originalRowPosition = {
-    row: row,
-    parent: tableBody,
-    nextSibling: row.nextElementSibling,
-    index: originalIndex
-  };
-
-  row.classList.add('dp-row-action-highlight');
-  tableBody.insertBefore(row, tableBody.firstChild);
-
-  const table = tableBody.closest('table');
-  if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// ✅ Restore previous row to its original position (IQF)
-function iqfRestorePreviousRowPosition() {
-  if (!window.originalRowPosition) return;
-  const { row, parent, nextSibling } = window.originalRowPosition;
-
-  row.classList.remove('dp-row-action-highlight');
-  if (nextSibling) parent.insertBefore(row, nextSibling);
-  else parent.appendChild(row);
-
-  window.currentHighlightedRow = null;
-  window.currentHighlightedLotId = null;
-  window.originalRowPosition = null;
-}
-
-// ✅ Check for pending scan after page load (IQF)
-function iqfCheckPendingScanAfterPageLoad() {
-  const pendingLotId = sessionStorage.getItem('iqfPendingScanLotId');
-  const pendingTrayId = sessionStorage.getItem('iqfPendingScanTrayId');
-
-  if (pendingLotId && pendingTrayId) {
-    const row = document.querySelector(`tr[data-stock-lot-id="${pendingLotId}"]`);
-    if (row) {
-      sessionStorage.removeItem('iqfPendingScanLotId');
-      sessionStorage.removeItem('iqfPendingScanTrayId');
-      sessionStorage.removeItem('iqfPendingScanOriginalPage');
-      sessionStorage.removeItem('iqfPendingScanNextPage');
-
-      // Close any open modals
-      const trayScanModal = document.getElementById('trayScanModal');
-      const dayPlanningModal = document.getElementById('trayScanModal_DayPlanning');
-      if (trayScanModal && trayScanModal.style.display !== 'none') trayScanModal.style.display = 'none';
-      if (dayPlanningModal && dayPlanningModal.style.display !== 'none') dayPlanningModal.style.display = 'none';
-
-      iqfHighlightAndMoveRowToTop(row, pendingLotId, true);
-    }
-  }
-}
-
-// ✅ Check for pending checkbox highlight after page load (IQF)
-function iqfCheckPendingCheckboxAfterPageLoad() {
-  const pendingLotId = sessionStorage.getItem('iqfCheckboxHighlightLotId');
-  if (pendingLotId) {
-    const row = document.querySelector(`tr[data-stock-lot-id="${pendingLotId}"]`);
-    if (row) {
-      sessionStorage.removeItem('iqfCheckboxHighlightLotId');
-      const trayScanModal = document.getElementById('trayScanModal');
-      const dayPlanningModal = document.getElementById('trayScanModal_DayPlanning');
-      if (trayScanModal && trayScanModal.style.display !== 'none') trayScanModal.style.display = 'none';
-      if (dayPlanningModal && dayPlanningModal.style.display !== 'none') dayPlanningModal.style.display = 'none';
-      iqfHighlightAndMoveRowToTop(row, pendingLotId, true);
-    } else {
-      sessionStorage.removeItem('iqfCheckboxHighlightLotId');
-    }
-  }
-}
 </script>
 
 <!-- Script for only numbers, alphabets (upper/lower), and hyphen (-) are allowed (no special characters) -->

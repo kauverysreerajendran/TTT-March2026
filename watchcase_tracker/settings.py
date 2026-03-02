@@ -172,11 +172,11 @@ REST_FRAMEWORK = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'watchcase2026',
-        'USER':'postgres',
-        'PASSWORD':'postgres',
-        'HOST':'localhost',
-        'PORT':'5432',
+        'NAME': 'watch_tracker',
+        'USER': 'postgres',
+        'PASSWORD': 'admin',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -249,13 +249,13 @@ LOGGING = {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
             #'filename': 'JL_PickTable.log',
-            'filename': r'A:\Workspace\Watchcase Tracker Titan\Jig_Loading\JL_PickTable.log',
+            'filename': r'JL_PickTable.log',
             'formatter': 'detailed',
         },
         'broken_hooks_file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': r'A:\Workspace\Watchcase Tracker Titan\broken_hooks_detailed.log',
+            'filename': r'broken_hooks_detailed.log',
             'formatter': 'broken_hooks',
         },
         'latency_file': {
@@ -294,4 +294,3 @@ LOGGING = {
         },
     },
 }
-
