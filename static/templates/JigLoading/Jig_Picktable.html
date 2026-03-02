@@ -1839,6 +1839,94 @@
 .jig-row-action-highlight td:nth-child(3) {
   background-color: #fff5bd !important;
 }
+
+/* ✅ ISSUE #7: Hold/Unhold Toggle Switch Styling */
+.hold-toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  margin-right: 8px;
+}
+
+.hold-toggle-switch input[type="checkbox"] {
+  display: none;
+}
+
+.hold-slider {
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  background-color: #ccc;
+  border-radius: 10px;
+  position: relative;
+  transition: background-color 0.3s ease;
+  margin: 0;
+  padding: 0;
+}
+
+.hold-slider::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background-color: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: left 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.hold-toggle-switch input[type="checkbox"]:checked + .hold-slider {
+  background-color: #4caf50;
+}
+
+.hold-toggle-switch input[type="checkbox"]:checked + .hold-slider::after {
+  left: 22px;
+}
+
+/* Hover effect */
+.hold-toggle-switch:hover .hold-slider {
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Row styling when held */
+tr.row-inactive {
+  background-color: #fff3cd !important; /* Light yellow background */
+  opacity: 0.75;
+  transition: all 0.3s ease;
+}
+
+tr.row-inactive td.row-inactive-blur {
+  color: #999;
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+tr.row-inactive td:first-child {
+  opacity: 1;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Hold remark icon */
+.hold-remark-icon {
+  display: inline-block;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: transform 0.2s ease;
+}
+
+.hold-remark-icon:hover {
+  transform: scale(1.2);
+  filter: brightness(1.2);
+}
+
+.hold-remark-icon img {
+  vertical-align: middle;
+}
 </style>
 
 <div class="content-wrapper">
@@ -1901,6 +1989,10 @@
               class="highlighted-tray-scan"
               data-batch-id="{{ data.batch_id }}"
               data-stock-lot-id="{{ data.stock_lot_id }}"
+              data-jig-hold-lot="{{ data.jig_hold_lot|yesno:'true,false' }}"
+              data-jig-holding-reason="{{ data.jig_holding_reason|default_if_none:''|escapejs }}"
+              data-jig-release-lot="{{ data.jig_release_lot|yesno:'true,false' }}"
+              data-jig-release-reason="{{ data.jig_release_reason|default_if_none:''|escapejs }}"
             >
               <!-- S.No -->
               <td>
@@ -1915,13 +2007,18 @@
                   />
                   <span style="display: flex; align-items: center; gap: 2px">
                     <label class="hold-toggle-switch" style="margin-bottom: 0">
-                      <input type="checkbox" class="hold-toggle-btn" checked />
-                      <span class="hold-slider"></span>
+                      {% if not data.jig_hold_lot %}
+                        <input type="checkbox" class="hold-toggle-btn" checked />
+                        <span class="hold-slider"></span>
+                      {% else %}
+                        <input type="checkbox" class="hold-toggle-btn" />
+                        <span class="hold-slider"></span>
+                      {% endif %}
                     </label>
                     <span
                       class="hold-remark-icon"
-                      style="display: inline-block; cursor: pointer"
-                      title=""
+                      style="display:{% if data.jig_hold_lot or data.jig_release_lot or data.jig_holding_reason or data.jig_release_reason %}inline-block{% else %}none{% endif %}; cursor: pointer"
+                      title="{% if data.jig_holding_reason %}Holding Reason: {{ data.jig_holding_reason }}{% endif %}{% if data.jig_holding_reason and data.jig_release_reason %}&#10;{% endif %}{% if data.jig_release_reason %}Release Reason: {{ data.jig_release_reason }}{% endif %}"
                     >
                       <img
                         src="{% static 'assets/icons/view2.png' %}"
@@ -2115,6 +2212,7 @@
               </td>
               <!-- Remarks -->
               <td>
+
                 <!-- FIX 2 & 6: Chat remark icon with working send, lock after send, persist via localStorage, info shows remark -->
                 <span style="display:inline-flex; align-items:center; gap:5px;">
                   <!-- Chat icon trigger -->
@@ -2124,6 +2222,29 @@
                     class="remark-chat-trigger"
                     data-lot-id="{{ data.stock_lot_id }}"
                     data-batch-id="{{ data.batch_id }}"
+
+                <a
+                  href="#"
+                  title="Add Audio Remark"
+                  class="remark-tooltip-trigger"
+                  data-remark-kind="audio"
+                  style="
+                    display: inline-flex;
+                    align-items: center;
+                    height: 28px;
+                    margin-left: 0;
+                    position: relative;
+                    cursor: pointer;
+                  "
+                >
+                  <img
+                    src="{% static 'assets/icons/rec.png' %}"
+                    alt="VoiceRec"
+                    style="width: 20px; height: 20px"
+                  />
+                  <div
+                    class="remark-tooltip"
+
                     style="
                       display: inline-flex;
                       align-items: center;
@@ -2178,6 +2299,10 @@
                         <button
                           type="button"
                           class="remark-send-btn"
+
+
+                          data-remark-type="audio"
+
                           style="
                             background-color: #007bff;
                             color: #fff;
@@ -2193,6 +2318,7 @@
                         </button>
                       </div>
                     </div>
+
                   </a>
                   <!-- FIX 6: Info icon showing entered remark on hover -->
                   <span class="remark-info-trigger" data-lot-id="{{ data.stock_lot_id }}" style="display:none;">
@@ -2200,6 +2326,83 @@
                     <span class="remark-info-tooltip"></span>
                   </span>
                 </span>
+
+                  </div>
+                </a>
+                <a
+                  href="#"
+                  title="Add Remark"
+                  class="remark-tooltip-trigger"
+                  data-remark-kind="text"
+                  style="
+                    display: inline-flex;
+                    align-items: center;
+                    height: 20px;
+                    margin-left: 5px;
+                    position: relative;
+                    cursor: pointer;
+                  "
+                >
+                  <img
+                    src="{% static 'assets/icons/chat_icon.png' %}"
+                    alt="Chat"
+                    style="width: 20px; height: 20px; opacity: 0.7"
+                  />
+                  <div
+                    class="remark-tooltip"
+                    style="
+                      position: absolute;
+                      top: 110%;
+                      left: 50%;
+                      transform: translateX(-50%);
+                      width: 270px;
+                      background: #fff;
+                      border: 1px solid #ccc;
+                      border-radius: 6px;
+                      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                      opacity: 0;
+                      visibility: hidden;
+                      transition: opacity 0.3s ease, visibility 0.3s ease;
+                      padding: 15px;
+                      z-index: 1000;
+                    "
+                  >
+                    <textarea
+                      class="remark-textarea"
+                      placeholder="Type your remark..."
+                      maxlength="255"
+                      style="
+                        width: 75%;
+                        height: 40px;
+                        resize: vertical;
+                        border: 1px solid #ccc;
+                        padding: 5px;
+                        border-radius: 4px;
+                        font-family: Arial, sans-serif;
+                        font-size: 14px;
+                      "
+                    >{{ data.inprocess_remarks|default_if_none:"" }}</textarea>
+                    <div style="text-align: right; margin-top: -35px">
+                      <button
+                        type="button"
+                        class="remark-send-btn"
+                        data-remark-type="text"
+                        style="
+                          background-color: #007bff;
+                          color: #fff;
+                          border: none;
+                          padding: 6px 12px;
+                          border-radius: 4px;
+                          cursor: pointer;
+                          font-size: 14px;
+                        "
+                      >
+                        <i class="fa fa-send"></i>
+                      </button>
+                    </div>
+                  </div>
+                </a>
+>>>>>>> origin/Mugesh
               </td>
             </tr>
             {% endfor %}
@@ -2343,6 +2546,7 @@
     ></textarea>
     <div style="text-align: right; margin-top: 10px">
       <button
+        type="button"
         id="saveHoldRemarkBtn"
         style="
           background: #007bff;
@@ -2423,6 +2627,234 @@
     <div id="trayScanDetails_Jig" class="table-grid tray-scan-table"></div>
   </div>
 </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+
+// ========== GLOBAL HELPERS & STATE ==========
+// Helper for CSRF - available to all functions
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+// Global state for hold/unhold operations
+window.holdToggleState = {
+  currentHoldCell: null,
+  intendedState: null,
+  currentBatchId: null,
+  currentLotId: null,
+  rowIdentifier: null
+};
+
+function attachHoldToggleListeners() {
+  console.log('Attaching hold toggle listeners');
+
+  // Remove existing listeners and attach fresh ones for hold toggles.
+  document.querySelectorAll('.hold-toggle-btn').forEach(function (btn) {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.addEventListener('change', function () {
+      const holdCell = newBtn.closest('td');
+      const row = holdCell ? holdCell.closest('tr') : null;
+      if (!row) return;
+
+      window.holdToggleState = {
+        currentHoldCell: holdCell,
+        intendedState: newBtn.checked,
+        currentBatchId: row.getAttribute('data-batch-id'),
+        currentLotId: row.getAttribute('data-stock-lot-id'),
+        rowIdentifier: row.getAttribute('data-stock-lot-id') || row.getAttribute('data-batch-id')
+      };
+
+      const modal = document.getElementById('holdRemarkModal');
+      modal.querySelector('h5').textContent = newBtn.checked ? 'Unholding Reason' : 'Holding Reason';
+      document.getElementById('holdRemarkInput').value = '';
+      document.getElementById('holdRemarkError').textContent = '';
+      modal.style.display = 'flex';
+      document.getElementById('holdRemarkInput').focus();
+    });
+  });
+
+  // Attach click handler for remark icon to open existing reason.
+  document.querySelectorAll('.hold-remark-icon').forEach(function (icon) {
+    const newIcon = icon.cloneNode(true);
+    icon.parentNode.replaceChild(newIcon, icon);
+
+    newIcon.addEventListener('click', function (e) {
+      e.preventDefault();
+      const row = newIcon.closest('tr');
+      if (!row) return;
+
+      const lotId = row.getAttribute('data-stock-lot-id');
+      const holdingReason = row.getAttribute('data-jig-holding-reason') || '';
+      const releaseReason = row.getAttribute('data-jig-release-reason') || '';
+      const isHeld = row.getAttribute('data-jig-hold-lot') === 'true';
+
+      window.holdToggleState = {
+        currentHoldCell: row.querySelector('.hold-toggle-btn') ? row.querySelector('.hold-toggle-btn').closest('td') : null,
+        intendedState: !isHeld,
+        currentBatchId: row.getAttribute('data-batch-id'),
+        currentLotId: lotId,
+        rowIdentifier: lotId || row.getAttribute('data-batch-id')
+      };
+
+      const modal = document.getElementById('holdRemarkModal');
+      modal.querySelector('h5').textContent = isHeld ? 'Holding Reason' : 'Release Reason';
+      document.getElementById('holdRemarkInput').value = holdingReason || releaseReason || '';
+      document.getElementById('holdRemarkError').textContent = '';
+      modal.style.display = 'flex';
+      document.getElementById('holdRemarkInput').focus();
+    });
+  });
+}
+// Helper: update row UI after successful hold/unhold
+function updateRowUI(lotId, action, remark) {
+  const currentRow = document.querySelector(`tr[data-stock-lot-id="${lotId}"]`);
+  if (!currentRow) return;
+  const toggle = currentRow.querySelector('.hold-toggle-btn');
+  const icon = currentRow.querySelector('.hold-remark-icon');
+
+  if (action === 'hold') {
+    if (toggle) toggle.checked = false;
+    currentRow.classList.add('row-inactive');
+    currentRow.querySelectorAll('td').forEach((td, idx) => {
+      if (idx > 0) td.classList.add('row-inactive-blur'); else td.classList.remove('row-inactive-blur');
+    });
+    if (icon) {
+      icon.style.display = 'inline-block';
+      icon.innerHTML = `<img src="{% static 'assets/icons/view2.png' %}" alt="View Reason" style="width:18px; height:18px;" />`;
+      icon.setAttribute('title', 'Holding Reason: ' + remark);
+    }
+  } else {
+    if (toggle) toggle.checked = true;
+    currentRow.classList.remove('row-inactive');
+    currentRow.querySelectorAll('td').forEach(td => td.classList.remove('row-inactive-blur'));
+    if (icon) {
+      icon.style.display = 'inline-block';
+      icon.innerHTML = `<img src="{% static 'assets/icons/view2.png' %}" alt="View Reason" style="width:18px; height:18px;" />`;
+      icon.setAttribute('title', 'Release Reason: ' + remark);
+    }
+  }
+}
+
+// Setup save button (validation, disable while saving, show success)
+function setupSaveButton() {
+  const saveBtn = document.getElementById('saveHoldRemarkBtn');
+  if (!saveBtn || window.jigHoldSaveHandlerAttached) {
+    console.log('⚠️ Save button setup skipped (button found:', !!saveBtn, ', already attached:', window.jigHoldSaveHandlerAttached, ')');
+    return;
+  }
+  window.jigHoldSaveHandlerAttached = true;
+  
+  console.log('✅ Save button handler attached');
+
+  saveBtn.onclick = function () {
+    const remark = document.getElementById('holdRemarkInput').value.trim();
+    const errorDiv = document.getElementById('holdRemarkError');
+    
+    console.log('💾 Save clicked, remark:', remark, 'holdToggleState:', window.holdToggleState);
+
+    if (!remark) { errorDiv.textContent = 'Remark is required!'; return; }
+    if (remark.length > 50) { errorDiv.textContent = 'Remark must be 50 characters or less!'; return; }
+    if (!window.holdToggleState || !window.holdToggleState.currentLotId) { errorDiv.textContent = 'Lot ID not found!'; return; }
+
+    const action = window.holdToggleState.intendedState ? 'unhold' : 'hold';
+
+    saveBtn.disabled = true; 
+    saveBtn.textContent = 'Saving...';
+
+    const payload = { lot_id: window.holdToggleState.currentLotId, remark: remark, action: action };
+    console.debug('⤴️ Sending hold/unhold request', payload);
+
+    fetch('/jig_loading/jig-save-hold-unhold-reason/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(res => {
+      console.debug('⬇️ Response status', res.status, res.statusText);
+      if (res.status === 403) {
+        return res.text().then(text => { throw new Error('Permission/CSRF error: ' + (text || '403 Forbidden')); });
+      }
+      if (res.status === 401 || res.status === 302) {
+        return res.text().then(text => { throw new Error('Authentication required (status ' + res.status + ').'); });
+      }
+      if (!res.ok) return res.text().then(text => { throw new Error(text || ('HTTP ' + res.status)); });
+      return res.json();
+    })
+    .then(data => {
+      console.debug('✅ Response data:', data);
+      saveBtn.disabled = false; 
+      saveBtn.textContent = 'Save & Proceed';
+      
+      if (data && data.success) {
+        document.getElementById('holdRemarkModal').style.display = 'none';
+        if (typeof Swal !== 'undefined') { 
+          Swal.fire({ 
+            icon: 'success', 
+            title: action === 'hold' ? 'Row held successfully!' : 'Row released successfully!', 
+            timer: 1200, 
+            showConfirmButton: false 
+          }); 
+        }
+        updateRowUI(window.holdToggleState.currentLotId, action, remark);
+        setTimeout(() => { if (typeof refreshTableData === 'function') refreshTableData(); else location.reload(); }, 700);
+      } else {
+        errorDiv.textContent = (data && data.error) || 'Failed to save reason!';
+      }
+    })
+    .catch(err => { 
+      console.error('❌ Request failed:', err); 
+      saveBtn.disabled = false; 
+      saveBtn.textContent = 'Save & Proceed'; 
+      const msg = err.message || 'Network error!'; 
+      document.getElementById('holdRemarkError').textContent = msg;
+      if (typeof Swal !== 'undefined') { 
+        Swal.fire({ icon: 'error', title: 'Save failed', text: msg }); 
+      } 
+    });
+  };
+}
+
+// Setup close handler (revert toggle if modal closed)
+function setupCloseButton() {
+  const closeBtn = document.getElementById('closeHoldRemarkModal');
+  if (!closeBtn || window.jigHoldCloseHandlerAttached) return;
+  window.jigHoldCloseHandlerAttached = true;
+  closeBtn.onclick = function () {
+    document.getElementById('holdRemarkModal').style.display = 'none';
+    if (window.holdToggleState && window.holdToggleState.currentHoldCell) {
+      const toggle = window.holdToggleState.currentHoldCell.querySelector('.hold-toggle-btn');
+      if (toggle) toggle.checked = !window.holdToggleState.intendedState;
+    }
+    window.holdToggleState = { currentHoldCell: null, intendedState: null, currentBatchId: null, currentLotId: null };
+  };
+}
+
+// Initialize everything on DOM ready
+document.addEventListener('DOMContentLoaded', function () {
+  attachHoldToggleListeners();
+  setupSaveButton();
+  setupCloseButton();
+});
+</script>
 
 <!-- Add Jig Button - Window (functional) -->
 <div id="jigAddModal" class="right-slide-modal" tabindex="-1">
@@ -4497,11 +4929,7 @@ if (submitJigBtn) {
 
       if (result.success) {
         showSuccess("Jig submitted successfully", function() {
-          // Close the modal after success
-          const modal = document.getElementById("jigAddModal");
-          if (modal) {
-            modal.classList.remove("open");
-          }
+          window.location.reload();
         });
       } else {
         if (window.Swal) {
@@ -6001,8 +6429,243 @@ document.addEventListener('DOMContentLoaded', function() {
 
 </script>
 
+<script nonce="{{ csp_nonce }}">
+document.addEventListener("DOMContentLoaded", function () {
+  let openRemarkTooltip = null;
+
+  function closeRemarkTooltip(tooltip) {
+    if (!tooltip) return;
+    tooltip.style.opacity = "0";
+    tooltip.style.visibility = "hidden";
+    tooltip.style.pointerEvents = "none";
+    tooltip.classList.remove("pinned");
+    openRemarkTooltip = null;
+  }
+
+  function openTooltipForTrigger(trigger) {
+    const tooltip = trigger.querySelector(".remark-tooltip");
+    if (!tooltip) return;
+
+    if (openRemarkTooltip && openRemarkTooltip !== tooltip) {
+      closeRemarkTooltip(openRemarkTooltip);
+    }
+
+    const isOpen = tooltip.classList.contains("pinned");
+    if (isOpen) {
+      closeRemarkTooltip(tooltip);
+      return;
+    }
+
+    tooltip.classList.add("pinned");
+    tooltip.style.opacity = "1";
+    tooltip.style.visibility = "visible";
+    tooltip.style.pointerEvents = "auto";
+    openRemarkTooltip = tooltip;
+
+    const textarea = tooltip.querySelector(".remark-textarea");
+    if (textarea) textarea.focus();
+  }
+
+  function getCsrfTokenSafe() {
+    if (typeof getCookie === "function") return getCookie("csrftoken");
+    return "";
+  }
+
+  function colorizeRemarkIcons(row, trigger) {
+    const inprocessIcon = row.querySelector(".mobile-cross-icon img");
+    if (inprocessIcon) {
+      inprocessIcon.style.filter = "none";
+      inprocessIcon.style.opacity = "1";
+      inprocessIcon.title = "View Remarks";
+    }
+
+    const icon = trigger.querySelector("img");
+    if (icon) {
+      icon.style.filter = "grayscale(0) brightness(1.1) sepia(1) hue-rotate(80deg) saturate(3) contrast(1.2)";
+      icon.style.opacity = "1";
+    }
+  }
+
+  function saveRemark(payload, onDone) {
+    fetch("/jig_loading/save-jig-pick-remark/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfTokenSafe(),
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(payload),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.success) {
+          throw new Error(data.error || "Failed to save remark");
+        }
+        if (typeof Swal !== "undefined") {
+          Swal.fire({
+            icon: "success",
+            title: "Remark saved",
+            timer: 1000,
+            showConfirmButton: false,
+          });
+        }
+        if (onDone) onDone(data);
+      })
+      .catch((err) => {
+        if (typeof Swal !== "undefined") {
+          Swal.fire("Error", err.message || "Failed to save remark", "error");
+        } else {
+          alert(err.message || "Failed to save remark");
+        }
+      });
+  }
+
+  document.querySelectorAll(".remark-tooltip-trigger").forEach(function (trigger) {
+    trigger.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openTooltipForTrigger(trigger);
+    });
+
+    const tooltip = trigger.querySelector(".remark-tooltip");
+    if (tooltip) {
+      tooltip.addEventListener("click", function (e) {
+        e.stopPropagation();
+      });
+    }
+
+    trigger.querySelectorAll(".remark-send-btn").forEach(function (sendBtn) {
+      sendBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const row = trigger.closest("tr");
+        if (!row) return;
+        const lotId = row.getAttribute("data-stock-lot-id") || "";
+        const batchId = row.getAttribute("data-batch-id") || "";
+        const remarkType = sendBtn.getAttribute("data-remark-type") || "text";
+
+        if (!lotId || !batchId) {
+          if (typeof Swal !== "undefined") Swal.fire("Error", "Batch/Lot not found", "error");
+          return;
+        }
+
+        const submitRemark = function (remarkValue) {
+          const remark = (remarkValue || "").trim();
+          if (!remark) {
+            if (typeof Swal !== "undefined") Swal.fire("Error", "Please enter a remark before sending.", "error");
+            return;
+          }
+
+          saveRemark(
+            {
+              lot_id: lotId,
+              batch_id: batchId,
+              remark: remark,
+              remark_type: remarkType,
+            },
+            function (data) {
+              const textArea = trigger.querySelector(".remark-textarea");
+              if (textArea && remarkType === "text") {
+                textArea.value = data.remark || remark;
+              }
+              colorizeRemarkIcons(row, trigger);
+              closeRemarkTooltip(trigger.querySelector(".remark-tooltip"));
+            }
+          );
+        };
+
+        if (remarkType === "audio") {
+          if (typeof Swal !== "undefined") {
+            Swal.fire({
+              title: "Audio Remark Note",
+              input: "textarea",
+              inputPlaceholder: "Enter audio remark notes...",
+              showCancelButton: true,
+              confirmButtonText: "Send",
+            }).then(function (result) {
+              if (result.isConfirmed) submitRemark(result.value || "");
+            });
+          } else {
+            const note = prompt("Enter audio remark note:");
+            if (note !== null) submitRemark(note);
+          }
+          return;
+        }
+
+        const textArea = trigger.querySelector(".remark-textarea");
+        submitRemark(textArea ? textArea.value : "");
+      });
+    });
+  });
+
+  document.addEventListener("click", function (e) {
+    if (openRemarkTooltip && !e.target.closest(".remark-tooltip") && !e.target.closest(".remark-tooltip-trigger")) {
+      closeRemarkTooltip(openRemarkTooltip);
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && openRemarkTooltip) {
+      closeRemarkTooltip(openRemarkTooltip);
+    }
+  });
+});
+</script>
+
+<script nonce="{{ csp_nonce }}">
+document.addEventListener("DOMContentLoaded", function () {
+  const jigCompositionBtn = document.getElementById("jigCompositionBtn");
+  if (!jigCompositionBtn) return;
+
+  jigCompositionBtn.addEventListener("click", function (e) {
+    e.preventDefault();
+
+    const modal = document.getElementById("jigAddModal");
+    const lotIds = [];
+
+    if (window.currentModalContext && window.currentModalContext.lotId) {
+      lotIds.push(String(window.currentModalContext.lotId));
+    }
+
+    if (modal) {
+      const combinedLotIdsRaw = modal.getAttribute("data-combined-lot-ids");
+      if (combinedLotIdsRaw) {
+        try {
+          const parsed = JSON.parse(combinedLotIdsRaw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(function (id) {
+              if (id != null) lotIds.push(String(id));
+            });
+          }
+        } catch (err) {
+          console.warn("Invalid combined lot ids:", err);
+        }
+      }
+    }
+
+    const uniqueLotIds = Array.from(new Set(lotIds.filter(Boolean)));
+    const baseUrl = "{% url 'jig_composition' %}";
+
+    if (uniqueLotIds.length > 0) {
+      const lotIdsParam = encodeURIComponent(uniqueLotIds.join(","));
+      window.location.href = `${baseUrl}?lot_ids=${lotIdsParam}`;
+      return;
+    }
+
+    window.location.href = baseUrl;
+  });
+});
+</script>
+
 
 
 
 {% endblock %}
+
 {% endblock content %}
+
+{% endblock content %}
+
+
+
