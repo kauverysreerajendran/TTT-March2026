@@ -30,29 +30,36 @@ class Jig_Unloading_MainTable(TemplateView):
 
     def get_dynamic_tray_capacity(self, tray_type_name):
         """
-        Get dynamic tray capacity using InprocessInspectionTrayCapacity for overrides
-        Rules:
-        - Normal: Use custom capacity from InprocessInspectionTrayCapacity (20)
-        - Others: Use ModelMaster capacity
+        Get tray capacity based on tray type name.
+        Rules (per workflow spec):
+        - Normal: 20
+        - Jumbo:  12
+        - Others: DB lookup fallback
         """
         try:
-            # First try to get custom capacity for this tray type
+            # Workflow-spec hardcoded values
+            if tray_type_name == 'Normal':
+                return 20
+            elif tray_type_name == 'Jumbo':
+                return 12
+
+            # Fallback: try custom capacity override table
             custom_capacity = InprocessInspectionTrayCapacity.objects.filter(
                 tray_type__tray_type=tray_type_name,
                 is_active=True
             ).first()
-            
+
             if custom_capacity:
                 return custom_capacity.custom_capacity
-            
-            # Fallback to ModelMaster tray capacity
+
+            # Fallback to TrayType table
             tray_type = TrayType.objects.filter(tray_type=tray_type_name).first()
             if tray_type:
                 return tray_type.tray_capacity
-                
+
             # Default fallback
             return 0
-            
+
         except Exception as e:
             print(f"⚠️ Error getting dynamic tray capacity: {e}")
             return 0
@@ -2825,29 +2832,36 @@ class JigUnloading_Completedtable(TemplateView):
 
     def get_dynamic_tray_capacity(self, tray_type_name):
         """
-        Get dynamic tray capacity using InprocessInspectionTrayCapacity for overrides
-        Rules:
-        - Normal: Use custom capacity from InprocessInspectionTrayCapacity (20)
-        - Others: Use ModelMaster capacity
+        Get tray capacity based on tray type name.
+        Rules (per workflow spec):
+        - Normal: 20
+        - Jumbo:  12
+        - Others: DB lookup fallback
         """
         try:
-            # First try to get custom capacity for this tray type
+            # Workflow-spec hardcoded values
+            if tray_type_name == 'Normal':
+                return 20
+            elif tray_type_name == 'Jumbo':
+                return 12
+
+            # Fallback: try custom capacity override table
             custom_capacity = InprocessInspectionTrayCapacity.objects.filter(
                 tray_type__tray_type=tray_type_name,
                 is_active=True
             ).first()
-            
+
             if custom_capacity:
                 return custom_capacity.custom_capacity
-            
-            # Fallback to ModelMaster tray capacity
+
+            # Fallback to TrayType table
             tray_type = TrayType.objects.filter(tray_type=tray_type_name).first()
             if tray_type:
                 return tray_type.tray_capacity
-                
+
             # Default fallback
             return 0
-            
+
         except Exception as e:
             print(f"⚠️ Error getting dynamic tray capacity: {e}")
             return 0
