@@ -4038,21 +4038,13 @@ def brass_get_accepted_tray_scan_data(request):
         if available_qty <= 0:
             return Response({'success': False, 'error': 'No available quantity for acceptance after rejections'}, status=400)
 
-        # ✅ FIX: Use actual BrassTrayId data for top tray qty instead of recalculating
-        brass_trays = BrassTrayId.objects.filter(lot_id=lot_id, delink_tray=False, rejected_tray=False).order_by('tray_id')
-        top_tray_record = brass_trays.filter(top_tray=True).first()
-        
-        if top_tray_record:
-            # Use the actual top tray qty from the BrassTrayId record
-            top_tray_qty = top_tray_record.tray_quantity or 0
-            print(f"📊 [brass_get_accepted_tray_scan_data] Using actual top tray qty from BrassTrayId: {top_tray_qty}")
-        else:
-            # Fallback: calculate from available_qty
-            full_trays = available_qty // tray_capacity
-            top_tray_qty = available_qty % tray_capacity
-            if top_tray_qty == 0 and available_qty > 0:
-                top_tray_qty = tray_capacity
-            print(f"📊 [brass_get_accepted_tray_scan_data] Calculated top tray qty: {top_tray_qty}")
+        # ✅ FIX: ALWAYS recalculate top tray qty from available_qty (accounts for rejections properly)
+        # The stored tray_quantity in BrassTrayId is the original value, not updated after rejections
+        full_trays = available_qty // tray_capacity
+        top_tray_qty = available_qty % tray_capacity
+        if top_tray_qty == 0 and available_qty > 0:
+            top_tray_qty = tray_capacity
+        print(f"📊 [brass_get_accepted_tray_scan_data] Recalculated top tray qty from available_qty={available_qty}: {top_tray_qty}")
 
         print(f"📊 [brass_get_accepted_tray_scan_data] available_qty={available_qty}, top_tray_qty={top_tray_qty}")
 

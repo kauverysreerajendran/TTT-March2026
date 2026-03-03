@@ -852,7 +852,7 @@ box-shadow: 2px 0 8px rgba(0,0,0,0.04);
                         <input type="number"
                           class="missing-qty-input"
                           value="{{ data.brass_audit_missing_qty|default_if_none:'' }}"
-                          style="width: 36px; padding: 1px 3px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"
+                          style="width: 36px; padding: 1px 3px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; display: none"
                           {% if data.brass_audit_accepted_qty_verified %}disabled{% endif %} />
                       </span>
                     </td>
@@ -5480,7 +5480,7 @@ function handleTrayWiseRejection() {
   if (totalRejectionQty > totalAvailableCapacity) {
     if (msgDiv) {
       msgDiv.style.color = "#d32f2f";
-      msgDiv.textContent = `Total rejection quantity (${totalRejectionQty}) exceeds total tray capacity (${totalAvailableCapacity}).`;
+      /* msgDiv.textContent = `Total rejection quantity (${totalRejectionQty}) exceeds total tray capacity (${totalAvailableCapacity}).`; */
     }
     document.getElementById("proceedButton").disabled = false;
     return;

@@ -1442,7 +1442,7 @@
                         <input type="text"
                           class="missing-qty-input"
                           value="{{ data.iqf_missing_qty|default_if_none:'' }}"
-                          style="width: 36px; padding: 1px 3px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"
+                          style="width: 36px; padding: 1px 3px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; display: none;"
                           {% if data.iqf_accepted_qty_verified %}disabled{% endif %} />
                       </span>
                     </td>
