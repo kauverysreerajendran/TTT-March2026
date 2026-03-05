@@ -172,6 +172,7 @@ class IS_PickTable(APIView):
             'few_cases_accepted_Ip_stock',
             'accepted_tray_scan_status',
             'IP_pick_remarks',
+            'dp_pick_remarks',
             'rejected_ip_stock',
             'ip_onhold_picking',
             'created_at',

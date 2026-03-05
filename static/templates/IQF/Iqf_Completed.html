@@ -1941,6 +1941,7 @@ document.addEventListener("DOMContentLoaded", function () {
     
           // ✅ UPDATED: Fetch ONLY rejected tray data
           let traysData = [];
+          let delinkedTraysData = [];
           let rejectionSummary = {};
           try {
             const params = new URLSearchParams({
@@ -1956,8 +1957,10 @@ document.addEventListener("DOMContentLoaded", function () {
             const result = await resp.json();
             if (result.success) {
               traysData = result.trays || [];
+              delinkedTraysData = result.delinked_trays || [];
               rejectionSummary = result.rejection_summary || {};
               console.log('✅ Fetched ONLY brass rejected trays:', traysData);
+              console.log('🔗 Fetched delinked trays:', delinkedTraysData);
               console.log('📊 Rejection summary:', rejectionSummary);
             }
           } catch (e) {
@@ -2074,65 +2077,52 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
-    // ✅ SECTION 2: REJECTED/DELINKED/SHORTAGE TRAYS - Dynamic Header Based on Content
-    // Sort rejected/delinked trays by tray quantity ascending
+    // ✅ SECTION 2: REJECTED TRAYS (without delinked)
+    // Sort rejected trays by tray quantity ascending
     const rejectedTrays = traysData
-      .filter(tray => tray.rejected_tray || tray.delink_tray)
+      .filter(tray => tray.rejected_tray && !tray.delink_tray)
       .sort((a, b) => {
         // Use ip_top_tray_qty if present, else tray_quantity
         const qtyA = a.ip_top_tray && a.ip_top_tray_qty !== null ? a.ip_top_tray_qty : a.tray_quantity;
         const qtyB = b.ip_top_tray && b.ip_top_tray_qty !== null ? b.ip_top_tray_qty : b.tray_quantity;
         return (qtyA || 0) - (qtyB || 0);
       });              
+    const delinkOnlyTrays = (delinkedTraysData || []).filter(tray => tray.delink_tray);
     const hasShortage = rejectionSummary.shortage_rejections > 0;
     
-    if (rejectedTrays.length > 0 || hasShortage) {
+    if (rejectedTrays.length > 0 || delinkOnlyTrays.length > 0 || hasShortage) {
       // Determine what types are present
-      const hasRejected = rejectedTrays.some(tray => tray.rejected_tray && !tray.delink_tray);
-      const hasDelinked = rejectedTrays.some(tray => tray.delink_tray);
+      const hasRejected = rejectedTrays.length > 0;
+      const hasDelinked = delinkOnlyTrays.length > 0;
       
       let headerText = '';
       let headerColor = '';
       let bgColor = '';
       
       // ✅ Dynamic header based on combinations
-      if (hasRejected && hasDelinked && hasShortage) {
-        headerText = '❌ REJECTED, DELINKED & SHORTAGE';
-        headerColor = '#c62828';
-        bgColor = '#ffebee';
-      } else if (hasRejected && hasShortage && !hasDelinked) {
+      if (hasRejected && hasShortage) {
         headerText = '❌ REJECTED & SHORTAGE';
         headerColor = '#c62828';
         bgColor = '#ffebee';
-      } else if (hasDelinked && hasShortage && !hasRejected) {
-        headerText = '🔗 DELINKED & SHORTAGE';
-        headerColor = '#6c757d';
-        bgColor = '#f8f9fa';
-      } else if (hasRejected && hasDelinked && !hasShortage) {
-        headerText = '❌ REJECTED & DELINKED TRAYS';
+      } else if (hasRejected) {
+        headerText = '❌ REJECTED TRAYS';
         headerColor = '#c62828';
         bgColor = '#ffebee';
       } else if (hasShortage && !hasRejected && !hasDelinked) {
         headerText = '📦 SHORTAGE';
         headerColor = '#ff9800';
         bgColor = '#fff3e0';
-      } else if (hasDelinked && !hasRejected && !hasShortage) {
-        headerText = '🔗 DELINKED TRAYS';
-        headerColor = '#6c757d';
-        bgColor = '#f8f9fa';
-      } else if (hasRejected && !hasDelinked && !hasShortage) {
-        headerText = '❌ REJECTED TRAYS';
-        headerColor = '#c62828';
-        bgColor = '#ffebee';
       }
       
-      html += `
-        <tr style="background-color: ${bgColor}; font-weight: bold;">
-          <td colspan="${showValidationColumn ? '4' : '3'}" style="text-align: center; color: ${headerColor}; padding: 8px;">
-            ${headerText}
-          </td>
-        </tr>
-      `;
+      if (hasRejected || hasShortage) {
+        html += `
+          <tr style="background-color: ${bgColor}; font-weight: bold;">
+            <td colspan="${showValidationColumn ? '4' : '3'}" style="text-align: center; color: ${headerColor}; padding: 8px;">
+              ${headerText}
+            </td>
+          </tr>
+        `;
+      }
 
       // ✅ Determine top tray (prioritize ip_top_tray among rejected trays)
       let topTray = rejectedTrays.find(tray => tray.ip_top_tray);
@@ -2218,6 +2208,45 @@ document.addEventListener("DOMContentLoaded", function () {
         `;
         rowCounter++;
       });
+
+      // ✅ SECTION 3: DELINKED TRAYS (separate section)
+      if (delinkOnlyTrays.length > 0) {
+        html += `
+          <tr style="background-color: #f8f9fa; font-weight: bold;">
+            <td colspan="${showValidationColumn ? '4' : '3'}" style="text-align: center; color: #6c757d; padding: 8px;">
+              🔗 DELINKED TRAYS
+            </td>
+          </tr>
+        `;
+
+        delinkOnlyTrays.forEach((tray) => {
+          html += `
+            <tr>
+              <td>${rowCounter}</td>
+              <td>
+                <input type="text" class="form-control" value="${tray.tray_id || ''}" readonly style="width: 100%;" />
+                <span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">DELINKED</span>
+              </td>
+              <td>
+                <input type="number" class="form-control" value="${tray.tray_quantity || 0}" readonly style="width: 100%;" />
+              </td>
+              ${showValidationColumn ? `
+                <td>
+                  <div class="validation-status">
+                    <div class="status-icon fail">
+                      <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
+                    </div>
+                    <div class="status-icon pass">
+                      <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
+                    </div>
+                  </div>
+                </td>
+              ` : ''}
+            </tr>
+          `;
+          rowCounter++;
+        });
+      }
 
       // ✅ Handle SHORTAGE entries (if any)
       if (hasShortage) {

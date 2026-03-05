@@ -6670,6 +6670,16 @@ function attachTrayQuantityValidationHandlers() {
             trayIdInput.style.backgroundColor = '#fff5f5';
             showTrayValidationMessage(trayIdInput, data.error || 'Tray ID is invalid', false);
           }
+          if (data.success) {
+            const allInputs = Array.from(row.closest('tbody').querySelectorAll('input[type="text"]'));
+            const currentIndex = allInputs.indexOf(trayIdInput);
+            if (currentIndex !== -1 && currentIndex < allInputs.length - 1) {
+              const nextInput = allInputs[currentIndex + 1];
+              setTimeout(() => nextInput.focus(), 100);
+            }
+          } else if (trayId.length === 9) {
+            setTimeout(() => trayIdInput.select(), 100);
+          }
         })
         .catch(() => {
           trayIdInput.style.borderColor = '#dc3545';
@@ -6717,6 +6727,16 @@ function attachTrayQuantityValidationHandlers() {
             trayIdInput.style.borderColor = '#dc3545';
             trayIdInput.style.backgroundColor = '#fff5f5';
             showTrayValidationMessage(trayIdInput, data.error || 'Tray ID is invalid', false);
+          }
+          if (data.success) {
+            const allInputs = Array.from(row.closest('tbody').querySelectorAll('input[type="text"]'));
+            const currentIndex = allInputs.indexOf(trayIdInput);
+            if (currentIndex !== -1 && currentIndex < allInputs.length - 1) {
+              const nextInput = allInputs[currentIndex + 1];
+              setTimeout(() => nextInput.focus(), 100);
+            }
+          } else if (trayId.length === 9) {
+            setTimeout(() => trayIdInput.select(), 100);
           }
         })
         .catch(() => {

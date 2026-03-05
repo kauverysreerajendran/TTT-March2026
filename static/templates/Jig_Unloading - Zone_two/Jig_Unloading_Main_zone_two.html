@@ -3,6 +3,7 @@
 {% load stock_filters %}
 {% load custom_tags %}
 {% block content %}
+
 <style>
 @import url('/static/assets/css/auto-save-sweetalert.css');
 
@@ -1576,7 +1577,8 @@ body.add-model-mode #selectAllCheckbox {
         .tray-edit-btn-zone2:active {
             transform: scale(0.95);
         }
-    </style>
+</style>
+
 <!-- Model/Stock No Modal Popup -->
 <div id="modelRemarkModal">
   <span id="closeModelRemarkModal">&times;</span>
@@ -3036,6 +3038,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 </script>
+
 <script nonce="{{ csp_nonce }}">
 
 // Tray ID validation script for Zone 2
@@ -3300,8 +3303,6 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 </script>
-
-
 
 <!-- Helper function for CSRF token -->
 <script nonce="{{ csp_nonce }}">
@@ -9576,10 +9577,9 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 
 
- 
 <!-- Script for View Icon Tray validate -->
 
-  <script nonce="{{ csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 document.addEventListener("DOMContentLoaded", function () {
   const redoBtn = document.getElementById("trayScanRedoBtn");
   const validateInput = document.getElementById("trayValidateInput");
@@ -10220,6 +10220,7 @@ document.addEventListener("DOMContentLoaded", function () {
   console.log("✅ Modal script setup complete");
 });
 </script>
+
 <!--end of script view icon-->
 <script nonce="{{ csp_nonce }}">
 document.addEventListener("DOMContentLoaded", function () {
@@ -10314,6 +10315,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 </script>
+
 <!-- Active row to be highlighted & Restores the highlighted row to its original position and removes the highlight bg when the tray scan modal is closed. -->
 <script nonce="{{ csp_nonce }}">
 // Row highlight for Tray Scan (matches highlightWF.html logic) + Move active row to top and restore on close

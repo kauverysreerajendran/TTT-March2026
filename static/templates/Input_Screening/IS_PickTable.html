@@ -1299,6 +1299,23 @@ input:checked + .hold-slider:before {
                               </div>
                             </div>
                           </a>
+
+                          {% if data.dp_pick_remarks %}
+                          <a
+                            href="#"
+                            title="DP Remark"
+                            class="dp-remark-tooltip-trigger"
+                            style="margin-left: 5px;"
+                          >
+                            <i class="fa fa-info-circle" style="color: #007bff; font-size: 16px;"></i>
+                            <div
+                              class="dp-remark-tooltip"
+                              style="position: absolute; top: 110%; left: 50%; transform: translateX(-50%); width: 270px; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; padding: 15px; z-index: 1000;"
+                            >
+                              <div style="font-size: 12px; color: #333;">{{ data.dp_pick_remarks }}</div>
+                            </div>
+                          </a>
+                          {% endif %}
                        
                         </td>
                       
@@ -2118,6 +2135,25 @@ window.restorePreviousRowPosition = restorePreviousRowPosition;
       tooltip.innerHTML = '';
       lastTrigger = null;
     }
+  });
+
+  // DP Remark tooltip functionality
+  document.querySelectorAll('.dp-remark-tooltip-trigger').forEach(function(trigger) {
+    trigger.addEventListener('mouseenter', function(e) {
+      const tooltip = trigger.querySelector('.dp-remark-tooltip');
+      if (tooltip) {
+        tooltip.style.opacity = '1';
+        tooltip.style.visibility = 'visible';
+      }
+    });
+
+    trigger.addEventListener('mouseleave', function(e) {
+      const tooltip = trigger.querySelector('.dp-remark-tooltip');
+      if (tooltip) {
+        tooltip.style.opacity = '0';
+        tooltip.style.visibility = 'hidden';
+      }
+    });
   });
 });
 </script>
