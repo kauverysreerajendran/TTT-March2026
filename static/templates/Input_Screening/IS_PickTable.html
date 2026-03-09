@@ -1680,15 +1680,23 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Original logic: open modal
                 const viewBtn = row.querySelector('.tray-scan-btn-DayPlanning-view');
                 if (viewBtn) {
-                  // ✅ NEW: Set flag to indicate modal is opened from scanner
-                  window.isModalOpenedFromScanner = true;
-                  
-                  viewBtn.click();
-                  
-                  // ✅ NEW: Auto-fill scanned tray ID and trigger validation after modal opens
-                  setTimeout(() => {
-                    autoTriggerTrayValidation(trayId);
-                  }, 500);
+                  // Block modal for held rows — check before setting any flags
+                  if (row.querySelector('.row-inactive-blur') || row.classList.contains('row-inactive-blur')) {
+                    console.log('⛔ [SCANNER] Target row is on hold; blocking modal open for lot', data.lot_id);
+                    scanStatus.style.display = 'inline-block';
+                    scanStatus.style.color = '#dc3545';
+                    scanStatus.textContent = 'Row on hold — access denied';
+                    scanInput.value = '';
+                    setTimeout(() => { scanStatus.style.display = 'none'; }, 4000);
+                  } else {
+                    // ✅ NEW: Set flag to indicate modal is opened from scanner
+                    window.isModalOpenedFromScanner = true;
+                    viewBtn.click();
+                    // ✅ NEW: Auto-fill scanned tray ID and trigger validation after modal opens
+                    setTimeout(() => {
+                      autoTriggerTrayValidation(trayId);
+                    }, 500);
+                  }
                 } else {
                   console.log("View button not found for Lot ID:", data.lot_id);
                 }
@@ -4501,6 +4509,13 @@ if (redoBtn && validateInput) {
          event.preventDefault();
    
          const row = event.target.closest("tr");
+
+         // Block modal for held rows (marked with row-inactive-blur on their cells)
+         if (row && (row.querySelector('.row-inactive-blur') || row.classList.contains('row-inactive-blur'))) {
+           console.log('⛔ [IS] Row is on hold — modal blocked');
+           return;
+         }
+
          const batchId = link.getAttribute('data-batch-id');
          const stockLotId = link.getAttribute('data-stock-lot-id');
          const isOnProceed = row.getAttribute('data-few-cases-acceptance') === 'True';
@@ -10802,6 +10817,13 @@ function addAcceptedTrayFormInterceptor() {
          event.preventDefault();
    
          const row = event.target.closest("tr");
+
+         // Block modal for held rows (marked with row-inactive-blur on their cells)
+         if (row && (row.querySelector('.row-inactive-blur') || row.classList.contains('row-inactive-blur'))) {
+           console.log('⛔ [IS] Row is on hold — modal blocked');
+           return;
+         }
+
          const batchId = link.getAttribute('data-batch-id');
          const stockLotId = link.getAttribute('data-stock-lot-id');
          

@@ -1686,6 +1686,15 @@ class TrayIdScanAPIView(APIView):
                 if not tray_id:
                     continue
                 
+                # Check if tray ID starts with JB or NB
+                if not (tray_id.startswith('JB-') or tray_id.startswith('NB-')):
+                    tray_not_in_system_errors.append({
+                        'tray_id': tray_id,
+                        'position': i + 1,
+                        'error': f'Tray ID "{tray_id}" is not allowed. Only JB and NB trays are permitted.'
+                    })
+                    continue
+                
                 # ✅ NEW: First check if tray exists in TrayId table
                 existing_tray = TrayId.objects.filter(tray_id=tray_id).first()
                 
@@ -2006,6 +2015,14 @@ class ValidateTopTrayAPIView(APIView):
                     'error': f'Tray ID "{tray_id}" not found in system. Only pre-configured trays are allowed.'
                 })
 
+            # Check if tray ID starts with JB or NB
+            if not (tray_id.startswith('JB-') or tray_id.startswith('NB-')):
+                return JsonResponse({
+                    'success': True,
+                    'valid': False,
+                    'error': f'Tray ID "{tray_id}" is not allowed. Only JB and NB trays are permitted.'
+                })
+
             # Check if tray exists in this specific batch (TrayId or DraftTrayId)
             tray = TrayId.objects.filter(
                 tray_id=tray_id,
@@ -2094,6 +2111,13 @@ class TopTrayScanAPIView(APIView):
                 return JsonResponse({
                     'success': False, 
                     'error': 'Missing batch ID or tray ID.'
+                }, status=400)
+
+            # Check if tray ID starts with JB or NB
+            if not (scanned_tray_id.startswith('JB-') or scanned_tray_id.startswith('NB-')):
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Tray ID "{scanned_tray_id}" is not allowed. Only JB and NB trays are permitted.'
                 }, status=400)
 
             batch_instance = ModelMasterCreation.objects.filter(batch_id=batch_id).first()
@@ -2459,6 +2483,14 @@ class TrayIdUniqueCheckAPIView(APIView):
         
         if not tray_id:
             return JsonResponse({'exists': False, 'error': 'Missing tray_id'})
+
+        # Check if tray ID starts with JB or NB
+        if not (tray_id.startswith('JB-') or tray_id.startswith('NB-')):
+            return JsonResponse({
+                'exists': False,
+                'available': False,
+                'error': f'Tray ID "{tray_id}" is not allowed. Only JB and NB trays are permitted.'
+            })
 
         existing_tray = TrayId.objects.filter(tray_id=tray_id).first()
 

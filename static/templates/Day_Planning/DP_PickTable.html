@@ -1360,8 +1360,9 @@ document.addEventListener("DOMContentLoaded", function () {
             
             // Show more specific error message
             if (data.error) {
+              scanStatus.style.display = "inline-block";
               scanStatus.style.color = "#dc3545";
-              scanStatus.textContent = `Error: ${data.error}`;
+              scanStatus.textContent = 'Invalid Tray ID!';
               setTimeout(() => {
                 scanStatus.style.display = "none";
               }, 5000);
@@ -1423,7 +1424,23 @@ document.addEventListener("DOMContentLoaded", function () {
         showScanError(`No row found for batch ${batchId}!`);
         return;
       }
-      
+      // Prevent opening modal for rows that are on hold (inaccessible)
+      // Held rows are marked with the `row-inactive-blur` class on one or more <td> cells
+      try {
+        if (targetRow.querySelector('.row-inactive-blur') || targetRow.classList.contains('row-inactive-blur')) {
+          console.log('⛔ [SCANNER] Target row is on hold; blocking modal open for batch', batchId);
+          scanStatus.style.display = 'inline-block';
+          scanStatus.style.color = '#dc3545';
+          scanStatus.textContent = 'Row on hold — access denied';
+          // Keep scanner stopped and return without opening modal
+          stopScanning();
+          setTimeout(() => { scanStatus.style.display = 'none'; }, 4000);
+          return;
+        }
+      } catch (e) {
+        console.log('⚠️ [SCANNER] Error checking hold status for row:', e);
+      }
+
       // Find the tray scan button in the target row
       const trayScanBtn = targetRow.querySelector('.tray-scan-btn');
       

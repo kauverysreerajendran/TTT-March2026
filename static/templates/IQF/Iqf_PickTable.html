@@ -11219,22 +11219,82 @@ document.addEventListener("DOMContentLoaded", function () {
   function validateBarcode(trayId) {
     console.log("🔍 [IQF SCANNER] Processing tray ID:", trayId);
     
-    // Find priority row (Draft first, then first available)
-    openPriorityRowModal(trayId);
-    
-    // Optional: Log API response for debugging (doesn't affect modal opening)
+    // First, fetch the lot_id for this tray
     fetch(`/iqf/get_lot_id_for_tray/?tray_id=${encodeURIComponent(trayId)}`)
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          console.log("✅ [IQF SCANNER] Tray found in system - ID:", trayId, "Lot:", data.lot_id);
+        if (data.success && data.lot_id) {
+          console.log("✅ [IQF SCANNER] Tray found - ID:", trayId, "Lot:", data.lot_id);
+          
+          // Find the row with this lot_id on current page
+          const allDataRows = document.querySelectorAll('#order-listing tbody tr');
+          let targetRow = null;
+          
+          for (let i = 0; i < allDataRows.length; i++) {
+            const row = allDataRows[i];
+            const stockLotId = row.getAttribute('data-stock-lot-id');
+            if (stockLotId === data.lot_id) {
+              targetRow = row;
+              break;
+            }
+          }
+          
+          if (targetRow) {
+            // Found on current page - open modal for this row
+            openSpecificRowModal(targetRow, trayId);
+            scanStatus.style.color = "#28a745";
+            scanStatus.textContent = "Modal opened!";
+          } else {
+            // Not found on current page - search across pages
+            console.log("Row not found on current page for Lot ID:", data.lot_id);
+            const currentUrl = new URL(window.location);
+            const currentPage = currentUrl.searchParams.get('page') || '1';
+            scanStatus.style.color = "#dc3545";
+            scanStatus.textContent = "Lot not found on current page, searching...";
+            searchLotIdAcrossPages(data.lot_id, trayId, currentPage);
+          }
         } else {
-          console.log("⚠️ [IQF SCANNER] Tray not in system, manual entry required:", trayId);
+          // Tray not found in system - show message only
+          console.log("⚠️ [IQF SCANNER] Tray not in system:", trayId);
+          scanStatus.style.color = "#ff8c00";
+          scanStatus.textContent = "Tray not in system - manual entry required";
         }
       })
       .catch((error) => {
-        console.log("⚠️ [IQF SCANNER] API error (modal still opened):", error);
+        console.log("⚠️ [IQF SCANNER] API error, using priority row:", error);
+        openPriorityRowModal(trayId);
+        scanStatus.style.color = "#dc3545";
+        scanStatus.textContent = "Network error - using priority row";
       });
+  }
+  
+  // Function to open modal for a specific row
+  function openSpecificRowModal(targetRow, trayId) {
+    console.log("🎯 [IQF SCANNER] Opening modal for specific row");
+    
+    // Find the View button in the target row (in Action column)
+    const viewBtn = targetRow.querySelector('a[href="#"]');
+    
+    if (!viewBtn) {
+      showScanError("View button not available for the selected row!");
+      return;
+    }
+    
+    // Store the scanned tray ID globally so it can be used when modal opens
+    window.scannedTrayIdForIQFModal = trayId;
+    
+    // Click the View button to open modal
+    viewBtn.click();
+    
+    // Pre-fill tray ID in modal after it opens
+    setTimeout(() => {
+      fillTrayIdInIQFModal(trayId);
+    }, 500);
+    
+    // Stop scanning after successful modal opening
+    setTimeout(() => {
+      stopScanning();
+    }, 2000);
   }
   
   // Function to find and open priority row modal (Draft first, then first available)
@@ -11305,6 +11365,163 @@ document.addEventListener("DOMContentLoaded", function () {
     setTimeout(() => {
       stopScanning();
     }, 2000);
+  }
+  
+  // ✅ NEW: Search for lot_id across pages when not found on current page
+  function searchLotIdAcrossPages(lotId, trayId, currentPage) {
+    console.log(`🔍 Searching for Lot ID ${lotId} across pages (current: ${currentPage})`);
+    
+    const maxPages = 10; // Reasonable limit to prevent infinite searching
+    
+    // ✅ FIXED: Use sessionStorage to track next page to check across navigations
+    let pageToCheck = parseInt(sessionStorage.getItem('pendingScanNextPage') || '1');
+    
+    // If this is a fresh search (not a continuation), reset counter
+    const existingLotId = sessionStorage.getItem('pendingScanLotId');
+    if (!existingLotId || existingLotId !== lotId) {
+      pageToCheck = 1;
+    }
+    
+    function checkNextPage() {
+      if (pageToCheck > maxPages) {
+        // Not found in reasonable number of pages - clear session and stop
+        sessionStorage.removeItem('pendingScanLotId');
+        sessionStorage.removeItem('pendingScanTrayId');
+        sessionStorage.removeItem('pendingScanOriginalPage');
+        sessionStorage.removeItem('pendingScanNextPage');
+        const scanStatus = document.getElementById("scanStatusMessage");
+        const scanInput = document.getElementById("scanHiddenInput");
+        if (scanStatus) {
+          scanStatus.style.color = "#dc3545";
+          scanStatus.textContent = "Tray found but lot not visible on any page";
+        }
+        if (scanInput) {
+          scanInput.value = "";
+          scanInput.focus();
+        }
+        return;
+      }
+      
+      if (pageToCheck.toString() === currentPage) {
+        // Skip current page (already checked)
+        pageToCheck++;
+        checkNextPage();
+        return;
+      }
+      
+      console.log(`🔍 Checking page ${pageToCheck} for Lot ID ${lotId}`);
+      
+      // Navigate to the page
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('page', pageToCheck);
+      
+      // Store scan data for after page load
+      sessionStorage.setItem('pendingScanLotId', lotId);
+      sessionStorage.setItem('pendingScanTrayId', trayId);
+      sessionStorage.setItem('pendingScanOriginalPage', currentPage);
+      // ✅ FIXED: Store next page to check so we don't restart from 1
+      sessionStorage.setItem('pendingScanNextPage', (pageToCheck + 1).toString());
+      
+      // Navigate to the page
+      window.location.href = newUrl.toString();
+    }
+    
+    checkNextPage();
+  }
+  
+  // ✅ NEW: Check for pending scan after page load
+  function checkPendingScanAfterPageLoad() {
+    const pendingLotId = sessionStorage.getItem('pendingScanLotId');
+    const pendingTrayId = sessionStorage.getItem('pendingScanTrayId');
+    const originalPage = sessionStorage.getItem('pendingScanOriginalPage');
+    
+    if (pendingLotId && pendingTrayId) {
+      console.log(`🔄 [IQF SCANNER] Continuing search for Lot ID ${pendingLotId} on new page`);
+      
+      // Clear the pending scan data
+      sessionStorage.removeItem('pendingScanLotId');
+      sessionStorage.removeItem('pendingScanTrayId');
+      sessionStorage.removeItem('pendingScanOriginalPage');
+      sessionStorage.removeItem('pendingScanNextPage');
+      
+      // Find the row with this lot_id on current page
+      const allDataRows = document.querySelectorAll('#order-listing tbody tr');
+      let targetRow = null;
+      
+      for (let i = 0; i < allDataRows.length; i++) {
+        const row = allDataRows[i];
+        const stockLotId = row.getAttribute('data-stock-lot-id');
+        if (stockLotId === pendingLotId) {
+          targetRow = row;
+          break;
+        }
+      }
+      
+      if (targetRow) {
+        // Found on this page - open modal
+        console.log(`✅ [IQF SCANNER] Found Lot ID ${pendingLotId} on page ${window.location.search}`);
+        openSpecificRowModal(targetRow, pendingTrayId);
+        highlightAndMoveRowToTop(targetRow, pendingLotId);
+        const scanStatus = document.getElementById("scanStatusMessage");
+        if (scanStatus) {
+          scanStatus.style.color = "#28a745";
+          scanStatus.textContent = "Lot found and modal opened!";
+        }
+      } else {
+        // Not found on this page either - continue searching
+        const currentUrl = new URL(window.location);
+        const currentPage = currentUrl.searchParams.get('page') || '1';
+        console.log(`❌ [IQF SCANNER] Lot ID ${pendingLotId} not found on page ${currentPage}, continuing search`);
+        searchLotIdAcrossPages(pendingLotId, pendingTrayId, currentPage);
+      }
+    }
+  }
+  
+  // ✅ NEW: Highlight and move row to top when Accept/Reject buttons are enabled
+  function highlightAndMoveRowToTop(row, lotId) {
+    console.log(`🎯 Highlighting and moving row to top for Lot ID: ${lotId}`);
+    
+    // If there's already a highlighted row, restore it first
+    if (window.currentHighlightedRow && window.originalRowPosition) {
+      restorePreviousRowPosition();
+    }
+    
+    // Store original position
+    window.originalRowPosition = row;
+    window.currentHighlightedRow = row;
+    
+    // Add highlight class
+    row.classList.add('highlighted-tray-scan');
+    
+    // Move row to top of table
+    const tbody = row.closest('tbody');
+    if (tbody) {
+      tbody.insertBefore(row, tbody.firstChild);
+    }
+    
+    // Scroll to top of table
+    const tableContainer = document.querySelector('.table-responsive');
+    if (tableContainer) {
+      tableContainer.scrollTop = 0;
+    }
+    
+    // Auto-remove highlight after 10 seconds
+    setTimeout(() => {
+      restorePreviousRowPosition();
+    }, 10000);
+  }
+  
+  // ✅ NEW: Restore previous row to its original position
+  function restorePreviousRowPosition() {
+    if (window.currentHighlightedRow && window.originalRowPosition) {
+      // Remove highlight class
+      window.currentHighlightedRow.classList.remove('highlighted-tray-scan');
+      
+      // Note: In a real implementation, you'd need to track and restore the exact position
+      // For now, just remove the highlight
+      window.currentHighlightedRow = null;
+      window.originalRowPosition = null;
+    }
   }
   
   // Function to find and fill next empty tray ID slot in IQF modals
@@ -11558,6 +11775,9 @@ document.addEventListener("DOMContentLoaded", function () {
   scanInput.addEventListener("focus", resetInactivityTimer);
   scanInput.addEventListener("input", resetInactivityTimer);
   scanInput.addEventListener("keydown", resetInactivityTimer);
+  
+  // ✅ NEW: Check for pending scan after page load
+  checkPendingScanAfterPageLoad();
   
   console.log("✅ [IQF SCANNER] Barcode scanner initialized successfully");
 });
