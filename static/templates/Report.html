@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" href="reports.css">
     </head>
     <body>
@@ -11,6 +13,13 @@
                 <div>
                     <h3>Reports Module</h3>
                 </div>
+                <button type="button" class="hamburger-btn" id="mobileNavToggle" aria-label="Toggle report navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <nav class="report-nav" id="reportNav">
+                    <a href="#filtersSection">Filters</a>
+                    <a href="#tableSection">Table</a>
+                </nav>
                 <div class="export-section">
                     <button id="exportBtn" class="export-btn" disabled>
                         <span class="icon">📥</span>
@@ -52,7 +61,7 @@
     <!-- Main Content -->
     <div class="container">
         <!-- Filters -->
-        <div class="filters-section">
+        <div class="filters-section" id="filtersSection">
             <div class="filters-header">
                 <span class="filter-icon">🔍</span>
                 <h2>Filters</h2>
@@ -132,7 +141,7 @@
 
 
         <!-- Batch Tracking Table -->
-        <div class="table-section">
+        <div class="table-section" id="tableSection">
             <div class="table-header">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
@@ -406,10 +415,173 @@
     margin-right: 8px;
     font-size: 18px;
 }
+/* Mobile-first responsive layer */
+:root {
+    font-size: clamp(14px, 2.6vw, 16px);
+}
+* {
+    box-sizing: border-box;
+}
+img {
+    max-width: 100%;
+    height: auto;
+}
+body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+}
+.container {
+    width: 100%;
+    max-width: 100%;
+    padding: 0 0.75rem;
+}
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+.report-nav {
+    width: 100%;
+    display: none;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+.report-nav a {
+    text-decoration: none;
+    color: #0d5a5c;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #b8e4e3;
+    border-radius: 0.5rem;
+    background: #fff;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+}
+body.report-nav-open .report-nav {
+    display: flex;
+}
+.hamburger-btn {
+    width: 44px;
+    height: 44px;
+    border: 1px solid #028084;
+    background: #fff;
+    border-radius: 0.5rem;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+}
+.hamburger-btn span {
+    width: 18px;
+    height: 2px;
+    background: #028084;
+    display: block;
+}
+button,
+.search-btn,
+.clear-btn,
+input,
+select {
+    min-height: 44px;
+}
+.filters-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+.table-section {
+    overflow: hidden;
+}
+.table {
+    width: 100%;
+}
+@media (max-width: 480px) {
+    .table {
+        border: 0;
+    }
+    .table thead,
+    .table tbody,
+    .table tr,
+    .table td,
+    .table th {
+        display: block;
+        width: 100%;
+    }
+    .table thead {
+        display: none;
+    }
+    .table tr {
+        margin-bottom: 0.75rem;
+        border: 1px solid #d7d7d7;
+        border-radius: 0.5rem;
+        padding: 0.45rem;
+        background: #fff;
+    }
+    .table td {
+        border: 0;
+        padding: 0.4rem 0.45rem;
+        word-break: break-word;
+    }
+}
+@media (min-width: 481px) and (max-width: 768px) {
+    :root {
+        font-size: clamp(14px, 2vw, 16px);
+    }
+    .filters-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+    :root {
+        font-size: clamp(15px, 1.4vw, 17px);
+    }
+    .hamburger-btn {
+        display: none;
+    }
+    .report-nav {
+        display: flex;
+        flex-direction: row;
+        width: auto;
+    }
+    .filters-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+@media (min-width: 1025px) {
+    :root {
+        font-size: 16px;
+    }
+    .hamburger-btn {
+        display: none;
+    }
+    .report-nav {
+        display: flex;
+        flex-direction: row;
+        width: auto;
+    }
+    .filters-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .table {
+        display: table;
+    }
+}
 </style>
 
 <script nonce="{{ csp_nonce }}">
 document.addEventListener("DOMContentLoaded", function() {
+    const mobileNavToggle = document.getElementById("mobileNavToggle");
+    if (mobileNavToggle) {
+        mobileNavToggle.addEventListener("click", function() {
+            const isOpen = document.body.classList.toggle("report-nav-open");
+            mobileNavToggle.setAttribute("aria-expanded", String(isOpen));
+        });
+    }
+
     // Process Flow functionality (keep existing JavaScript for process flow)
     const processFlowContainer = document.getElementById('processFlowContainer');
     
