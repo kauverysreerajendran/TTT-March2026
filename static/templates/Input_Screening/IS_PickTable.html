@@ -2006,140 +2006,216 @@ window.highlightAndMoveRowToTop = highlightAndMoveRowToTop;
 window.restorePreviousRowPosition = restorePreviousRowPosition;
 </script>
 
-<!-- Tooltip for Global Remark -->
+<!-- Tooltip for Global Remark (Brass-style) -->
 <script nonce="{{ csp_nonce }}">
   document.addEventListener("DOMContentLoaded", function () {
-  let tooltipTimeout = null;
-  let lastTrigger = null;
-  const tooltip = document.getElementById('global-remark-tooltip');
+    var triggers = document.querySelectorAll(".remark-tooltip-trigger");
+    triggers.forEach(function (trigger) {
+      var tooltip = trigger.querySelector(".remark-tooltip");
+      var sendButton = tooltip ? tooltip.querySelector("button:not(.remark-close-btn)") : null;
 
-  // Helper to build tooltip HTML
-  function buildTooltip(trigger) {
-    const type = trigger.getAttribute('data-tooltip-type');
-    let html = '';
-    if (type === 'audio') {
-      html = `
-        <div style="width:265px; background:#fff; border:1px solid #ccc; border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:10px;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <button type="button" style="background:#28a745; color:#fff; border:none; border-radius:50%; width:40px; height:40px; font-size:20px; display:flex; align-items:center; justify-content:center;">
-              <i class="fa fa-microphone"></i>
-            </button>
-            <span style="font-size:14px; color:#333;">Hold to record audio</span>
-            <div style="text-align:right; margin-top:10px;">
-              <button type="button" style="background-color:#007bff; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:14px;">
-                <i class="fa fa-send"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    } else if (type === 'text') {
-      const remark = trigger.getAttribute('data-remark') || '';
-      const readonly = trigger.getAttribute('data-remark-readonly') === 'true';
-      html = `
-        <div style="width:300px; background:#fff; border:1px solid #ccc; border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:15px;">
-          <textarea placeholder="Type your remark..." style="width:85%; height:40px; resize:vertical; border:1px solid #ccc; padding:5px; border-radius:4px; font-family:Arial,sans-serif; font-size:14px;" ${readonly ? 'readonly' : ''}>${remark}</textarea>
-          <div style="text-align:right; margin-top:-35px">
-            ${!readonly ? `
-              <button type="button" style="background-color:#007bff; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:14px;">
-                <i class="fa fa-send"></i>
-              </button>
-            ` : `
-              <div style="margin-top:40px; color:#31708f; background:#d9edf7; border:1px solid #bce8f1; border-radius:4px; padding:8px 12px; font-size:10px; text-align:left;">
-                <i class="fa fa-info-circle" style="margin-right:6px;"></i>
-                Remark already saved and cannot be edited.
-              </div>
-            `}
-          </div>
-        </div>
-      `;
-    }
-    return html;
-  }
+      function positionFloatingTooltip() {
+        if (!tooltip) return;
+        const rect = trigger.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        let top = rect.bottom + 8;
+        let left = rect.left + rect.width / 2 - (tooltipRect.width || 300) / 2;
 
-  // Helper to position tooltip
-  function positionTooltip(trigger) {
-    const rect = trigger.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
-    let top = rect.bottom + window.scrollY + 8;
-    let left = rect.left + window.scrollX + rect.width / 2 - (tooltipRect.width || 300) / 2;
+        if (left + (tooltipRect.width || 300) > window.innerWidth - 10) {
+          left = window.innerWidth - (tooltipRect.width || 300) - 10;
+        }
+        if (left < 10) left = 10;
+        if (top + (tooltipRect.height || 120) > window.innerHeight - 10) {
+          top = rect.top - (tooltipRect.height || 120) - 8;
+        }
+        if (top < 10) top = 10;
 
-    // If tooltip would go off the right edge, adjust
-    if (left + (tooltipRect.width || 300) > window.innerWidth - 10) {
-      left = window.innerWidth - (tooltipRect.width || 300) - 10;
-    }
-    // If tooltip would go off the left edge, adjust
-    if (left < 10) left = 10;
+        tooltip.style.left = left + "px";
+        tooltip.style.top = top + "px";
+        tooltip.style.right = "auto";
+        tooltip.style.transform = "none";
+        tooltip.style.maxHeight = (window.innerHeight - 20) + "px";
+        tooltip.style.overflowY = "auto";
+      }
 
-    // If not enough space below, show above
-    if (top + (tooltipRect.height || 120) > window.innerHeight - 10) {
-      top = rect.top + window.scrollY - (tooltipRect.height || 120) - 8;
-    }
+      function showTooltip(pin) {
+        if (!tooltip) return;
+        tooltip.dataset.pinned = pin ? "true" : "false";
 
-    tooltip.style.left = left + 'px';
-    tooltip.style.top = top + 'px';
-  }
+        // Move tooltip to body to escape table stacking contexts
+        if (!tooltip._placeholder) {
+          const placeholder = document.createElement("span");
+          placeholder.style.display = "none";
+          tooltip.parentNode.insertBefore(placeholder, tooltip);
+          tooltip._placeholder = placeholder;
+        }
+        if (tooltip.parentNode !== document.body) {
+          document.body.appendChild(tooltip);
+        }
 
-  // Show tooltip on hover
-  document.querySelectorAll('.remark-tooltip-trigger').forEach(function(trigger) {
-    trigger.addEventListener('mouseenter', function(e) {
-      clearTimeout(tooltipTimeout);
-      tooltip.innerHTML = buildTooltip(trigger);
-      tooltip.style.display = 'block';
-      tooltip.style.opacity = '1';
-      tooltip.style.pointerEvents = 'auto';
-      positionTooltip(trigger);
-      lastTrigger = trigger;
+        tooltip.style.position = "fixed";
+        tooltip.style.display = "block";
+        tooltip.style.opacity = "1";
+        tooltip.style.visibility = "visible";
+        tooltip.style.zIndex = "1000000";
+        tooltip.style.pointerEvents = "auto";
+
+        positionFloatingTooltip();
+
+        var textarea = tooltip.querySelector("textarea");
+        if (textarea) {
+          textarea.focus();
+        }
+      }
+
+      function hideTooltip(force) {
+        if (!tooltip) return;
+        if (tooltip.dataset.pinned === "true" && !force) return;
+        tooltip.style.opacity = "0";
+        tooltip.style.visibility = "hidden";
+        tooltip.style.display = "none";
+
+        if (tooltip._placeholder && tooltip._placeholder.parentNode) {
+          tooltip._placeholder.parentNode.insertBefore(tooltip, tooltip._placeholder);
+          tooltip._placeholder.remove();
+          tooltip._placeholder = null;
+        }
+        tooltip.style.position = "absolute";
+        tooltip.style.top = "110%";
+        tooltip.style.left = "50%";
+        tooltip.style.transform = "translateX(-50%)";
+        tooltip.style.right = "";
+      }
+
+      // Click to toggle tooltip (more stable than hover for fixed positioning)
+      trigger.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (tooltip.dataset.pinned === "true") {
+          tooltip.dataset.pinned = "false";
+          hideTooltip(true);
+        } else {
+          showTooltip(true);
+        }
+      });
+
+      // Prevent outside-click handler from firing when interacting inside tooltip
+      if (tooltip) {
+        tooltip.addEventListener("mousedown", function (e) {
+          e.stopPropagation();
+        });
+        tooltip.addEventListener("click", function (e) {
+          e.stopPropagation();
+        });
+        const textarea = tooltip.querySelector("textarea");
+        if (textarea) {
+          textarea.addEventListener("input", function () {
+            tooltip.dataset.pinned = "true";
+          });
+        }
+      }
+
+      document.addEventListener("click", function (e) {
+        if (!tooltip) return;
+        if (tooltip.dataset.pinned === "true") {
+          const clickedInside = tooltip.contains(e.target) || trigger.contains(e.target);
+          if (!clickedInside) {
+            tooltip.dataset.pinned = "false";
+            hideTooltip(true);
+          }
+        }
+      });
+
+      // ESC to close
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && tooltip && tooltip.dataset.pinned === "true") {
+          tooltip.dataset.pinned = "false";
+          hideTooltip(true);
+        }
+      });
+
+      if (sendButton) {
+        sendButton.addEventListener("click", function (e) {
+          e.preventDefault();
+          var textarea = tooltip ? tooltip.querySelector("textarea") : null;
+          var remark = textarea ? textarea.value.trim() : "";
+          if (!remark) {
+            Swal.fire('Error', 'Please enter a remark before sending.', 'error');
+            return;
+          }
+          var row = trigger.closest("tr");
+          var batchId = row ? row.getAttribute('data-batch-id') : null;
+          if (!batchId) {
+            Swal.fire('Error', 'Batch ID not found.', 'error');
+            return;
+          }
+          fetch('/inputscreening/save_ip_pick_remark/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+              batch_id: batchId,
+              remark: remark
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              Swal.fire({
+                icon: 'success',
+                title: 'Remark saved!',
+                timer: 1200,
+                showConfirmButton: false
+              }).then(() => {
+                if (textarea) {
+                  textarea.value = remark;
+                  textarea.setAttribute("readonly", true);
+                }
+                if (sendButton && tooltip) {
+                  const infoDiv = document.createElement("div");
+                  infoDiv.style.marginTop = "40px";
+                  infoDiv.style.color = "#31708f";
+                  infoDiv.style.background = "#d9edf7";
+                  infoDiv.style.border = "1px solid #bce8f1";
+                  infoDiv.style.borderRadius = "4px";
+                  infoDiv.style.padding = "8px 12px";
+                  infoDiv.style.fontSize = "10px";
+                  infoDiv.style.textAlign = "left";
+                  infoDiv.innerHTML = `
+                    <i class="fa fa-info-circle" style="margin-right: 6px;"></i>
+                    Remark already saved and cannot be edited.
+                  `;
+                  sendButton.parentNode.replaceChild(infoDiv, sendButton);
+                }
+                // Persist remark for later view
+                if (row) {
+                  row.setAttribute('data-remark', remark);
+                  const remarkHidden = row.querySelector('input[type="hidden"].remark-hidden-input');
+                  if (remarkHidden) {
+                    remarkHidden.value = remark;
+                  }
+                }
+
+                const chatIcon = trigger.querySelector('img[alt="Chat"]');
+                if (chatIcon) {
+                  chatIcon.style.filter = 'grayscale(0) brightness(1.1) sepia(1) hue-rotate(80deg) saturate(3) contrast(1.2)';
+                  chatIcon.style.opacity = '1';
+                }
+                // Keep tooltip open so user can view the saved remark
+                tooltip.dataset.pinned = "true";
+              });
+            } else {
+              Swal.fire('Error', data.error || 'Failed to save remark', 'error');
+            }
+          })
+          .catch(() => {
+            Swal.fire('Error', 'Network error', 'error');
+          });
+        });
+      }
     });
-
-    trigger.addEventListener('mouseleave', function(e) {
-      tooltipTimeout = setTimeout(function() {
-        tooltip.style.display = 'none';
-        tooltip.style.opacity = '0';
-        tooltip.innerHTML = '';
-        lastTrigger = null;
-      }, 200);
-    });
   });
-
-  // Keep tooltip open if mouse enters it
-  tooltip.addEventListener('mouseenter', function() {
-    clearTimeout(tooltipTimeout);
-  });
-  tooltip.addEventListener('mouseleave', function() {
-    tooltipTimeout = setTimeout(function() {
-      tooltip.style.display = 'none';
-      tooltip.style.opacity = '0';
-      tooltip.innerHTML = '';
-      lastTrigger = null;
-    }, 200);
-  });
-
-  // Hide tooltip on scroll or resize
-  window.addEventListener('scroll', function() {
-    tooltip.style.display = 'none';
-    tooltip.style.opacity = '0';
-    tooltip.innerHTML = '';
-    lastTrigger = null;
-  }, true);
-  window.addEventListener('resize', function() {
-    tooltip.style.display = 'none';
-    tooltip.style.opacity = '0';
-    tooltip.innerHTML = '';
-    lastTrigger = null;
-  });
-
-  // Hide tooltip on click outside
-  document.addEventListener('mousedown', function(e) {
-    if (tooltip.style.display === 'block' && !tooltip.contains(e.target) && (!lastTrigger || !lastTrigger.contains(e.target))) {
-      tooltip.style.display = 'none';
-      tooltip.style.opacity = '0';
-      tooltip.innerHTML = '';
-      lastTrigger = null;
-    }
-  });
-
-});
 </script>
 
 <!-- Place this after your tray scan modal logic and after buildTableHTML is defined and used -->
@@ -12034,306 +12110,7 @@ document.querySelectorAll('.delink-tray-input').forEach(function(input, idx, all
    document.head.insertAdjacentHTML('beforeend', draftModeCSS);
 </script>
 
-<script nonce="{{ csp_nonce }}">
-   document.addEventListener("DOMContentLoaded", function () {
-     let openRemarkTooltip = null; // Global reference to track open tooltip
-
-     // Helper function to close remark tooltip completely
-     function closeRemarkTooltip(tooltip, trigger) {
-       if (tooltip) {
-         console.log('🔴 Closing remark tooltip completely');
-
-         // Remove pinned class
-         tooltip.classList.remove("pinned");
-
-         // Hide the entire tooltip completely
-         tooltip.style.opacity = "0";
-         tooltip.style.pointerEvents = "none";
-         tooltip.style.visibility = "hidden";
-         tooltip.style.display = "none";
-
-         // Hide close button
-         const closeBtn = tooltip.querySelector('.remark-close-btn');
-         if (closeBtn) closeBtn.style.display = 'none';
-
-         // Remove visual indicator from trigger
-         if (trigger) {
-           trigger.style.backgroundColor = '';
-           trigger.style.borderRadius = '';
-         }
-
-         // Clear global reference
-         openRemarkTooltip = null;
-
-         console.log('✅ Remark tooltip completely closed');
-       }
-     }
-
-     var triggers = document.querySelectorAll(".remark-tooltip-trigger");
-     triggers.forEach(function (trigger) {
-       var tooltip = trigger.querySelector(".remark-tooltip");
-       var sendButton = tooltip ? tooltip.querySelector("button:not(.remark-close-btn)") : null;
-       var closeButton = tooltip ? tooltip.querySelector(".remark-close-btn") : null;
-       var textarea = tooltip ? tooltip.querySelector("textarea") : null;
-
-       function showTooltip() {
-         tooltip.style.display = "block";
-         tooltip.style.opacity = "1";
-         tooltip.style.visibility = "visible";
-         tooltip.style.pointerEvents = "auto";
-
-         var rect = tooltip.getBoundingClientRect();
-         if (rect.right > window.innerWidth) {
-           tooltip.style.left = "auto";
-           tooltip.style.right = "0";
-           tooltip.style.transform = "none";
-         }
-         if (rect.left < 0) {
-           tooltip.style.left = "0";
-           tooltip.style.transform = "none";
-         }
-       }
-
-       function hideTooltip() {
-         if (!tooltip.classList.contains("pinned")) {
-           tooltip.style.opacity = "0";
-           tooltip.style.pointerEvents = "none";
-           tooltip.style.visibility = "hidden";
-           tooltip.style.display = "none";
-
-           // Hide close button
-           if (closeButton) closeButton.style.display = 'none';
-         }
-       }
-
-       // Hover behavior (only when not pinned)
-       trigger.addEventListener("mouseenter", function() {
-         if (!tooltip.classList.contains("pinned")) {
-           showTooltip();
-           if (closeButton) closeButton.style.display = 'block';
-         }
-       });
-
-       trigger.addEventListener("mouseleave", function () {
-         if (!tooltip.classList.contains("pinned")) {
-           setTimeout(function () {
-             if (!trigger.matches(":hover") && !tooltip.matches(":hover")) {
-               hideTooltip();
-             }
-           }, 100);
-         }
-       });
-
-       if (tooltip) {
-         tooltip.addEventListener("mouseenter", function() {
-           if (!tooltip.classList.contains("pinned")) {
-             showTooltip();
-             if (closeButton) closeButton.style.display = 'block';
-           }
-         });
-
-         tooltip.addEventListener("mouseleave", function () {
-           if (!tooltip.classList.contains("pinned")) {
-             setTimeout(function () {
-               if (!tooltip.matches(":hover") && !trigger.matches(":hover")) {
-                 hideTooltip();
-               }
-             }, 100);
-           }
-         });
-       }
-
-       // Click to pin/unpin tooltip (like model-image-tooltip)
-       trigger.addEventListener("click", function (e) {
-         e.preventDefault();
-         e.stopPropagation();
-
-         if (tooltip) {
-           // Close any previously opened remark tooltip
-           if (openRemarkTooltip && openRemarkTooltip !== tooltip) {
-             const prevTrigger = openRemarkTooltip.closest('.remark-tooltip-trigger');
-             closeRemarkTooltip(openRemarkTooltip, prevTrigger);
-           }
-
-           // Toggle pinned state
-           if (tooltip.classList.contains("pinned")) {
-             // If already pinned, close it
-             closeRemarkTooltip(tooltip, trigger);
-           } else {
-             // Pin the tooltip open
-             tooltip.classList.add("pinned");
-             showTooltip();
-             openRemarkTooltip = tooltip;
-
-             // Show close button
-             if (closeButton) closeButton.style.display = 'block';
-
-             // Add visual indicator that tooltip is pinned
-             trigger.style.backgroundColor = '#e3f2fd';
-             trigger.style.borderRadius = '4px';
-
-             // Focus the textarea
-             if (textarea && !textarea.readOnly) {
-               textarea.focus();
-             }
-           }
-         }
-       });
-
-       // Close button functionality
-       if (closeButton) {
-         closeButton.addEventListener('click', function(e) {
-           e.stopPropagation();
-           console.log('🔴 Remark close button clicked');
-           closeRemarkTooltip(tooltip, trigger);
-         });
-
-         // Hover effects for close button
-         closeButton.addEventListener('mouseenter', function() {
-           closeButton.style.backgroundColor = '#c82333';
-           closeButton.style.transform = 'scale(1.05)';
-         });
-
-         closeButton.addEventListener('mouseleave', function() {
-           closeButton.style.backgroundColor = '#dc3545';
-           closeButton.style.transform = 'scale(1)';
-         });
-       }
-
-       // Keep tooltip open while typing in textarea
-       if (textarea) {
-         textarea.addEventListener('input', function() {
-           if (!tooltip.classList.contains("pinned")) {
-             // If user starts typing without clicking, pin the tooltip
-             tooltip.classList.add("pinned");
-             openRemarkTooltip = tooltip;
-             trigger.style.backgroundColor = '#e3f2fd';
-             trigger.style.borderRadius = '4px';
-             if (closeButton) closeButton.style.display = 'block';
-           }
-         });
-       }
-
-       // Send button functionality
-       if (sendButton) {
-         sendButton.addEventListener("click", function (e) {
-           e.preventDefault();
-           // Find the textarea and get its value
-           var remark = textarea ? textarea.value.trim() : "";
-           if (!remark) {
-             Swal.fire('Error', 'Please enter a remark before sending.', 'error');
-             return;
-           }
-           // Find the batch_id from the row (tr) data attribute or from a hidden field
-           var row = trigger.closest("tr");
-           var batchId = row ? row.getAttribute('data-batch-id') : null;
-           if (!batchId) {
-             Swal.fire('Error', 'Batch ID not found.', 'error');
-             return;
-           }
-           fetch('/inputscreening/save_ip_pick_remark/', {
-             method: 'POST',
-             headers: {
-               'Content-Type': 'application/json',
-               'X-CSRFToken': getCookie('csrftoken')
-             },
-             body: JSON.stringify({
-               batch_id: batchId,
-               remark: remark
-             })
-           })
-           .then(res => res.json())
-           .then(data => {
-             if (data.success) {
-               Swal.fire({
-                 icon: 'success',
-                 title: 'Remark saved!',
-                 timer: 1200,
-                 showConfirmButton: false
-               }).then(() => {
-                 // Make the textarea readonly
-                 if (textarea) {
-                   textarea.setAttribute("readonly", true);
-                 }
-
-                 // Replace send button with info message
-                 if (sendButton && tooltip) {
-                   const infoDiv = document.createElement("div");
-                   infoDiv.style.marginTop = "40px";
-                   infoDiv.style.color = "#31708f";
-                   infoDiv.style.background = "#d9edf7";
-                   infoDiv.style.border = "1px solid #bce8f1";
-                   infoDiv.style.borderRadius = "4px";
-                   infoDiv.style.padding = "8px 12px";
-                   infoDiv.style.fontSize = "10px";
-                   infoDiv.style.textAlign = "left";
-                   infoDiv.innerHTML = `
-                     <i class="fa fa-info-circle"></i>
-                     Remark already saved and cannot be edited.
-                   `;
-                   sendButton.parentNode.replaceChild(infoDiv, sendButton);
-                 }
-
-                  // Find the chat icon <img> inside this trigger
-                   const chatImg = trigger.querySelector('img[alt="Chat"]');
-                   if (chatImg) {
-                     chatImg.style.filter = "grayscale(0) brightness(1.1) sepia(1) hue-rotate(80deg) saturate(3) contrast(1.2)";
-                     chatImg.style.opacity = "1";
-                   }
-
-                 // Close the tooltip after saving
-                 closeRemarkTooltip(tooltip, trigger);
-               });
-
-             } else {
-               Swal.fire('Error', data.error || 'Failed to save remark', 'error');
-             }
-           })
-           .catch(() => {
-             Swal.fire('Error', 'Network error', 'error');
-           });
-         });
-       }
-     });
-
-     // Close remark tooltip when clicking outside
-     document.addEventListener("click", function (e) {
-       if (openRemarkTooltip && !e.target.closest('.remark-tooltip') && !e.target.closest('.remark-tooltip-trigger')) {
-         const openTrigger = openRemarkTooltip.closest('.remark-tooltip-trigger');
-         closeRemarkTooltip(openRemarkTooltip, openTrigger);
-       }
-     });
-
-     // Close remark tooltip with ESC key
-     document.addEventListener("keydown", function (e) {
-       if (e.key === "Escape" && openRemarkTooltip) {
-         const openTrigger = openRemarkTooltip.closest('.remark-tooltip-trigger');
-         closeRemarkTooltip(openRemarkTooltip, openTrigger);
-         console.log('✅ Remark tooltip closed with ESC key');
-       }
-     });
-
-     // Prevent tooltip from closing when clicking inside it
-     document.querySelectorAll(".remark-tooltip").forEach(function (tooltip) {
-       tooltip.addEventListener("click", function (e) {
-         e.stopPropagation();
-       });
-     });
-   });       function getCookie(name) {
-     let cookieValue = null;
-     if (document.cookie && document.cookie !== '') {
-       const cookies = document.cookie.split(';');
-       for (let i = 0; i < cookies.length; i++) {
-         const cookie = cookies[i].trim();
-         if (cookie.substring(0, name.length + 1) === (name + '=')) {
-           cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-           break;
-         }
-       }
-     }
-     return cookieValue;
-   }
-</script>
+<!-- Removed legacy remark tooltip handler to avoid conflicts -->
 
 <!-- Active table row highlight -->
 <script nonce="{{ csp_nonce }}">

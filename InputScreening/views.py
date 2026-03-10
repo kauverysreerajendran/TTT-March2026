@@ -109,8 +109,9 @@ class IS_PickTable(APIView):
             draft_tray_verify=draft_tray_verify_subquery,
             tray_scan_exists=tray_scan_exists,
 
+            # Use latest TotalStockModel row for this batch to avoid blank remarks from older records
             IP_pick_remarks=Subquery(
-                TotalStockModel.objects.filter(batch_id=OuterRef('pk')).values('IP_pick_remarks')[:1]
+                TotalStockModel.objects.filter(batch_id=OuterRef('pk')).order_by('-id').values('IP_pick_remarks')[:1]
             ),
             created_at=Subquery(
                 TotalStockModel.objects.filter(batch_id=OuterRef('pk')).values('created_at')[:1]
@@ -470,7 +471,8 @@ class SaveIPPickRemarkAPIView(APIView):
             mmc = ModelMasterCreation.objects.filter(batch_id=batch_id).first()
             if not mmc:
                 return JsonResponse({'success': False, 'error': 'Batch not found'}, status=404)
-            batch_obj = TotalStockModel.objects.filter(batch_id=mmc).first()  
+            # Update the latest TotalStockModel row for this batch
+            batch_obj = TotalStockModel.objects.filter(batch_id=mmc).order_by('-id').first()
             if not batch_obj:
                 return JsonResponse({'success': False, 'error': 'TotalStockModel not found'}, status=404)
             batch_obj.IP_pick_remarks = remark

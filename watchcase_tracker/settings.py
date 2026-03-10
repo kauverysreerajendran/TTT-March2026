@@ -174,7 +174,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'watchcase2026',
         'USER':'postgres',
-        'PASSWORD':'postgres',
+        'PASSWORD':'12345',
         'HOST':'localhost',
         'PORT':'5432',
     }
@@ -226,6 +226,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+LOG_DIR = BASE_DIR / "logs"
 
 LOGGING = {
     'version': 1,
@@ -240,35 +241,25 @@ LOGGING = {
         'simple': {
             'format': '%(asctime)s %(levelname)s %(name)s %(message)s'
         },
-        'input_screening': {
-            'format': '%(asctime)s | %(levelname)s | %(message)s'
-        },
     },
     'handlers': {
         'jig_pick_table_file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            #'filename': 'JL_PickTable.log',
-            'filename': r'A:\Workspace\Watchcase Tracker Titan\Jig_Loading\JL_PickTable.log',
+            'filename': LOG_DIR / 'JL_PickTable.log',
             'formatter': 'detailed',
         },
         'broken_hooks_file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': r'A:\Workspace\Watchcase Tracker Titan\broken_hooks_detailed.log',
+            'filename': LOG_DIR / 'broken_hooks_detailed.log',
             'formatter': 'broken_hooks',
         },
         'latency_file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': 'latency.log',
+            'filename': LOG_DIR / 'latency.log',
             'formatter': 'simple',
-        },
-        'input_screening_file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'input_screening_debug.log'),
-            'formatter': 'input_screening',
         },
     },
     'loggers': {
@@ -287,11 +278,5 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
-        'input_screening': {
-            'handlers': ['input_screening_file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
     },
 }
-
