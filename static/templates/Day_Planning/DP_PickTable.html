@@ -4202,13 +4202,40 @@ trayScanLinks.forEach((link) => {
                 console.log(`   ✓ Cleared tray ID ${index + 1}`);
             });
 
-            // Reset all tray quantities to default capacity (12)
+            // Reset all tray quantities based on total batch quantity distribution
+            const batchId = window.currentTrayScanBatchId;
+            let totalBatchQuantity = 0;
+            if (batchId) {
+                const targetButton = document.querySelector(`.tray-scan-btn[data-batch-id="${batchId}"]`);
+                if (targetButton) {
+                    totalBatchQuantity = parseInt(targetButton.getAttribute('data-total-batch-quantity')) || 0;
+                }
+            }
+            const trayCapacity = window.currentModalConfig ? window.currentModalConfig.trayCapacity : 12;
+            
             trayQtyInputs.forEach((input, index) => {
-                // Get tray capacity from current modal config or default to 12
-                const trayCapacity = window.currentModalConfig ? window.currentModalConfig.trayCapacity : 12;
-                input.value = trayCapacity;
-                
-                console.log(`   ✓ Reset quantity ${index + 1} to ${trayCapacity}`);
+                let calculatedTrayQty = trayCapacity;
+                if (totalBatchQuantity > 0) {
+                    const isTopTray = (index === 0);
+                    if (isTopTray) {
+                        // Top tray gets the remainder if any
+                        const remainder = totalBatchQuantity % trayCapacity;
+                        calculatedTrayQty = remainder > 0 ? remainder : trayCapacity;
+                    } else {
+                        // Other trays get full capacity if there's enough quantity left
+                        const topTrayQty = totalBatchQuantity % trayCapacity || trayCapacity;
+                        const remainingAfterTopTray = totalBatchQuantity - topTrayQty;
+                        const otherTrayIndex = index - 1;
+                        if (otherTrayIndex * trayCapacity < remainingAfterTopTray) {
+                            calculatedTrayQty = trayCapacity;
+                        } else {
+                            calculatedTrayQty = 0; // Not needed
+                        }
+                    }
+                    calculatedTrayQty = Math.max(0, calculatedTrayQty);
+                }
+                input.value = calculatedTrayQty;
+                console.log(`   ✓ Reset quantity ${index + 1} to ${calculatedTrayQty} (based on batch qty ${totalBatchQuantity})`);
             });
 
             // Uncheck verification checkbox if present
