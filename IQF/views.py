@@ -2244,6 +2244,25 @@ class IQFTrayRejectionAPIView(APIView):
             print(f"   Delinked trays: {len(allocation_results['delink_trays'])}")
             print(f"   New trays needed: {len(allocation_results['new_trays_needed'])}")
 
+            # Step 6.5: Pre-seed IQF_Accepted_TrayID_Store for trays the user accepted via the UI.
+            # apply_iqf_auto_allocation_results Step 3.5 will mark these is_save=True so that
+            # BrassPickTableView and create_brass_tray_instances can read the correct accepted qty/trays.
+            for _acc in accepted_trays:
+                _tid = _acc.get('tray_id')
+                _tqty = _acc.get('qty', 0)
+                if _tid:
+                    IQF_Accepted_TrayID_Store.objects.update_or_create(
+                        lot_id=lot_id,
+                        tray_id=_tid,
+                        defaults={
+                            'tray_qty': _tqty,
+                            'user': request.user,
+                            'accepted_comment': acceptance_remarks,
+                            'is_save': False
+                        }
+                    )
+            print(f"   ✅ Step 6.5: Pre-seeded IQF_Accepted_TrayID_Store with {len(accepted_trays)} accepted tray(s)")
+
             # Step 7: Apply allocation results to database
             apply_result = apply_iqf_auto_allocation_results(
                 lot_id=lot_id,
@@ -6599,7 +6618,17 @@ def apply_iqf_auto_allocation_results(lot_id, batch_id, allocation_results, reje
                     if iqf_tray:
                         iqf_tray.tray_quantity = acceptance['accepted_qty']
                         iqf_tray.save()
-        
+
+        # Step 3.5: Mark frontend draft accepted trays as saved (is_save=True)
+        # These are the user-scanned trays that will be picked up by Brass QC
+        # via create_brass_tray_instances when brass_save_ip_checkbox is clicked.
+        auto_tray_ids = {a['tray_id'] for a in allocation_results.get('acceptance_trays', [])}
+        IQF_Accepted_TrayID_Store.objects.filter(
+            lot_id=lot_id,
+            is_save=False
+        ).exclude(tray_id__in=auto_tray_ids).update(is_save=True)
+        print(f"   ✅ Marked draft accepted trays as is_save=True (source for Brass QC)")
+
         # Step 4: Create new trays for acceptance
         batch_obj = ModelMasterCreation.objects.filter(batch_id=batch_id).first()
         for new_tray in allocation_results['new_trays_needed']:
@@ -6638,7 +6667,15 @@ def apply_iqf_auto_allocation_results(lot_id, batch_id, allocation_results, reje
                 # Few cases acceptance
                 total_stock.iqf_few_cases_acceptance = True
                 total_stock.iqf_onhold_picking = True
-                total_stock.iqf_accepted_qty = total_accepted_qty
+                # Compute actual accepted qty from IQF_Accepted_TrayID_Store (Step 3.5 already marked them is_save=True)
+                # auto-allocator returns 0 when all available trays were rejected and only frontend trays accepted
+                _store_qty = IQF_Accepted_TrayID_Store.objects.filter(
+                    lot_id=lot_id, is_save=True
+                ).aggregate(total=Sum('tray_qty'))['total'] or 0
+                effective_accepted_qty = _store_qty if _store_qty > 0 else total_accepted_qty
+                total_stock.iqf_accepted_qty = effective_accepted_qty
+                total_stock.total_IP_accpeted_quantity = effective_accepted_qty  # Fix Brass QC display qty
+                total_stock.send_brass_qc = True  # send accepted pieces to Brass QC pick table
             
             total_stock.last_process_module = "IQF"
             total_stock.iqf_last_process_date_time = timezone.now()

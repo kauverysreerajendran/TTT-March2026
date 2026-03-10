@@ -666,6 +666,12 @@ class BrassPickTableView(APIView):
             # ✅ FIX: For lots returning from IQF, count actual IQFTrayId records
             #    since rejected trays that were reused should also be counted
             if data.get('send_brass_qc'):
+                # This is a fresh Brass QC cycle from IQF. Any brass_qc_rejection=True
+                # on the lot belongs to a PRIOR cycle. Reset it so the template renders
+                # data-brass-batch-rejection="False" and the tray-scan click handler
+                # routes to the rejection form instead of the stale delink-only path.
+                data['brass_qc_rejection'] = False
+
                 actual_tray_count = IQFTrayId.objects.filter(
                     lot_id=lot_id,
                     IP_tray_verified=True,
@@ -675,6 +681,12 @@ class BrassPickTableView(APIView):
                 if actual_tray_count > 0:
                     data['no_of_trays'] = actual_tray_count
                     print(f"✅ [BrassPickTable] Overrode no_of_trays for IQF lot {lot_id}: {actual_tray_count} (from IQFTrayId count)")
+                else:
+                    # Fall back to IQF_Accepted_TrayID_Store: new-tray acceptances don't appear in IQFTrayId
+                    store_count = IQF_Accepted_TrayID_Store.objects.filter(lot_id=lot_id, is_save=True).count()
+                    if store_count > 0:
+                        data['no_of_trays'] = store_count
+                        print(f"✅ [BrassPickTable] Overrode no_of_trays for IQF lot {lot_id}: {store_count} (from IQF_Accepted_TrayID_Store count)")
         
             # Get model images
             batch_obj = ModelMasterCreation.objects.filter(batch_id=data['batch_id']).first()
@@ -841,14 +853,22 @@ class BrassSaveIPCheckboxView(APIView):
                 )
                 print(f"Using BrassAuditTrayId for tray creation (send_brass_audit_to_qc=True)")
             elif send_brass_qc:
-                # ✅ FIX: Use IQFTrayId for ALL non-delinked trays (including reused rejected trays)
-                verified_trays = IQFTrayId.objects.filter(
-                    lot_id=lot_id,
-                    IP_tray_verified=True,
-                    rejected_tray=False,
-                    delink_tray=False
-                )
-                print(f"Using IQFTrayId for tray creation (send_brass_qc=True) - including reused rejected trays, count={verified_trays.count()}")
+                # Use IQF_Accepted_TrayID_Store (correct accepted quantities) for IQF->Brass QC flow
+                from IQF.models import IQF_Accepted_TrayID_Store as _IQFAcceptedStore
+                from collections import namedtuple
+                _TrayInfo = namedtuple('TrayInfo', ['tray_id', 'tray_quantity', 'top_tray', 'tray_type', 'tray_capacity'])
+                _accepted_records = _IQFAcceptedStore.objects.filter(lot_id=lot_id, is_save=True)
+                verified_trays = [
+                    _TrayInfo(
+                        tray_id=t.tray_id,
+                        tray_quantity=t.tray_qty or 0,
+                        top_tray=False,
+                        tray_type=None,
+                        tray_capacity=None,
+                    )
+                    for t in _accepted_records
+                ]
+                print(f"Using IQF_Accepted_TrayID_Store for tray creation (send_brass_qc=True), count={len(verified_trays)}")
             else:
                 # Use IPTrayId for accepted trays
                 verified_trays = IPTrayId.objects.filter(
@@ -5708,6 +5728,42 @@ class PickTrayIdList_Complete_APIView(APIView):
                     delink_tray=False
                 )
                 tray_model_used = 'BrassTrayId'
+
+            # Final fallback: IQF_Accepted_TrayID_Store (populated before brass_save_ip_checkbox is clicked)
+            if base_queryset.count() == 0:
+                from IQF.models import IQF_Accepted_TrayID_Store as _IQFAcceptedStore
+                _accepted_store_qs = _IQFAcceptedStore.objects.filter(lot_id=lot_id, is_save=True)
+                if _accepted_store_qs.exists():
+                    _sorted_recs = sorted(_accepted_store_qs, key=lambda r: (r.tray_qty or 0))
+                    _fallback_data = []
+                    for _i, _r in enumerate(_sorted_recs):
+                        _fallback_data.append({
+                            's_no': _i + 1,
+                            'tray_id': _r.tray_id,
+                            'tray_quantity': _r.tray_qty or 0,
+                            'position': _i,
+                            'is_top_tray': _i == 0,
+                            'rejected_tray': False,
+                            'delink_tray': False,
+                            'rejection_details': [],
+                            'top_tray': _i == 0,
+                            'model_used': 'IQF_Accepted_TrayID_Store'
+                        })
+                    print(f"✅ [PickTrayIdList] IQF_Accepted_TrayID_Store fallback: {len(_fallback_data)} tray(s) for lot {lot_id}")
+                    return JsonResponse({
+                        'success': True,
+                        'trays': _fallback_data,
+                        'rejection_summary': {
+                            'total_accepted_trays': len(_fallback_data),
+                            'accepted_tray_ids': [r.tray_id for r in _sorted_recs],
+                            'total_rejected_trays': 0,
+                            'rejected_tray_ids': [],
+                            'shortage_rejections': 0,
+                            'filter_applied': 'accepted_only',
+                            'tray_model_used': 'IQF_Accepted_TrayID_Store',
+                            'flags': {'send_brass_qc': send_brass_qc, 'send_brass_audit_to_qc': send_brass_audit_to_qc}
+                        }
+                    })
         else:
             # If lot was previously processed in Brass QC or verified, always show the latest BrassTrayId data.
             # This handles lots returning from Brass Audit that had their flags reset.
