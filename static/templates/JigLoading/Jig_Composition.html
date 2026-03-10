@@ -15,26 +15,29 @@
 }
 /* Add below your existing .model-column and .case-badges styles, do not alter existing lines */
 .model-column {
-  height: 420px;
+  /* FIX 5: Remove fixed height - let content determine height to avoid duplication confusion */
   min-height: 320px;
-  max-height: 480px;
+  max-height: 600px;
+  height: auto;
   overflow: visible;
 }
 
 .case-badges {
-  height: 220px;
-  min-height: 180px;
-  max-height: 260px;
-  overflow: visible;
+  /* FIX 5: No fixed height - flex wrap to show correct count without cutting off */
+  min-height: 60px;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 0.5rem;
+  padding: 4px;
 }
 
 .case-badge {
   box-shadow: none;
-  min-width: unset;
   text-align: center;
   display: flex;
   align-items: center;
@@ -42,11 +45,15 @@
   overflow: visible;
   background-color: #f0f0f0;
   border-radius: 20px;
-  padding: 0.4rem 0.8rem;
+  padding: 0.3rem 0.5rem;
   font-weight: 500;
-  font-size: 0.95rem;
-  text-align: center;
-  min-width: 60px;
+  font-size: 0.85rem;
+  /* FIX 5: Fixed small size so badges don't stretch and misrepresent count */
+  width: 48px;
+  height: 48px;
+  min-width: 44px;
+  min-height: 44px;
+  flex: 0 0 auto;
 }
 .card-body {
   width: 100%;
@@ -89,11 +96,9 @@
 @media (max-width: 600px) {
   .model-column {
     width: 98vw;
-    height: 98vw;
     min-width: 120px;
-    min-height: 120px;
     max-width: 99vw;
-    max-height: 99vw;
+    height: auto;
   }
 }
 .model-header {
@@ -136,42 +141,18 @@ h5.text-left.mt-0.mb-3 {
 .case-badges .case-badge {
   animation: fade-in-up 0.5s cubic-bezier(0.4, 2, 0.6, 1) both;
 }
-.case-badges .case-badge:nth-child(1) {
-  animation-delay: 0.03s;
-}
-.case-badges .case-badge:nth-child(2) {
-  animation-delay: 0.06s;
-}
-.case-badges .case-badge:nth-child(3) {
-  animation-delay: 0.09s;
-}
-.case-badges .case-badge:nth-child(4) {
-  animation-delay: 0.12s;
-}
-.case-badges .case-badge:nth-child(5) {
-  animation-delay: 0.15s;
-}
-.case-badges .case-badge:nth-child(6) {
-  animation-delay: 0.18s;
-}
-.case-badges .case-badge:nth-child(7) {
-  animation-delay: 0.21s;
-}
-.case-badges .case-badge:nth-child(8) {
-  animation-delay: 0.24s;
-}
-.case-badges .case-badge:nth-child(9) {
-  animation-delay: 0.27s;
-}
-.case-badges .case-badge:nth-child(10) {
-  animation-delay: 0.3s;
-}
-.case-badges .case-badge:nth-child(11) {
-  animation-delay: 0.33s;
-}
-.case-badges .case-badge:nth-child(12) {
-  animation-delay: 0.36s;
-}
+.case-badges .case-badge:nth-child(1) { animation-delay: 0.03s; }
+.case-badges .case-badge:nth-child(2) { animation-delay: 0.06s; }
+.case-badges .case-badge:nth-child(3) { animation-delay: 0.09s; }
+.case-badges .case-badge:nth-child(4) { animation-delay: 0.12s; }
+.case-badges .case-badge:nth-child(5) { animation-delay: 0.15s; }
+.case-badges .case-badge:nth-child(6) { animation-delay: 0.18s; }
+.case-badges .case-badge:nth-child(7) { animation-delay: 0.21s; }
+.case-badges .case-badge:nth-child(8) { animation-delay: 0.24s; }
+.case-badges .case-badge:nth-child(9) { animation-delay: 0.27s; }
+.case-badges .case-badge:nth-child(10) { animation-delay: 0.3s; }
+.case-badges .case-badge:nth-child(11) { animation-delay: 0.33s; }
+.case-badges .case-badge:nth-child(12) { animation-delay: 0.36s; }
 
 /* End Jig Composition styles K*/
 </style>
@@ -180,30 +161,41 @@ h5.text-left.mt-0.mb-3 {
   <div class="row">
     <div class="col-12 grid-margin stretch-card">
           <div class="container py-4">
-            <h5 class="text-left mt-0 mb-3">Jig Composition</h5>
+            <!-- FIX 5: Header row with title + Back button -->
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:0.5rem;">
+              <h5 class="text-left mt-0 mb-3" style="margin-bottom:0!important;">Jig Composition</h5>
+              <a href="javascript:history.back()" class="btn btn-sm" style="background:#028084; color:#fff; border-radius:20px; padding:5px 18px; text-decoration:none; font-weight:600; white-space:nowrap;">
+                &#8592; Back
+              </a>
+            </div>
               <div style="height: 18px;"></div>
             <!-- Tray Cards -->
+            <!-- FIX 5: Each card.cases must render exactly card.total_cases badges (no duplication) -->
               <div class="model-columns">
                 {% for card in cards %}
-                  <div class="model-column">
+                  <div class="model-column" style="min-width:180px; border:1px solid #e0e0e0; border-radius:10px; padding:0; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
                     <div class="model-header" style="background: {{ card.color }};">
                       Model No:
                       {% for m in card.models %}
                         <strong>{{ m.model_no }}</strong>{% if not forloop.last %}, {% endif %}
                       {% endfor %}
                     </div>
-                    <div style="text-align:center; margin-bottom:0.5rem;">
-                      Case Qty:
+                    <div style="text-align:center; margin-bottom:0.5rem; padding:4px 0; font-size:13px; color:#444;">
+                      Loaded Qty:
                       {% for m in card.models %}
-                        <strong>{{ m.case_qty }}</strong>{% if not forloop.last %}, {% endif %}
+                        <strong>{{ m.case_qty }}</strong>{% if not forloop.last %} + {% endif %}
                       {% endfor %}
                     </div>
-                    <div class="case-badges">
+                    <!-- FIX 5: Render exactly card.cases|length badges = matches loaded lot qty -->
+                    <div class="case-badges" style="padding:8px;">
                       {% for case in card.cases %}
-                        <div class="case-badge" style="background-color: {{ case.color }}20; border: 2px solid {{ case.color }};">
-                          <img src="{% static 'assets/icons/case1.png' %}" alt="Case" style="height:32px;width:32px;vertical-align:middle;">
+                        <div class="case-badge" style="background-color: {{ case.color }}20; border: 2px solid {{ case.color }};" title="Case {{ forloop.counter }}">
+                          <img src="{% static 'assets/icons/case1.png' %}" alt="Case" style="height:28px;width:28px;vertical-align:middle;">
                         </div>
                       {% endfor %}
+                    </div>
+                    <div style="text-align:center; font-size:11px; color:#888; padding-bottom:8px;">
+                      Total: {{ card.cases|length }} case{{ card.cases|length|pluralize }}
                     </div>
                   </div>
                 {% endfor %}

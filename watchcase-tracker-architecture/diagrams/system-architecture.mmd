@@ -1,0 +1,55 @@
+graph TD
+    %% UI Layer
+    A[UI Layer] -->|React| B[Web Application]
+    A -->|React Native| C[Mobile Application]
+
+    %% API Layer
+    B -->|REST API| D[API Gateway]
+    C -->|REST API| D
+
+    %% Services Layer
+    D -->|Node.js| E[Authentication Service]
+    D -->|Node.js| F[Data Processing Service]
+    D -->|Node.js| G[Notification Service]
+    D -->|Node.js| H[Reporting Service]
+
+    %% Database Layer
+    E -->|SQL| I[User Database]
+    F -->|SQL| J[Data Warehouse]
+    G -->|SQL| K[Notification Database]
+    H -->|SQL| L[Reporting Database]
+
+    %% Queue Layer
+    F -->|Message Queue| M[Task Queue]
+    G -->|Message Queue| N[Notification Queue]
+
+    %% Cloud Layer
+    O[AWS Cloud] -->|S3| P[Storage]
+    O -->|RDS| Q[Relational Database Service]
+    O -->|Lambda| R[Serverless Functions]
+
+    %% Connections
+    P -->|Data Storage| J
+    Q -->|Database| I
+    Q -->|Database| J
+    Q -->|Database| K
+    Q -->|Database| L
+
+    %% Additional Components
+    R -->|Event-Driven| F
+    R -->|Event-Driven| G
+
+    %% Styling
+    classDef ui fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef api fill:#bbf,stroke:#333,stroke-width:2px;
+    classDef services fill:#bfb,stroke:#333,stroke-width:2px;
+    classDef database fill:#ffb,stroke:#333,stroke-width:2px;
+    classDef queue fill:#fbf,stroke:#333,stroke-width:2px;
+    classDef cloud fill:#ff9,stroke:#333,stroke-width:2px;
+
+    class A,B,C ui;
+    class D api;
+    class E,F,G,H services;
+    class I,J,K,L database;
+    class M,N queue;
+    class O,P,Q,R cloud;

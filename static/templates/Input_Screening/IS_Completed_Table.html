@@ -2127,20 +2127,26 @@ document.addEventListener("DOMContentLoaded", function() {
         }
       });
 
-      tooltip.querySelector('.img-scroll-left').addEventListener('click', function(e) {
-        e.stopPropagation();
-        if (currentIndex > 0) {
-          currentIndex--;
-          showImages(currentIndex);
-        }
-      });
-      tooltip.querySelector('.img-scroll-right').addEventListener('click', function(e) {
-        e.stopPropagation();
-        if (currentIndex < images.length - 3) {
-          currentIndex++;
-          showImages(currentIndex);
-        }
-      });
+      var scrollLeft = tooltip.querySelector('.img-scroll-left');
+      if (scrollLeft) {
+        scrollLeft.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (currentIndex > 0) {
+            currentIndex--;
+            showImages(currentIndex);
+          }
+        });
+      }
+      var scrollRight = tooltip.querySelector('.img-scroll-right');
+      if (scrollRight) {
+        scrollRight.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (currentIndex < images.length - 3) {
+            currentIndex++;
+            showImages(currentIndex);
+          }
+        });
+      }
 
       // Add click event to images for modal slider
       images.forEach(function(img, idx) {

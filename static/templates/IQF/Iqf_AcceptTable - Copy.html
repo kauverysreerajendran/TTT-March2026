@@ -1,0 +1,2742 @@
+{% extends "base.html" %} 
+\{% load static %} 
+{% block content %} 
+{% load stock_filters %}
+<style>
+/* ========== Tablet override — paste at file end (after other table styles) ========== */
+/* --- Tablet: freeze first 3 columns consistently with desktop --- */
+@media (pointer: coarse) and (min-width: 680px) and (max-width: 1400px) {
+
+*{
+  font-size: 20px !important; /* Increase font size for better readability */
+}
+
+:root { --app-font-size: 20px; }
+
+.rounded-circle{
+  padding: 17px !important;
+}
+
+.model-image-tooltip{
+  transform: translateX(-25%) !important;
+  top: 45% !important;
+  z-index: 500000 !important; /* high so it sits above table & scrollbar */
+
+}
+
+
+  /* Core layout blocks */
+  .content-wrapper,
+  .card, .card-body,
+  .table-responsive,
+  #order-listing,
+  #trayScanModal_DayPlanning,
+  .tray-scan-modal-DayPlanning,
+  .pagination-wrapper {
+    font-size: var(--app-font-size) !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Table headings / cells / icons */
+  #order-listing th,
+  #order-listing td,
+  #order-listing thead th {
+    font-size: var(--app-font-size) !important;
+    vertical-align: middle !important;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  /* Ensure heading/title and date controls match */
+  h4.text-left.mt-0.mb-3,
+  .calendar-bar .date-input-group label,
+  .calendar-bar .date-input-group input,
+  #search-date-range-simple,
+  #clear-date-filter-simple,
+  .calendar-btn,
+  #trayScanModal_DayPlanning input.form-control,#trayValidateBtn,
+  #trayScanModal_DayPlanning table th, #trayScanModal_DayPlanning table td,
+  #modalModelNo_DayPlanning
+ {
+    font-size: var(--app-font-size) !important;
+  }  
+
+  /* Reserve space for filter icons in header cells */
+#order-listing th {
+  position: relative;
+  overflow: visible !important;
+  white-space: normal !important; /* allow wrapping */
+}
+
+/* Ensure filter icons always stay to the right */
+#order-listing th .fa-filter {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px !important;
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+  /* Column 1 */
+  #order-listing th:nth-child(1),
+  #order-listing td:nth-child(1) {
+    position: sticky;
+    left: 0 !important;
+    min-width: 90px !important;
+    max-width: 90px !important;
+    background: #f7fafd;
+    z-index: 30;
+  }
+
+  /* Column 2 */
+  #order-listing th:nth-child(2),
+  #order-listing td:nth-child(2) {
+    position: sticky;
+    left: 90px !important;   /* = width of col1 */
+    min-width: 125px !important;
+    max-width: 125px !important;
+    background: #f7fafd;
+    z-index: 25;
+  }
+
+  /* Column 3 */
+  #order-listing th:nth-child(3),
+  #order-listing td:nth-child(3) {
+    position: sticky;
+    left: 215px !important;  /* 75 (col1) + 100 (col2 min) */
+    min-width: 140px !important;
+    max-width: 140px !important;
+    background: #f7fafd;
+    z-index: 20;
+  }
+
+  /* Sticky header */
+  #order-listing thead th {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: #028084 !important;
+    color: #e5fcff !important;
+  }
+}
+
+@media (pointer: coarse) and (min-width: 680px) and (max-width: 1400px) {
+  .table-container {
+    overflow-x: auto;
+  }
+
+  /* Other columns (fit remaining space) */
+  #order-listing th:nth-child(4)  { min-width: 135px !important; max-width: 135px !important; }
+  #order-listing th:nth-child(5)  { min-width: 115px !important; max-width: 115px !important; }
+  #order-listing th:nth-child(6)  { min-width: 135px !important; max-width: 135px !important; }
+  #order-listing th:nth-child(7)  { min-width: 135px !important; max-width: 140px !important; }
+  #order-listing th:nth-child(8)  { min-width: 140px !important; max-width: 140px !important; }
+  #order-listing th:nth-child(9)  { min-width: 140px !important; max-width: 145px !important; }
+  #order-listing th:nth-child(10) { min-width: 140px !important; max-width: 140px !important; }
+  #order-listing th:nth-child(11) { min-width: 130px !important; max-width: 130px !important; }
+  #order-listing th:nth-child(12) { min-width: 120px !important; max-width: 140px !important; }
+  #order-listing th:nth-child(13) { min-width: 120px !important; max-width: 120px !important; }
+  #order-listing th:nth-child(14) { min-width: 140px !important; max-width: 140px !important; }
+  #order-listing th:nth-child(15) { min-width: 130px !important; max-width: 130px !important; }
+  #order-listing th:nth-child(16) { min-width: 120px !important; max-width: 130px !important; }
+  #order-listing th:nth-child(17) { min-width: 130px !important; max-width: 130px !important; }
+  #order-listing th:nth-child(18) { min-width: 130px !important; max-width: 130px !important; }
+  #order-listing th:nth-child(19) { min-width: 140px !important; max-width: 140px !important; }
+  #order-listing th:nth-child(20) { min-width: 130px !important; max-width: 130px !important; }
+
+
+  /* Prevent overlap */
+  #order-listing th:nth-child(-n+3),
+  #order-listing td:nth-child(-n+3) {
+    z-index: 45 !important;
+  }
+
+  /* Hide hidden columns */
+  #order-listing th[hidden],
+  #order-listing td[hidden] {
+    display: none !important;
+  }
+}
+  /* Add to your CSS file for Excel-like grid lines */
+  .table-bordered th,
+  .table-bordered td {
+    border: 1px solid #d9dedf !important;
+  }
+  /* Make the table header sticky */
+  thead th {
+    position: sticky;
+    top: 0;
+    background-color: white; /* or your table header bg color */
+    z-index: 5; /* ensure it stays above the table rows */
+  }
+
+  #order-listing thead th {
+    height: 38px !important; /* Increase as needed */
+    background: #028084 !important;
+    color: #e5fcff !important;
+    vertical-align: middle !important;
+    border-bottom: 2.5px solid #bdbdbd !important; /* Thicker grey line below heading */
+  }
+  /* style for hol/unhold row - blurred bg */
+  #order-listing tr:last-child td {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    /* background: #f4f3f3 !important; */
+  }
+  /* Gird line color combination */
+  #order-listing th,
+  #order-listing td {
+    border-right: 1.5px solid #bababa !important; /* Vertical lines: blue */
+    border-bottom: 1.5px solid #121413 !important; /* Horizontal lines: green */
+  }
+
+  /* Default: Desktop/Laptop (wider columns for larger font) - server */
+  /* #order-listing th:nth-child(1) {
+  min-width: 90px;
+  max-width: 90px;
+} */ /* S.No */
+  /* #order-listing th:nth-child(2) {
+  min-width: 90px;
+  max-width: 100px;
+} */ /* Last Updated */
+  /* #order-listing th:nth-child(3) {
+  min-width: 90px;
+  max-width: 120px;
+} */ /* Plating */
+  #order-listing th:nth-child(4) {
+    min-width: 110px;
+    max-width: 120px;
+  } /* Polishing Stk No */
+  #order-listing th:nth-child(5) {
+    min-width: 90px;
+    max-width: 100px;
+  } /* Plating Color */
+  #order-listing th:nth-child(6) {
+    min-width: 100px;
+    max-width: 110px;
+  } /* Category */
+  #order-listing th:nth-child(7) {
+    min-width: 100px;
+    max-width: 100px;
+  } /* Polish Finish */
+  #order-listing th:nth-child(8) {
+    min-width: 110px;
+    max-width: 110px;
+  } /* Version */
+  #order-listing th:nth-child(9) {
+    min-width: 80px;
+    max-width: 80px;
+  } /* Tray Cate-Capacity */
+  #order-listing th:nth-child(10) {
+    min-width: 90px;
+    max-width: 100px;
+  } /* Source */
+  #order-listing th:nth-child(11) {
+    min-width: 100px;
+    max-width: 100px;
+  } /* No of Trays */
+  #order-listing th:nth-child(12) {
+    min-width: 100px;
+    max-width: 105px;
+  } /* Input Qty */
+  #order-listing th:nth-child(13) {
+    min-width: 95px;
+    max-width: 100px;
+  } /* Process Status */
+  #order-listing th:nth-child(14) {
+    min-width: 95px;
+    max-width: 100px;
+  } /*  Action */
+  #order-listing th:nth-child(15) {
+    min-width: 90px;
+    max-width: 100px;
+  } /* Lot Status */
+  #order-listing th:nth-child(16) {
+    min-width: 100px;
+    max-width: 100px;
+  } /* Current Stage */
+  #order-listing th:nth-child(17) {
+    min-width: 110px;
+    max-width: 100px;
+  } /* Remarks */
+  #order-listing th:nth-child(18) {
+    min-width: 100px;
+    max-width: 110px;
+  }
+
+  @media (min-width: 600px) and (max-width: 900px) {
+    #order-listing {
+      table-layout: auto !important; /* Let columns auto-fit content */
+      width: 100% !important;
+      min-width: unset !important;
+      max-width: 100vw !important;
+    }
+    /* Adjust width for all headings (th) and cells (td) */
+    #order-listing th,
+    #order-listing td {
+      min-width: 160px !important;
+      max-width: 260px !important;
+      width: 180px !important;
+    }
+    #order-listing th {
+      position: relative;
+      padding-right: 48px !important; /* More space for filter icon */
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: ellipsis;
+    }
+    #order-listing th .fa-filter {
+      position: absolute;
+      right: 18px !important;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+      background: transparent;
+      pointer-events: auto;
+    }
+  }
+  /* Right-align filter icons */
+  #order-listing th .fa-filter {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  #order-listing th .fa-filter:hover {
+    opacity: 1;
+  }
+ 
+/* Enhanced Column Sorting Styles - Same as Brass QC */
+.sort-icon, .sort-asc, .sort-desc {
+  color: white !important;
+  font-size: 12px !important;
+  margin-left: 5px;
+  cursor: pointer;
+}
+
+.sortable:hover .sort-icon,
+.sortable:hover .sort-asc, 
+.sortable:hover .sort-desc {
+  color: #FFD700 !important;
+}
+
+.sorted .sort-asc,
+.sorted .sort-desc {
+  color: #FFD700 !important;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable:hover {
+  background-color: rgba(255, 215, 0, 0.1) !important;
+}
+
+  #order-listing th:last-child,
+  #order-listing td:last-child {
+    border-right: none;
+    max-width: 95px;
+    min-width: 100px;
+  }
+  /* Overall Table Shrink */
+  #order-listing tr,
+  #order-listing td,
+  #order-listing th {
+    height: 20px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  /* Table heading font size */
+  /* Add this at the end of your <style> block in DP_PickTable.html */
+
+  /* Professional table header styling with proper text wrapping */
+  #order-listing th {
+    position: relative;
+    padding: 8px 12px 8px 16px !important;
+    text-align: left !important;
+    vertical-align: middle !important;
+    white-space: normal !important;
+    line-height: 1.3 !important;
+    word-break: keep-all !important;
+    hyphens: none !important;
+    /* font-size: 13px; */
+    /* font-weight: 600 !important; */
+    background: #028084 !important;
+    color: #e5fcff !important;
+    border-bottom: 2.5px solid #bdbdbd !important;
+    /* min-width: 80px;
+  max-width: 140px; */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    z-index: 20 !important;
+  }
+
+  /* Make sure header cells for sticky columns are always above body cells */
+  /* Fix: Prevent shadow/rows from showing behind sticky columns while scrolling */
+  #order-listing th:nth-child(-n + 3),
+  #order-listing td:nth-child(-n + 3) {
+    z-index: 30 !important;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Prevent sticky columns from overlapping sticky header */
+  #order-listing td:nth-child(-n + 3) {
+    z-index: 11 !important;
+  }
+  /* Make the first column sticky and opaque */
+  #order-listing td:first-child,
+  #order-listing th:first-child {
+    position: sticky;
+    left: 0;
+    background: #fff; /* Or match your table background */
+    z-index: 2; /* Above blurred rows */
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.03); /* Optional: subtle shadow */
+  }
+  /* Force specific table headers to wrap onto two lines */
+  #order-listing th:nth-child(4),   /* Polishing Stk No */
+#order-listing th:nth-child(5),   /* Plating Color */
+#order-listing th:nth-child(7),   /* Polish Finish */
+#order-listing th:nth-child(9),   /* Tray Cate-Capacity */
+#order-listing th:nth-child(11),  /* No of Tray */
+#order-listing th:nth-child(12),  /* Input Qty */
+#order-listing th:nth-child(13)   /* Process Status */ {
+    white-space: normal !important;
+    line-height: 1.2 !important;
+    word-break: break-word !important;
+
+    text-align: center;
+    vertical-align: middle;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
+  /* Freeze style for 1st - 3 columns */
+  /* --- Freeze first 3 columns and table header for #order-listing --- */
+  #order-listing {
+    position: relative;
+    border-collapse: separate !important;
+    border-spacing: 0;
+    background: #fff;
+    /* Ensure enough left padding for sticky columns */
+  }
+
+  #order-listing th,
+  #order-listing td {
+    background-clip: padding-box;
+    /* Prevent overlap artifacts */
+    z-index: 1;
+  }
+
+  /* Sticky header */
+  #order-listing thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #028084 !important;
+    color: #e5fcff !important;
+  }
+
+  /* Freeze 1st column */
+  #order-listing th:nth-child(1),
+  #order-listing td:nth-child(1) {
+    position: sticky;
+    left: 0 !important;
+    z-index: 12; /* Above header */
+    background: #f7fafd;
+    min-width: 75px;
+    max-width: 75px;
+  }
+
+  /* Freeze 2nd column - Last Updated*/
+  #order-listing th:nth-child(2),
+  #order-listing td:nth-child(2) {
+    position: sticky;
+    left: 75px; /* Match min-width of 1st col */
+    z-index: 12;
+    background: #f7fafd;
+    min-width: 100px; /* Increased width */
+    max-width: 110px; /* Increased width */
+  }
+
+  /* Freeze 3rd column */
+  #order-listing th:nth-child(3),
+  #order-listing td:nth-child(3) {
+    position: sticky;
+    left: 175px; /* 100px (1st) + 90px (2nd) */
+    z-index: 12;
+    background: #f7fafd;
+    min-width: 130px; /* Increased width 100 - old value*/
+    max-width: 100px; /* Increased width  110 - old value*/
+  }
+
+  /* ...existing code... */
+
+  /* Prevent sticky columns from overlapping sticky header */
+  #order-listing th:nth-child(-n + 3) {
+    z-index: 12;
+  }
+  #order-listing td:nth-child(-n + 3) {
+    z-index: 11;
+  }
+
+  /* Ensure sticky columns and header work together */
+  #order-listing th,
+  #order-listing td {
+    box-sizing: border-box;
+    /* Prevent content shake */
+    /* overflow: hidden; */
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .blurred-heading,
+  .blurred-cell {
+    filter: blur(2px) grayscale(0.7) opacity(0.6);
+    pointer-events: none !important;
+    user-select: none;
+    cursor: not-allowed;
+    background: #f5f5f5 !important;
+  }
+  /* Show remark tooltip above the trigger instead of below */
+  .remark-tooltip {
+    top: auto !important;
+    bottom: 110% !important;
+  }
+  #trayScanDetails.table-grid {
+    display: grid !important;
+    grid-template-columns: 94px 175px 150px !important;
+    gap: 0px !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-right: 10px;
+    margin-top: 10px;
+    border: 1px solid #ddd;
+  }
+
+  #trayScanModal {
+    overflow: scroll !important;
+    width: 435px !important;
+  }
+  #trayScanDetails.table-grid::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  #trayScanDetails.table-grid::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  #trayScanDetails.table-grid::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+  }
+
+  #trayScanDetails.table-grid::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  .tray-scan-modal.open {
+    width: 500px !important;
+  }
+  /* For the 4-column layout (with validation status) */
+  #trayScanDetails.table-grid.four-column {
+    grid-template-columns: 50px 1fr 100px 140px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Styling individual grid cells, only inside trayScanDetails */
+  #trayScanDetails.table-grid > div {
+    background: #f7f7f7;
+    padding: 8px 12px;
+    font-size: 12px;
+    border: 1px solid #ddd;
+    margin: 0; /* reset any margin from <p> or others */
+  }
+
+  /* S.no column specific styling */
+  #trayScanDetails.table-grid > div:nth-child(3n + 1):not(:nth-child(-n + 4)) {
+    text-align: center;
+    font-weight: 600;
+    padding: 8px 4px; /* Reduced horizontal padding for S.no */
+  }
+
+  /* For mobile responsiveness */
+  @media (max-width: 768px) {
+    #trayScanDetails.table-grid {
+      grid-template-columns: 45px 1fr 1fr !important; /* Even smaller S.no column on mobile */
+    }
+    #trayScanDetails.table-grid.four-column {
+      grid-template-columns: 40px 1fr 80px 100px !important;
+    }
+    #trayScanDetails.table-grid
+      > div:nth-child(3n + 1):not(:nth-child(-n + 4)) {
+      padding: 6px 2px; /* Further reduced padding on mobile */
+      font-size: 11px;
+    }
+  }
+
+  /* For very small screens */
+  @media (max-width: 480px) {
+    #trayScanDetails.table-grid {
+      grid-template-columns: 35px 1fr 80px !important; /* Minimal S.no column */
+    }
+    #trayScanDetails.table-grid.four-column {
+      grid-template-columns: 30px 1fr 70px 90px !important;
+    }
+  }
+</style>
+<div class="content-wrapper">
+  <br />
+  <h5 class="text-left mt-0 mb-3">IQF Accepted Table</h5>
+  <div class="row">
+    <div class="col-12 grid-margin stretch-card">
+      <div class="card">
+        <div class="card-body">
+          <!-- Table Section -->
+          <div class="table-responsive">
+            <table id="order-listing" class="table">
+                <thead>
+                  <tr>
+                    <th data-column-index="0" class="sortable">
+                      S.No 
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th data-column-index="1" class="sortable">
+                      Last<br>Updated
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th data-column-index="2" class="sortable">
+                      Plating <br> Stk No
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th data-column-index="3" class="sortable">
+                      Polishing <br> Stk No
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    <th data-column-index="4" class="sortable">
+                      Plating Color
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th data-column-index="5" class="sortable">
+                      Polish Finish
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+
+                    <th data-column-index="6" class="sortable">
+                      Source - Location
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th data-column-index="7" class="sortable">
+                      Tray Cate- <br> Capacity
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th data-column-index="8" class="sortable">
+                      No of <br> Trays 
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+
+                    <th data-column-index="9" class="sortable">
+                      Accept Qty
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                      </th>
+
+                    <th data-column-index="10" class="sortable">
+                      Process Status
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th>
+                      Action
+                    </th>
+                    <th data-column-index="11" class="sortable">
+                      Batch Status
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th data-column-index="12" class="sortable">
+                       Current <br> Location
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th data-column-index="13" class="sortable">
+                       Accepted Remarks
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                    <th data-column-index="14" class="sortable">
+                      Remarks 
+                      <i class="fa fa-sort sort-icon" aria-hidden="true"></i>
+                      <i class="fa fa-sort-asc sort-asc" aria-hidden="true" style="display:none;"></i>
+                      <i class="fa fa-sort-desc sort-desc" aria-hidden="true" style="display:none;"></i>
+                    </th>
+                   
+                  </tr>
+                </thead> 
+                <tbody>
+                  <!-- Row 1 - Highlighted -->
+                     {% for data in master_data %}
+
+                  <tr class="highlighted-tray-scan" data-batch-id="{{ data.batch_id }}">
+                  <td>{{ forloop.counter }}
+                   
+
+                  </td>
+                    <td style="white-space:normal;word-break:break-all;">
+                              {{ data.iqf_last_process_date_time|date:"d-M-y"  }}<br>
+                        <span style="display:inline-block; margin-top:4px;word-break: break-all;">{{ data.iqf_last_process_date_time|date:"h:i A" }}</span>
+                        </td>
+                                            <!-- Model/Stock No - Image hover -->  
+        <td>
+                      <span class="model-hover-trigger" style="cursor: pointer; word-break: break-all;">
+                        {{ data.plating_stk_no|highlight_plating_color|safe_html }}
+                        <div class="model-image-tooltip" style="position: absolute; left: 80%; top: 110%; transform: translateX(-50%); background: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 12px 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; opacity: 0; pointer-events: none; transition: opacity 0.2s; min-width: 220px;">
+                          
+                          <!-- Header with Info and Close buttons -->
+                          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <button class="info-btn" style="background: #007bff; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer;">
+                               Info
+                            </button>
+                            <button class="close-btn" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer;">
+                               Close
+                            </button>
+                          </div>
+
+                          <!-- Image gallery section -->
+                          <div style="display: flex; align-items: center; gap: 8px;">
+                            <!-- Hide scroll buttons since only one image is shown -->
+                            <div class="img-gallery" style="display: flex; gap: 6px; overflow: hidden; width: 180px;">
+                              <img src="{{ data.model_images.0|default:'/static/assets/images/imagePlaceholder.png' }}" style="width: 55px; height: 55px; object-fit: cover; border-radius: 6px;" />
+                            </div>
+                          </div>
+                        </div>
+                      </span>
+                    </td>
+                    <td>{{ data.polishing_stk_no|default:"N/A"|highlight_polish_finish|safe_html }}</td>
+
+                    <td>{{ data.plating_color }}</td>
+                    <td>{{ data.polish_finish }}</td>
+                    <td>{{ data.location__location_name }}</td>
+                    <td>{{ data.tray_type }} {{ data.tray_capacity }}</td>
+                    <td>{{ data.no_of_trays }}</td>
+
+                    <td>
+                        {{data.iqf_accepted_qty}}
+                    </td>
+                   <td>
+                      <div class="d-flex">
+                        <!-- Q: Green if iqf_accepted_qty_verified, else gray -->
+                        <div
+                          data-bs-toggle="tooltip" data-placement="right" data-bs-original-title="Quantity"
+                          class="d-flex align-items-center justify-content-center rounded-circle ms-1"
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            background-color: {% if data.iqf_accepted_qty_verified %}#0c8249{% else %}#bdbdbd{% endif %};
+                            color: white;
+                            font-weight: bold;
+                            line-height: 20px;
+                            text-align: center;
+                            padding-top: 1px;
+                            padding-right: 1px;
+                          "
+                        >
+                          Q
+                        </div>
+                        <!-- QC: Green if iqf_rejection or iqf_acceptance, else gray -->
+                        <div
+                          data-bs-toggle="tooltip" data-placement="right" data-bs-original-title="Quality Check"
+                          class="d-flex align-items-center justify-content-center rounded-circle ms-1"
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            background-color: {% if data.iqf_rejection or data.iqf_acceptance or data.iqf_few_cases_acceptance %}#0c8249{% else %}#bdbdbd{% endif %};
+                            color: white;
+                            font-weight: bold;
+                            line-height: 20px;
+                            text-align: center;
+                            padding-top: 1px;
+                            padding-right: 1px;
+                          "
+                        >
+                          QC
+                        </div>
+                      </div>
+                    </td>
+<td>
+  
+
+  <!-- Status Display (Simplified) -->
+  {% if data.iqf_acceptance %}
+    <!-- Show "Accepted" status -->
+    <span class="status-badge accepted" style="
+      background-color: #66bb6a; 
+      color: white; 
+      padding: 6px 12px; 
+      border-radius: 20px; 
+      font-size: 12px; 
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    ">
+      <i class="fa fa-check-circle"></i>Accepted
+    </span>
+
+  {% elif data.iqf_rejection %}
+    <!-- Show "Rejected" status -->
+    <span class="status-badge rejected" style="
+      background-color: #e57373; 
+      color: white; 
+      padding: 6px 12px; 
+      border-radius: 20px; 
+      font-size: 12px; 
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    ">
+      <i class="fa fa-times-circle"></i>Rejected
+    </span>
+
+  {% elif data.iqf_few_cases_acceptance %}
+    <!-- Show "Partial Reject" status -->
+    <span class="status-badge partial-rejected" style="
+      background-color: #fb9393; 
+      color: white; 
+      padding: 6px 12px; 
+      border-radius: 20px; 
+      font-size: 12px; 
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    ">
+      <i class="fa fa-adjust"></i>Partial Accepted
+    </span>
+
+  {% endif %}
+
+    <!-- Eye icon to view submitted "Tray Scan Table" -->
+    <a href="#"
+      title="View"
+      class="text-primary tray-scan-btn-Jig"
+      style="text-decoration: underline; margin-left: 8px;"
+      data-stock-lot-id="{{ data.stock_lot_id }}"
+      data-batch-id="{{ data.batch_id }}"
+      data-model-no="{{ data.plating_stk_no }}"
+      data-no-of-trays="{{ data.no_of_trays }}"
+      data-tray-capacity="{{ data.tray_capacity|default:'0' }}"
+      data-moved-to-d-picker="{{ data.Moved_to_D_Picker }}"
+      data-tray-qty-list="{{ data.tray_qty_list|default:'[]'|safe }}"
+      data-accepted-ip-stock="{{ data.iqf_acceptance|yesno:'true,false' }}"
+      data-rejected-ip-stock="{{ data.iqf_rejection|yesno:'true,false' }}"
+      data-model-image="{{ data.model_images.0|default:'' }}"
+      data-few-cases-accepted-ip-stock="{{ data.iqf_few_cases_acceptance|yesno:'true,false' }}"
+        data-total-batch-quantity="{{ data.iqf_accepted_qty }}"
+    data-missing-qty="{{ data.iqf_missing_qty }}"
+    data-physical-qty="{{ data.iqf_physical_qty }}">
+
+      
+      <img src="{% static 'assets/icons/view.png' %}"
+          alt="View"
+          style="width: 20px; margin-right: 8px; height: auto; cursor:pointer;" />
+    </a>
+</td>
+                    <td>
+                      {% if data.brass_onhold_picking  %}
+                        <div
+                          class="d-inline-block px-3 fw-semibold text-center rounded-pill"
+                          style="
+                            border: 2px solid #4997ac;
+                            background-color: #d1f2f3;
+                            color: #03425d;
+                            font-size: clamp(0.75rem, 2vw, 0.875rem);
+                            white-space: nowrap;
+                            padding-top: 0.5rem;
+                            padding-bottom: 0.5rem;
+                          "
+                        >
+                          On-Hold
+                        </div>
+                      {% elif data.iqf_rejection or data.iqf_few_cases_acceptance or data.iqf_acceptance %}
+                        <div class="d-inline-block px-3 fw-semibold text-center rounded-pill"
+                            style="border: 2px solid #0d5d17; background-color: #c5f9c2; color: #2f801b; font-size: clamp(0.3rem, 2vw, 0.875rem); white-space: nowrap; padding: 0.3rem;">
+                          Yet to Release
+                        </div>
+                      {% else %}
+                        <div class="d-inline-block px-3 fw-semibold text-center rounded-pill"
+                            style="border: 2px solid #f9a825; background-color: #fff8e1; color: #b26a00; font-size: clamp(0.3rem, 2vw, 0.875rem); white-space: nowrap; padding: 0.3rem;">
+                          Yet to Start
+                        </div>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div
+                        class="d-inline-block px-3 fw-semibold text-center rounded-pill"
+                        style="
+                          border: 2px solid
+                            {% if data.last_process_module == 'Input screening' %}
+                              #0d5d17
+                            {% elif data.last_process_module == 'Brass QC' %}
+                              #f9a825
+                            {% elif data.last_process_module == 'DayPlanning' %}
+                              #1976d2
+                            {% else %}
+                              #9adeed
+                            {% endif %};
+                          background-color:
+                            {% if data.last_process_module == 'Input screening' %}
+                              #c5f9c2
+                            {% elif data.last_process_module == 'Brass QC' %}
+                              #fff8e1
+                            {% elif data.last_process_module == 'DayPlanning' %}
+                              #d1eaff
+                            {% else %}
+                              #d1edf3
+                            {% endif %};
+                          color:
+                            {% if data.last_process_module == 'Input screening' %}
+                              #2f801b
+                            {% elif data.last_process_module == 'Brass QC' %}
+                              #b26a00
+                            {% elif data.last_process_module == 'DayPlanning' %}
+                              #033b5d
+                            {% else %}
+                              #033b5d
+                            {% endif %};
+                          font-size: clamp(0.75rem, 2vw, 0.875rem);
+                          white-space: nowrap;
+                          padding-top: 0.5rem;
+                          padding-bottom: 0.5rem;
+                        "
+                      >
+                        {{ data.last_process_module|default:"N/A" }}
+                      </div>
+                    </td>
+                    <td>{{data.accepted_comment}}</td>
+                    <td>
+                      {% if not data.iqf_acceptance and not data.iqf_rejection and not data.iqf_accepted_tray_scan_status and not data.iqf_few_cases_acceptance %}
+
+                      <!-- VoiceRec with tooltip (audio remark) -->
+                        <a href="#" title="Add Audio Remark" class="remark-tooltip-trigger" style="display: inline-flex; align-items: center; height: 28px; margin-left: 0; position: relative; cursor: pointer;">
+                          <img src="{% static 'assets/icons/rec.png' %}" alt="VoiceRec" style="width: 20px; height: 20px"/>
+                          <div class="remark-tooltip" style="position: absolute; top: 110%; left: 50%; transform: translateX(-50%); width: 300px; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; padding: 15px; z-index: 1000;">
+                            
+                            <!-- Audio recording UI placeholder -->
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                              <button type="button" style="background: #28a745; color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fa fa-microphone"></i>
+                              </button>
+                              <span style="font-size: 14px; color: #333;">Hold to record audio</span>
+                            </div>
+                            <div style="text-align: right; margin-top: 10px;">
+                              <button type="button" style="background-color: #007bff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                                <i class="fa fa-send"></i>
+                              </button>
+                            </div>
+                          </div>
+                        </a>
+
+                                            <a
+                        href="#"
+                        title="Add Remark"
+                        class="remark-tooltip-trigger"
+                        style="display: inline-flex; align-items: center; height: 20px; margin-left: 5px; position: relative; cursor: pointer;"
+                      >
+                        <img
+                          src="{% static 'assets/icons/chat_icon.png' %}"
+                          alt="Chat"
+                          style="width: 20px; height: 20px"
+                        />
+                        <div
+                          class="remark-tooltip"
+                          style="position: absolute; top: 110%; left: 50%; transform: translateX(-50%); width: 300px; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; padding: 15px; z-index: 1000;"
+                        >
+                          <div
+                            style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 10px solid #fff;"
+                          ></div>
+                          <textarea
+                            placeholder="Type your remark..."
+                            style="width: 85%; height: 40px; resize: vertical; border: 1px solid #ccc; padding: 5px; border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px;"
+                            {% if data.IQF_pick_remarks %}readonly{% endif %}
+                          >{{ data.IQF_pick_remarks|default_if_none:"" }}</textarea>
+                          <div style="text-align: right; margin-top: -35px">
+                            {% if not data.IQF_pick_remarks %}
+                            <button
+                              type="button"
+                              style="background-color: #007bff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px;"
+                            >
+                              <i class="fa fa-send"></i>
+                            </button>
+                            {% else %}
+                            <div style="margin-top: 40px; color: #31708f; background: #d9edf7; border: 1px solid #bce8f1; border-radius: 4px; padding: 8px 12px; font-size: 10px; text-align: left;">
+                              <i class="fa fa-info-circle" style="margin-right: 6px;"></i>
+                              Remark already saved and cannot be edited.
+                            </div>
+                            {% endif %}
+                          </div>
+                        </div>
+                      </a>
+                       {% else %}
+                      <!-- Audio Remark Icon (disabled) -->
+                      <span title="Disabled after moved" style="display: inline-flex; align-items: center; height: 28px; margin-left: 0; opacity: 0.5; pointer-events: none;">
+                        <img src="{% static 'assets/icons/rec.png' %}" alt="VoiceRec Disabled" style="width: 20px; height: 20px; filter: grayscale(1) opacity(0.5);" />
+                      </span>
+                      <!-- Chat Remark Icon (disabled) -->
+                      <span title="Disabled after moved" style="display: inline-flex; align-items: center; height: 20px; margin-left: 5px; opacity: 0.5; pointer-events: none;">
+                        <img src="{% static 'assets/icons/chat_icon.png' %}" alt="Chat Disabled" style="width: 20px; height: 20px; filter: grayscale(1) opacity(0.5);" />
+                      </span>
+                    {% endif %}
+                    </td>
+                   
+                  </tr>
+           
+                 {% endfor %}
+                </tbody>
+              </table>
+
+                                    <div
+  id="trayScanModal_DayPlanning"
+  class="tray-scan-modal-DayPlanning"
+  style="display:none"
+>
+  <div class="tray-scan-modal-DayPlanning-content">
+    <span id="closeTrayScanModal_DayPlanning" class="tray-scan-close-readonly">&times;</span>
+    
+    <div class="modal-top-header" style="display: flex; align-items: center; gap: 20px; padding-bottom: 10px;">
+      <div class="user-profile" style="display: flex; align-items: center; gap: 8px">
+        <img src="/static/assets/images/imagePlaceholder.png" alt="User Profile" style="border-radius: 50%; width: 50px; height: 50px; object-fit: cover;" />
+        <!-- Model No and RW Qty in same line -->
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: bold; color: #666;">Model No:</span>
+              <h6 id="modalModelNo_DayPlanning" style="margin: 0; color: #028084; font-weight: bold;">(Fetch Dynamically)</h6>
+            </div>
+
+          </div>
+          <p>
+              Accepted Qty: <span id="modalLotQty" style="font-weight:bold; color:#e67e22;"></span> 
+          </p>
+        </div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+      <h5 style="text-align: center; margin: 0; flex: 1; font-weight: 600; color:#595959">
+        IQF - Rejected Tray Scan 
+      </h5>
+      <button id="trayValidateBtn" type="button" style="display: flex; align-items: center; gap: 6px; background: #f5faff; border: 1px solid #023E4DCC; color: #023E4DCC; border-radius: 20px; padding: 4px 14px; font-size: 12px; font-weight: 500; cursor: pointer;">
+        
+        Tray Validate
+      </button>
+      <input id="trayValidateInput" type="text" placeholder="Enter validation info..." style="position: absolute; left: -9999px; opacity: 0; pointer-events: none;" />
+      <img src="{% static 'assets/icons/redo2.png' %}" alt="Redo" id="trayScanRedoBtn" style="width: 24px; height: 24px; cursor: pointer; margin-left: 8px;" title="Clear Tray IDs" />
+    </div>
+    <div id="trayErrorMessage" style="display: none; background-color: #ffebee; border: 1px solid #f44336; color: #c62828; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px; font-size: 12px; text-align: center;">
+      <span id="trayErrorText"></span>
+    </div>
+    <div id="trayScanDetails_DayPlanning" class="table-grid">
+      <!-- Headers and dynamic content will be injected here -->
+    </div>
+  </div>
+</div>
+
+               </div>
+
+              
+            </div>
+            
+           
+          </div>
+         <!-- Pagination Section -->
+
+            <div class="pagination-wrapper">
+              <nav aria-label="Page navigation">
+                                <ul class="pagination justify-content-end mb-0">
+                  {# Previous button #}
+                  {% if page_obj.has_previous %}
+                    <li>
+                      <a href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                        <span aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+                      </a>
+                    </li>
+                  {% else %}
+                    <li class="disabled">
+                      <span aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+                    </li>
+                  {% endif %}
+                
+                  {# Always show first page #}
+                  {% if page_obj.number > 3 %}
+                    <li><a href="?page=1">1</a></li>
+                    {% if page_obj.number > 4 %}
+                      <li class="disabled"><span>…</span></li>
+                    {% endif %}
+                  {% endif %}
+                
+                  {# Show pages around current page #}
+                  {% for num in page_obj.paginator.page_range %}
+                    {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                      {% if num == page_obj.number %}
+                        <li class="active"><span>{{ num }}</span></li>
+                      {% else %}
+                        <li><a href="?page={{ num }}">{{ num }}</a></li>
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                
+                  {# Show ellipsis and last page if needed #}
+                  {% if page_obj.number < page_obj.paginator.num_pages|add:'-2' %}
+                    {% if page_obj.number < page_obj.paginator.num_pages|add:'-3' %}
+                      <li class="disabled"><span>…</span></li>
+                    {% endif %}
+                    <li><a href="?page={{ page_obj.paginator.num_pages }}">{{ page_obj.paginator.num_pages }}</a></li>
+                  {% endif %}
+                
+                  {# Next button #}
+                  {% if page_obj.has_next %}
+                    <li>
+                      <a href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                        <span aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
+                      </a>
+                    </li>
+                  {% else %}
+                    <li class="disabled">
+                      <span aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
+                    </li>
+                  {% endif %}
+                </ul>
+              </nav>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Image Slider Modal (popup) -->
+  <div id="imageSliderModal" class="image-slider-modal">
+    <span id="closeImageSliderModal" class="modal-close-BQ">&times;</span>
+    <h3>Visual Aid</h3>
+    <div class="slider" id="slider">
+      <div class="slides" id="slidesContainer">
+        <div class="slide active">
+          <img src="{% static 'assets/images/carousel/banner_1.jpg' %}" alt="Slide 1">
+        </div>
+        <div class="slide">
+          <img src="{% static 'assets/images/carousel/banner_2.jpg' %}" alt="Slide 2">
+        </div>
+        <div class="slide">
+          <img src="{% static 'assets/images/carousel/banner_3.jpg' %}" alt="Slide 3">
+        </div>
+      </div>
+      <button class="prev" id="prevBtn">&#10094;</button>
+      <button class="next" id="nextBtn">&#10095;</button>
+    </div>
+  </div>
+  <!-- Image Slider Modal -->
+  <div id="imageSliderModal" class="image-slider-modal">
+    <span id="closeImageSliderModal" class="modal-close-BQ">&times;</span>
+    <div class="slider" id="slider">
+      <button class="prev" id="prevBtn">&#8592;</button>
+      <div class="slides"></div>
+      <button class="next" id="nextBtn">&#8594;</button>
+    </div>
+  </div>
+
+            
+  {% block script %}
+
+
+  <script nonce="{{ csp_nonce }}">
+document.addEventListener("DOMContentLoaded", function () {
+  const redoBtn = document.getElementById("trayScanRedoBtn");
+  const validateInput = document.getElementById("trayValidateInput");
+  const detailsDiv = document.getElementById("trayScanDetails_DayPlanning");
+  const errorMessage = document.getElementById("trayErrorMessage");
+
+  if (redoBtn && validateInput && detailsDiv) {
+    redoBtn.addEventListener("click", function () {
+      // Hide and clear the input
+      validateInput.value = "";
+      validateInput.blur();
+      
+      // Hide error message
+      if (errorMessage) {
+        errorMessage.style.display = "none";
+      }
+      
+      // Reset Tray Validate button to normal state
+      const validateBtn = document.getElementById("trayValidateBtn");
+      if (validateBtn) {
+        validateBtn.style.background = "#f5faff";
+        validateBtn.style.borderColor = "#023E4DCC";
+        validateBtn.style.color = "#023E4DCC";
+      }
+
+      // Reset all icons in the validation status column (read-only modal)
+      // For table layout:
+      const rows = detailsDiv.querySelectorAll("tbody tr");
+      if (rows.length > 0) {
+        rows.forEach(row => {
+          const statusCell = row.querySelector("td:last-child");
+          if (statusCell) {
+            statusCell.innerHTML = `
+              <div class="validation-status">
+                <div class="status-icon fail">
+                  <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
+                </div>
+                <div class="status-icon pass">
+                  <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
+                </div>
+              </div>
+            `;
+          }
+        });
+      } else {
+        // For grid layout (if used)
+        detailsDiv.querySelectorAll('.tray-validation-status-header, .tray-validation-status-cell').forEach(cell => {
+          cell.innerHTML = `
+            Tray Validation Status
+            <span style="margin-left: 10px;">
+              <img src="{% static 'assets/icons/fail.png' %}" alt="Cross" title="Fail" style="width:18px; height:18px; margin-right:6px; vertical-align:middle;" />
+              <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px; vertical-align:middle;" />
+            </span>
+          `;
+        });
+      }
+    });
+  }
+});
+</script>
+
+<script nonce="{{ csp_nonce }}">
+document.addEventListener("DOMContentLoaded", function () {
+  const validateBtn = document.getElementById("trayValidateBtn");
+  const validateInput = document.getElementById("trayValidateInput");
+  const redoBtn = document.getElementById("trayScanRedoBtn");
+  const errorMessage = document.getElementById("trayErrorMessage");
+
+  if (validateBtn && validateInput) {
+    validateBtn.addEventListener("click", function () {
+      validateInput.value = "";
+      
+      // Hide error message when starting new validation
+      if (errorMessage) {
+        errorMessage.style.display = "none";
+      }
+      
+      // Change button to active state (green color)
+      validateBtn.style.background = "#e8f5e8";
+      validateBtn.style.borderColor = "#4caf50";
+      validateBtn.style.color = "#2e7d32";
+      
+      // Add the 4th column to the table
+      const modal = document.getElementById("trayScanModal_DayPlanning");
+      const detailsDiv = document.getElementById("trayScanDetails_DayPlanning");
+      
+      if (modal && detailsDiv && modal.buildTableHTML) {
+        // Rebuild table with validation column
+        detailsDiv.innerHTML = modal.buildTableHTML(true);
+      }
+      
+      // Focus the hidden input so it can receive keystrokes
+      validateInput.focus();
+    });
+  }
+  
+  if (redoBtn && validateInput) {
+    redoBtn.addEventListener("click", function () {
+      validateInput.value = "";
+      validateInput.blur();
+      
+      // Hide error message
+      if (errorMessage) {
+        errorMessage.style.display = "none";
+      }
+      
+      // Reset button to normal state (original blue color)
+      if (validateBtn) {
+        validateBtn.style.background = "#f5faff";
+        validateBtn.style.borderColor = "#023E4DCC";
+        validateBtn.style.color = "#023E4DCC";
+      }
+      
+      // Remove the 4th column from the table
+      const modal = document.getElementById("trayScanModal_DayPlanning");
+      const detailsDiv = document.getElementById("trayScanDetails_DayPlanning");
+      
+      if (modal && detailsDiv && modal.buildTableHTML) {
+        // Rebuild table without validation column
+        detailsDiv.innerHTML = modal.buildTableHTML(false);
+      }
+      
+      redoBtn.focus();
+    });
+  }
+});
+</script>
+
+
+<script nonce="{{ csp_nonce }}">
+// Updated Tray Validation Script with Stock Status Support and Enhanced Error Handling
+document.addEventListener("DOMContentLoaded", function () {
+  const validateInput = document.getElementById("trayValidateInput");
+  const detailsDiv = document.getElementById("trayScanDetails_DayPlanning");
+  const errorMessage = document.getElementById("trayErrorMessage");
+  const errorText = document.getElementById("trayErrorText");
+
+  console.log("🔍 Tray validation script loaded");
+  console.log("📋 Elements found:", {
+    validateInput: !!validateInput,
+    detailsDiv: !!detailsDiv,
+    errorMessage: !!errorMessage,
+    errorText: !!errorText
+  });
+
+  function getCurrentBatchId() {
+    const modal = document.getElementById("trayScanModal_DayPlanning");
+    if (modal && modal.dataset.batchId) return modal.dataset.batchId;
+    const lastBtn = document.querySelector('.tray-scan-btn-Jig[data-batch-id]');
+    return lastBtn ? lastBtn.getAttribute('data-batch-id') : '';
+  }
+
+  function getCurrentStockStatus() {
+    // Get stock status from the last clicked button
+    const lastBtn = document.querySelector('.tray-scan-btn-Jig[data-batch-id]');
+    if (lastBtn) {
+      return {
+        accepted_ip_stock: lastBtn.getAttribute('data-accepted-ip-stock') === 'true',
+        brass_qc_rejection: lastBtn.getAttribute('data-rejected-ip-stock') === 'true',
+        brass_qc_few_cases_accptance: lastBtn.getAttribute('data-few-cases-accepted-ip-stock') === 'true'
+      };
+    }
+    return {
+      accepted_ip_stock: false,
+      brass_qc_rejection: false,
+      brass_qc_few_cases_accptance: false
+    };
+  }
+
+  function showError(message) {
+    console.log("🚨 Showing error:", message);
+    if (errorMessage && errorText) {
+      errorText.textContent = message;
+      
+      // Force display with important styles
+      errorMessage.style.setProperty('display', 'block', 'important');
+      errorMessage.style.setProperty('visibility', 'visible', 'important');
+      errorMessage.style.setProperty('opacity', '1', 'important');
+      errorMessage.style.setProperty('z-index', '99999', 'important');
+      errorMessage.style.setProperty('position', 'relative', 'important');
+      errorMessage.style.setProperty('background-color', '#ffebee', 'important');
+      errorMessage.style.setProperty('border', '1px solid #f44336', 'important');
+      errorMessage.style.setProperty('color', '#c62828', 'important');
+      errorMessage.style.setProperty('padding', '8px 12px', 'important');
+      errorMessage.style.setProperty('border-radius', '4px', 'important');
+      errorMessage.style.setProperty('margin-bottom', '10px', 'important');
+      errorMessage.style.setProperty('font-size', '12px', 'important');
+      errorMessage.style.setProperty('text-align', 'center', 'important');
+      errorMessage.style.setProperty('width', '100%', 'important');
+      
+      console.log("✅ Error message styled");
+      
+      // Scroll to error message if it exists
+      errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+      // Flash the background to make it more noticeable
+      let flashCount = 0;
+      const flashInterval = setInterval(() => {
+        if (flashCount < 6) {
+          errorMessage.style.backgroundColor = flashCount % 2 === 0 ? '#ffcdd2' : '#ffebee';
+          flashCount++;
+        } else {
+          clearInterval(flashInterval);
+          errorMessage.style.backgroundColor = '#ffebee';
+        }
+      }, 200);
+      
+      console.log("✅ Error message displayed");
+      
+      // Auto-hide after 8 seconds
+      setTimeout(() => {
+        errorMessage.style.display = "none";
+        console.log("⏰ Auto-hiding error message after 8 seconds");
+      }, 8000);
+    } else {
+      console.log("❌ Error message elements not found!");
+      // Fallback: show alert if error div not found
+      alert(message);
+    }
+  }
+
+  function hideError() {
+    console.log("🫥 Hiding error message");
+    if (errorMessage) {
+      errorMessage.style.display = "none";
+    }
+  }
+
+  if (validateInput && detailsDiv) {
+    console.log("🎯 Setting up tray validation event listener");
+    
+    // Add input event listener for real-time feedback
+    validateInput.addEventListener("input", function(e) {
+      console.log("⌨️ User typing:", e.target.value);
+    });
+    
+    validateInput.addEventListener("keydown", function (e) {
+      console.log("🔑 Key pressed:", e.key, "Value:", validateInput.value.trim());
+      
+      if (e.key === "Enter") {
+        const trayId = validateInput.value.trim();
+        console.log("🎯 Enter pressed with tray ID:", trayId);
+        
+        if (!trayId) {
+          console.log("⚠️ Empty tray ID, returning");
+          return;
+        }
+        
+        const batchId = getCurrentBatchId();
+        console.log("📦 Current batch ID:", batchId);
+        
+        if (!batchId) {
+          console.log("❌ No batch ID found");
+          showError("Batch ID not found. Please refresh and try again.");
+          return;
+        }
+
+        const stockStatus = getCurrentStockStatus();
+        console.log("📊 Stock status:", stockStatus);
+
+        // Hide any existing error message
+        hideError();
+        console.log("🔄 Making API call to validate tray...");
+
+        // Include stock status in the validation request
+        const requestData = {
+          batch_id: batchId,
+          tray_id: trayId,
+          ...stockStatus
+        };
+
+        fetch("/iqf/iqf_complete_tray_validate/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie('csrftoken')
+          },
+          body: JSON.stringify(requestData)
+        })
+        .then(res => {
+          console.log("📡 API Response status:", res.status);
+          return res.json();
+        })
+        .then(data => {
+          console.log("📊 API Response data:", data);
+          
+          // Find the row in the table with this Tray ID
+          const rows = detailsDiv.querySelectorAll("tbody tr");
+          console.log("📋 Found", rows.length, "rows in modal table");
+          
+          let found = false;
+          
+          rows.forEach((row, index) => {
+            const trayIdInput = row.querySelector('input[type="text"]');
+            if (trayIdInput) {
+              const rowTrayId = trayIdInput.value.trim();
+              console.log(`🔎 Row ${index + 1}: checking "${rowTrayId}" vs "${trayId}"`);
+              
+              if (rowTrayId === trayId) {
+                found = true;
+                console.log(`✅ Found matching tray in row ${index + 1}`);
+                
+                const statusCell = row.querySelector("td:last-child");
+                if (statusCell) {
+                  if (data.success && data.exists) {
+                    // Pass validation - show tick as active, cross as inactive
+                    statusCell.innerHTML = `
+                      <div class="validation-status">
+                        <div class="status-icon fail inactive">
+                          <img src="/static/assets/icons/fail.png" alt="Fail" title="Fail" style="width:18px; height:18px;" />
+                        </div>
+                        <div class="status-icon pass active">
+                          <img src="/static/assets/icons/pass.png" alt="Pass" title="Pass" style="width:18px; height:18px;" />
+                        </div>
+                      </div>
+                    `;
+                    
+                    // Add visual feedback for successful validation
+                    row.style.backgroundColor = '#e8f5e8';
+                    setTimeout(() => {
+                      row.style.backgroundColor = '';
+                    }, 2000);
+                    
+                    console.log("✅ Updated status cell to PASS");
+                    
+                  } else {
+                    // Fail validation - show cross as active, tick as inactive
+                    statusCell.innerHTML = `
+                      <div class="validation-status">
+                        <div class="status-icon fail active">
+                          <img src="/static/assets/icons/fail.png" alt="Fail" title="Fail" style="width:18px; height:18px;" />
+                        </div>
+                        <div class="status-icon pass inactive">
+                          <img src="/static/assets/icons/pass.png" alt="Pass" title="Pass" style="width:18px; height:18px;" />
+                        </div>
+                      </div>
+                    `;
+                    
+                    // Add visual feedback for failed validation
+                    row.style.backgroundColor = '#ffebee';
+                    setTimeout(() => {
+                      row.style.backgroundColor = '';
+                    }, 2000);
+                    
+                    console.log("❌ Updated status cell to FAIL");
+                  }
+                }
+              }
+            }
+          });
+          
+          if (!found) {
+            console.log("❌ Tray not found in table");
+            
+            // Enhanced error message with stock status context
+            let filterContext = '';
+            if (stockStatus.accepted_ip_stock && !stockStatus.brass_qc_few_cases_accptance) {
+              filterContext = ' (searching in accepted trays only)';
+            } else if (stockStatus.brass_qc_rejection && !stockStatus.brass_qc_few_cases_accptance) {
+              filterContext = ' (searching in rejected trays only)';
+            } else if (stockStatus.brass_qc_few_cases_accptance) {
+              filterContext = ' (searching in both accepted and rejected trays)';
+            }
+            
+            showError(`Tray ID "${trayId}" not found in table${filterContext}.`);
+          } else {
+            console.log("🎉 Validation successful!");
+          }
+          
+          // Always clear and focus input for next scan
+          validateInput.value = "";
+          validateInput.focus();
+        })
+        .catch(error => {
+          console.error('❌ Network error:', error);
+          showError('Network error occurred while validating the tray ID.');
+          validateInput.value = "";
+          validateInput.focus();
+        });
+      }
+    });
+    
+    // Also add focus event to ensure input is ready
+    validateInput.addEventListener("focus", function() {
+      console.log("🎯 Validate input focused and ready");
+    });
+    
+  } else {
+    console.log("❌ Required elements not found:", {
+      validateInput: !!validateInput,
+      detailsDiv: !!detailsDiv
+    });
+  }
+  
+  // Helper for CSRF
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  
+  console.log("🎯 Tray validation script setup complete");
+});
+</script>
+
+
+<script nonce="{{ csp_nonce }}">
+    document.addEventListener("DOMContentLoaded", function () {
+      document.querySelectorAll('.tray-scan-btn-Jig').forEach(function(link) {
+        link.addEventListener('click', async function (e) {
+          e.preventDefault();
+    
+          // Get modal elements
+          const modal = document.getElementById("trayScanModal_DayPlanning");
+          const detailsDiv = document.getElementById("trayScanDetails_DayPlanning");
+          const modalModelNo = document.getElementById("modalModelNo_DayPlanning");
+
+          const modalLotQty = document.getElementById("modalLotQty");
+          const modalMissingQty = document.getElementById("modalMissingQty");
+          const modalPhysicalQty = document.getElementById("modalPhysicalQty");
+
+          modal.dataset.batchId = link.getAttribute('data-batch-id');
+    
+          // Get data attributes
+          const batchId = link.getAttribute('data-batch-id');
+          const modelNo = link.getAttribute('data-model-no');
+          const stockLotId = link.getAttribute('data-stock-lot-id');
+          const noOfTrays = parseInt(link.getAttribute('data-no-of-trays')) || 0;
+          const trayCapacity = link.getAttribute('data-tray-capacity') || "";
+          const totalBatchQuantity = link.getAttribute('data-total-batch-quantity') || "0";
+          const lotQty = link.getAttribute('data-lot-qty') || "0";
+          const missingQty = link.getAttribute('data-missing-qty') || "0";
+          const physicalQty = link.getAttribute('data-physical-qty') || "0";
+
+          // ✅ UPDATED: Get brass QC specific stock status data
+          const brassQcAccptance = link.getAttribute('data-brass-qc-accptance') === 'true';
+          const brassQcRejection = link.getAttribute('data-brass-qc-rejection') === 'true';
+          const brassQcFewCasesAccptance = link.getAttribute('data-brass-qc-few-cases-accptance') === 'true';
+    
+          // Set model number in modal
+          if (modalModelNo && modelNo) {
+            modalModelNo.textContent = modelNo;
+          }
+
+          if (modalLotQty) {
+            modalLotQty.textContent = totalBatchQuantity || lotQty || '0';
+            console.log("✅ Set RW Qty to:", totalBatchQuantity || lotQty || '0');
+          }
+
+          if (modalMissingQty) {
+            modalMissingQty.textContent = missingQty || '0';
+            console.log("✅ Set Missing Qty to:", missingQty || '0');
+          }
+
+          if (modalPhysicalQty) {
+            modalPhysicalQty.textContent = physicalQty || '0';
+            console.log("✅ Set Physical Qty to:", physicalQty || '0');
+          }
+    
+          // Set model image
+          const modalUserImg = modal.querySelector('.user-profile img');
+          const modelImage = link.getAttribute('data-model-image');
+          if (modalUserImg) {
+            modalUserImg.src = modelImage || "/static/assets/images/imagePlaceholder.png";
+          }
+    
+          // ✅ UPDATED: Fetch ONLY rejected tray data
+          let traysData = [];
+          let rejectionSummary = {};
+          try {
+            const params = new URLSearchParams({
+            lot_id: stockLotId,
+            });
+            
+            // ✅ UPDATED: Use correct endpoint name
+            const resp = await fetch(`/iqf/iqf_accept_CompleteTable_tray_id_list/?${params}`);
+            const result = await resp.json();
+            if (result.success) {
+              traysData = result.trays || [];
+              rejectionSummary = result.rejection_summary || {};
+              console.log('✅ Fetched ONLY brass rejected trays:', traysData);
+              console.log('📊 Rejection summary:', rejectionSummary);
+            }
+          } catch (e) {
+            console.error('❌ Error fetching tray data:', e);
+          }
+    
+          // ✅ UPDATED: Build modal content - ONLY show rejected trays
+          function buildTableHTML(showValidationColumn = false) {
+            let html = `
+              <table class="table table-bordered table-sm" style="width:100%; margin-bottom:0;">
+                <thead>
+                  <tr>
+                    <th style="width:50px;">S.no</th>
+                    <th>Tray ID</th>
+                    <th>Tray Qty</th>
+                    ${showValidationColumn ? '<th>Tray Validation Status</th>' : ''}
+                  </tr>
+                </thead>
+                <tbody>
+            `;
+          
+            let rowCounter = 1;
+            let topTrayShown = false;
+          
+            // ✅ ONLY SHOW REJECTED TRAYS - No accepted section
+            if (traysData && traysData.length > 0) {
+              // ✅ All trays in response are rejected (rejected_tray = True)
+              const rejectedTrays = traysData; // All trays are already filtered as rejected
+              const hasShortage = rejectionSummary.shortage_rejections > 0;
+              
+              if (rejectedTrays.length > 0 || hasShortage) {
+                // ✅ Dynamic header based on content
+                const hasRejected = rejectedTrays.some(tray => tray.rejected_tray && !tray.delink_tray);
+                const hasDelinked = rejectedTrays.some(tray => tray.delink_tray);
+                
+                let headerText = '';
+                let headerColor = '';
+                let bgColor = '';
+                
+                // ✅ Dynamic header based on combinations
+                if (hasRejected && hasDelinked && hasShortage) {
+                  headerText = '❌ REJECTED, DELINKED & SHORTAGE';
+                  headerColor = '#c62828';
+                  bgColor = '#ffebee';
+                } else if (hasRejected && hasShortage && !hasDelinked) {
+                  headerText = '❌ REJECTED & SHORTAGE';
+                  headerColor = '#c62828';
+                  bgColor = '#ffebee';
+                } else if (hasDelinked && hasShortage && !hasRejected) {
+                  headerText = '🔗 DELINKED & SHORTAGE';
+                  headerColor = '#6c757d';
+                  bgColor = '#f8f9fa';
+                } else if (hasRejected && hasDelinked && !hasShortage) {
+                  headerText = '❌ REJECTED & DELINKED TRAYS';
+                  headerColor = '#c62828';
+                  bgColor = '#ffebee';
+                } else if (hasShortage && !hasRejected && !hasDelinked) {
+                  headerText = '📦 SHORTAGE';
+                  headerColor = '#ff9800';
+                  bgColor = '#fff3e0';
+                } else if (hasDelinked && !hasRejected && !hasShortage) {
+                  headerText = '🔗 DELINKED TRAYS';
+                  headerColor = '#6c757d';
+                  bgColor = '#f8f9fa';
+                } else if (hasRejected && !hasDelinked && !hasShortage) {
+                  headerText = '❌ REJECTED TRAYS';
+                  headerColor = '#c62828';
+                  bgColor = '#ffebee';
+                }
+                
+
+          
+                // ✅ Determine top tray (prioritize ip_top_tray among rejected trays)
+                let topTray = rejectedTrays.find(tray => tray.ip_top_tray);
+                if (!topTray) {
+                  topTray = rejectedTrays.find(tray => tray.top_tray);
+                }
+                
+                // Add top tray first if it exists
+                if (topTray) {
+                  let displaySNo = '1 (Top Tray)';
+                  let displayQuantity = topTray.ip_top_tray && topTray.ip_top_tray_qty !== null ? 
+                                       topTray.ip_top_tray_qty : topTray.tray_quantity;
+
+                  let statusTag = '';
+                  if (topTray.delink_tray) {
+                    statusTag = '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">DELINKED</span>';
+                  } 
+
+                  html += `
+                    <tr class="top-tray-row">
+                      <td>${displaySNo}</td>
+                      <td>
+                        <input type="text" class="form-control" value="${topTray.tray_id || ''}" readonly style="width: 100%;" />
+                        ${statusTag}
+                      </td>
+                      <td>
+                        <input type="number" class="form-control" value="${displayQuantity || ''}" readonly style="width: 100%;" />
+                      </td>
+                      ${showValidationColumn ? `
+                        <td>
+                          <div class="validation-status">
+                            <div class="status-icon fail">
+                              <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
+                            </div>
+                            <div class="status-icon pass">
+                              <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
+                            </div>
+                          </div>
+                        </td>
+                      ` : ''}
+                    </tr>
+                  `;
+                  rowCounter++;
+                }
+
+                // Add other rejected trays (excluding top tray)
+                const otherTrays = rejectedTrays.filter(tray => tray !== topTray);
+                otherTrays.forEach((tray) => {
+                  let displayQuantity = tray.ip_top_tray && tray.ip_top_tray_qty !== null ? 
+                                       tray.ip_top_tray_qty : tray.tray_quantity;
+
+                  let statusTag = '';
+                  if (tray.delink_tray) {
+                    statusTag = '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">DELINKED</span>';
+                  }
+                  
+                  html += `
+                    <tr>
+                      <td>${rowCounter}</td>
+                      <td>
+                        <input type="text" class="form-control" value="${tray.tray_id || ''}" readonly style="width: 100%;" />
+                        ${statusTag}
+                      </td>
+                      <td>
+                        <input type="number" class="form-control" value="${displayQuantity || ''}" readonly style="width: 100%;" />
+                      </td>
+                      ${showValidationColumn ? `
+                        <td>
+                          <div class="validation-status">
+                            <div class="status-icon fail">
+                              <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
+                            </div>
+                            <div class="status-icon pass">
+                              <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
+                            </div>
+                          </div>
+                        </td>
+                      ` : ''}
+                    </tr>
+                  `;
+                  rowCounter++;
+                });
+          
+                // ✅ Handle SHORTAGE entries (if any)
+                if (hasShortage) {
+                  fetch(`/brass_qc/get_shortage_rejections/?lot_id=${encodeURIComponent(stockLotId)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                      if (data.success && data.shortage_rejections.length > 0) {
+                        data.shortage_rejections.forEach((shortage) => {
+                          html += `
+                            <tr class="shortage-row">
+                              <td>${rowCounter}</td>
+                              <td>
+                                <input type="text" class="form-control" value="SHORTAGE" readonly style="width: 100%; font-weight: bold;" />
+                                <span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">No Tray-ID</span>
+                              </td>
+                              <td>
+                                <input type="number" class="form-control" value="${shortage.quantity}" readonly style="width: 100%;" />
+                              </td>
+                              ${showValidationColumn ? `
+                                <td>
+                                  <span style="color: #666; font-size: 11px;">N/A for SHORTAGE</span>
+                                </td>
+                              ` : ''}
+                            </tr>
+                          `;
+                          rowCounter++;
+                        });
+                        
+                        // Update the table content
+                        html += '</tbody></table>';
+                        detailsDiv.innerHTML = html;
+                      }
+                    })
+                    .catch(e => {
+                      console.error('Error fetching SHORTAGE details:', e);
+                      // Fallback: Add basic SHORTAGE row
+                      for (let i = 0; i < rejectionSummary.shortage_rejections; i++) {
+                        html += `
+                          <tr class="shortage-row">
+                            <td>${rowCounter}</td>
+                            <td>
+                              <input type="text" class="form-control" value="SHORTAGE" readonly style="width: 100%; font-weight: bold;" />
+                              <span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">No Tray-ID</span>
+                            </td>
+                            <td>
+                              <input type="number" class="form-control" value="?" readonly style="width: 100%;" />
+                            </td>
+                            ${showValidationColumn ? `
+                              <td>
+                                <span style="color: #666; font-size: 11px;">N/A for SHORTAGE</span>
+                              </td>
+                            ` : ''}
+                          </tr>
+                        `;
+                        rowCounter++;
+                      }
+                      html += '</tbody></table>';
+                      detailsDiv.innerHTML = html;
+                    });
+                  
+                  // Return early since we're handling async update
+                  return html;
+                }
+              }
+            } else {
+              // ✅ No rejected trays found
+              html += `
+                <tr>
+                  <td colspan="${showValidationColumn ? '4' : '3'}" style="text-align: center; padding: 20px; color: #666;">
+                    <i class="fa fa-info-circle" style="margin-right: 8px;"></i>
+                    No rejected trays found for this lot.
+                  </td>
+                </tr>
+              `;
+            }
+            
+            html += '</tbody></table>';
+            return html;
+          }
+
+          // Show table 
+          detailsDiv.innerHTML = buildTableHTML(false);
+    
+          // Store data for later use
+          modal.buildTableHTML = buildTableHTML;
+          modal.traysData = traysData;
+          modal.rejectionSummary = rejectionSummary;
+    
+          // Show the modal
+          modal.style.display = "block";
+          modal.classList.add("open");
+        });
+      });
+    
+      // Close handler remains the same
+      const closeBtn = document.getElementById("closeTrayScanModal_DayPlanning");
+      if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+          const modal = document.getElementById("trayScanModal_DayPlanning");
+          if (modal) {
+            modal.classList.remove("open");
+            modal.style.display = "none";
+          }
+        });
+      }
+    });
+</script>
+
+  <!-- Table Sorting Script -->
+  <script nonce="{{ csp_nonce }}">
+    document.addEventListener("DOMContentLoaded", function () {
+      const table = document.getElementById("order-listing");
+      if (!table) return;
+      const headers = table.querySelectorAll("thead th");
+      const tbody = table.querySelector("tbody");
+      let sortDirection = {};
+      headers.forEach((header, index) => {
+        header.style.cursor = "pointer";
+        header.addEventListener("click", function () {
+          const rows = Array.from(tbody.querySelectorAll("tr"));
+          const dir = sortDirection[index] === "asc" ? "desc" : "asc";
+          sortDirection[index] = dir;
+          rows.sort((a, b) => {
+            const cellA = a.children[index].textContent.trim();
+            const cellB = b.children[index].textContent.trim();
+            const valA = isNaN(cellA) ? cellA : parseFloat(cellA);
+            const valB = isNaN(cellB) ? cellB : parseFloat(cellB);
+            if (valA < valB) return dir === "asc" ? -1 : 1;
+            if (valA > valB) return dir === "asc" ? 1 : -1;
+            return 0;
+          });
+          tbody.innerHTML = "";
+          rows.forEach((row) => tbody.appendChild(row));
+        });
+      });
+    });
+  </script>
+
+
+
+  <!-- Script for Text Remarks (unchanged) -->
+  <script nonce="{{ csp_nonce }}">
+    document.addEventListener("DOMContentLoaded", function () {
+      var triggers = document.querySelectorAll(".remark-tooltip-trigger");
+      triggers.forEach(function (trigger) {
+        var tooltip = trigger.querySelector(".remark-tooltip");
+        var sendButton = tooltip ? tooltip.querySelector("button") : null;
+        function showTooltip() {
+          tooltip.style.opacity = "1";
+          tooltip.style.visibility = "visible";
+          var rect = tooltip.getBoundingClientRect();
+          if (rect.right > window.innerWidth) {
+            tooltip.style.left = "auto";
+            tooltip.style.right = "0";
+            tooltip.style.transform = "none";
+          }
+          if (rect.left < 0) {
+            tooltip.style.left = "0";
+            tooltip.style.transform = "none";
+          }
+          var textarea = tooltip.querySelector("textarea");
+          if (textarea) {
+            textarea.focus();
+          }
+        }
+        function hideTooltip() {
+          tooltip.style.opacity = "0";
+          tooltip.style.visibility = "hidden";
+        }
+        trigger.addEventListener("mouseenter", showTooltip);
+        trigger.addEventListener("mouseleave", function () {
+          setTimeout(function () {
+            if (!trigger.matches(":hover") && !tooltip.matches(":hover")) {
+              hideTooltip();
+            }
+          }, 100);
+        });
+        tooltip.addEventListener("mouseleave", function () {
+          setTimeout(function () {
+            if (!tooltip.matches(":hover") && !trigger.matches(":hover")) {
+              hideTooltip();
+            }
+          }, 100);
+        });
+        trigger.addEventListener("click", function (e) {
+          e.preventDefault();
+        });
+        if (sendButton) {
+          sendButton.addEventListener("click", hideTooltip);
+        }
+      });
+    });
+  </script>
+
+<!-- Plating Stk - Image hover - fixed position while hitting the Plating Stk No -->
+<script nonce="{{ csp_nonce }}">
+document.addEventListener("DOMContentLoaded", function () {
+  let openTooltip = null;
+
+  // Helper function to completely close a tooltip
+  function closeTooltip(tooltip, trigger) {
+    if (tooltip) {
+      console.log('🔴 Closing tooltip completely');
+      
+      // Remove pinned class
+      tooltip.classList.remove("pinned");
+      
+      // Hide the entire tooltip completely
+      tooltip.style.opacity = "0";
+      tooltip.style.pointerEvents = "none";
+      tooltip.style.visibility = "hidden";
+      tooltip.style.display = "none"; // ✅ ADDED: Force display none
+      
+      // Hide buttons
+      const infoBtn = tooltip.querySelector('.info-btn');
+      const closeBtn = tooltip.querySelector('.close-btn');
+      if (infoBtn) infoBtn.style.display = 'none';
+      if (closeBtn) closeBtn.style.display = 'none';
+      
+      // Remove visual indicator from trigger
+      if (trigger) {
+        trigger.style.backgroundColor = '';
+        trigger.style.borderRadius = '';
+      }
+      
+      // Clear global reference
+      openTooltip = null;
+      
+      console.log('✅ Tooltip completely closed');
+    }
+  }
+
+  document.querySelectorAll(".model-image-tooltip .info-btn").forEach(function(btn) {
+  btn.addEventListener("click", function(e) {
+    e.stopPropagation();
+    // Find the closest row
+    const row = btn.closest('tr');
+    let lotId = null; 
+    let batchId = null;
+    if (row) {
+      batchId = row.getAttribute('data-batch-id');
+    }
+    // Build the URL with lot_id and batch_id if found
+    let url = "/adminportal/dp_visualaid/";
+    if (lotId) {
+      url += encodeURIComponent(lotId) + "/";
+    }
+    if (batchId) {
+      url += "?batch_id=" + encodeURIComponent(batchId);
+    }
+    window.location.href = url;
+  });
+});
+  
+
+
+  // Tooltip show/hide logic
+  document.querySelectorAll(".model-hover-trigger").forEach(function (trigger) {
+    const tooltip = trigger.querySelector(".model-image-tooltip");
+
+    trigger.addEventListener("mouseenter", function () {
+      if (tooltip && !tooltip.classList.contains("pinned")) {
+        tooltip.style.display = "flex"; // ✅ ADDED: Reset display
+        tooltip.style.visibility = "visible"; // ✅ ADDED: Reset visibility
+        tooltip.style.opacity = "1";
+        tooltip.style.pointerEvents = "auto";
+        
+        // Show Info and Close buttons on hover
+        const infoBtn = tooltip.querySelector('.info-btn');
+        const closeBtn = tooltip.querySelector('.close-btn');
+        if (infoBtn) infoBtn.style.display = 'block';
+        if (closeBtn) closeBtn.style.display = 'block';
+      }
+    });
+
+    trigger.addEventListener("mouseleave", function () {
+      if (tooltip && !tooltip.classList.contains("pinned")) {
+        tooltip.style.opacity = "0";
+        tooltip.style.pointerEvents = "none";
+        
+        // Hide Info and Close buttons when not hovering and not pinned
+        const infoBtn = tooltip.querySelector('.info-btn');
+        const closeBtn = tooltip.querySelector('.close-btn');
+        if (infoBtn) infoBtn.style.display = 'none';
+        if (closeBtn) closeBtn.style.display = 'none';
+      }
+    });
+
+    // Keep tooltip visible when hovering over it
+    if (tooltip) {
+      tooltip.addEventListener("mouseenter", function () {
+        if (!tooltip.classList.contains("pinned")) {
+          tooltip.style.display = "flex"; // ✅ ADDED: Reset display
+          tooltip.style.visibility = "visible"; // ✅ ADDED: Reset visibility
+        }
+        tooltip.style.opacity = "1";
+        tooltip.style.pointerEvents = "auto";
+        
+        // Keep buttons visible when hovering over tooltip
+        const infoBtn = tooltip.querySelector('.info-btn');
+        const closeBtn = tooltip.querySelector('.close-btn');
+        if (infoBtn) infoBtn.style.display = 'block';
+        if (closeBtn) closeBtn.style.display = 'block';
+      });
+
+      tooltip.addEventListener("mouseleave", function () {
+        if (!tooltip.classList.contains("pinned")) {
+          tooltip.style.opacity = "0";
+          tooltip.style.pointerEvents = "none";
+          
+          // Hide buttons when leaving tooltip and not pinned
+          const infoBtn = tooltip.querySelector('.info-btn');
+          const closeBtn = tooltip.querySelector('.close-btn');
+          if (infoBtn) infoBtn.style.display = 'none';
+          if (closeBtn) closeBtn.style.display = 'none';
+        }
+      });
+    }
+
+    trigger.addEventListener("click", function (e) {
+      e.stopPropagation();
+
+      if (tooltip) {
+        // Close any previously opened tooltip
+        if (openTooltip && openTooltip !== tooltip) {
+          const prevTrigger = openTooltip.closest('.model-hover-trigger');
+          closeTooltip(openTooltip, prevTrigger);
+        }
+
+        tooltip.classList.add("pinned");
+        tooltip.style.display = "flex"; // ✅ ADDED: Ensure display
+        tooltip.style.visibility = "visible"; // ✅ ADDED: Ensure visibility
+        tooltip.style.opacity = "1";
+        tooltip.style.pointerEvents = "auto";
+        openTooltip = tooltip;
+        
+        // Keep buttons visible when pinned
+        const infoBtn = tooltip.querySelector('.info-btn');
+        const closeBtn = tooltip.querySelector('.close-btn');
+        if (infoBtn) infoBtn.style.display = 'block';
+        if (closeBtn) closeBtn.style.display = 'block';
+
+        // Add visual indicator that tooltip is pinned
+        trigger.style.backgroundColor = '#e3f2fd';
+        trigger.style.borderRadius = '4px';
+      }
+    });
+
+    // ✅ FIXED: Handle Close button click - Complete tooltip closure
+    const closeBtn = tooltip?.querySelector('.close-btn');
+    if (closeBtn) {
+      // Initially hide the button
+      closeBtn.style.display = 'none';
+      
+      closeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        console.log('🔴 Close button clicked');
+        
+        // Use the helper function to completely close tooltip
+        closeTooltip(tooltip, trigger);
+        
+        // Feedback animation for close button
+        closeBtn.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          if (closeBtn.style) {
+            closeBtn.style.transform = 'scale(1)';
+          }
+        }, 150);
+      });
+      
+      // ✅ Add hover effect for close button
+      closeBtn.addEventListener('mouseenter', function() {
+        closeBtn.style.backgroundColor = '#c82333';
+        closeBtn.style.transform = 'scale(1.05)';
+      });
+      
+      closeBtn.addEventListener('mouseleave', function() {
+        closeBtn.style.backgroundColor = '#dc3545';
+        closeBtn.style.transform = 'scale(1)';
+      });
+    }
+  });
+
+  // ✅ ENHANCED: Close tooltip when clicking outside
+  document.addEventListener("click", function (e) {
+    if (openTooltip && !e.target.closest('.model-image-tooltip') && !e.target.closest('.model-hover-trigger')) {
+      const openTrigger = openTooltip.closest('.model-hover-trigger');
+      closeTooltip(openTooltip, openTrigger);
+    }
+  });
+
+  // ✅ Close tooltip with ESC key
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && openTooltip) {
+      const openTrigger = openTooltip.closest('.model-hover-trigger');
+      closeTooltip(openTooltip, openTrigger);
+      console.log('✅ Tooltip closed with ESC key');
+    }
+  });
+
+  // Prevent tooltip from closing when clicking inside it
+  document.querySelectorAll(".model-image-tooltip").forEach(function (tooltip) {
+    tooltip.addEventListener("click", function (e) {
+      e.stopPropagation();
+    });
+  });
+});
+</script>
+
+
+<!-- Script for Model / Stock No - Image Mouse Hover -->
+<script nonce="{{ csp_nonce }}">
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.model-hover-trigger').forEach(function(trigger) {
+      const tooltip = trigger.querySelector('.model-image-tooltip');
+      let currentIndex = 0;
+      let tooltipPinned = false;
+      let hoverTimeout = null;
+      const images = Array.from(tooltip.querySelectorAll('.img-gallery img'));
+
+      function showImages(start) {
+        images.forEach((img, i) => {
+          img.style.display = (i >= start && i < start + 3) ? 'block' : 'none';
+        });
+      }
+      showImages(currentIndex);
+
+      // Show immediately on mouseenter
+      trigger.addEventListener('mouseenter', function() {
+        clearTimeout(hoverTimeout);
+        tooltip.style.opacity = '1';
+        tooltip.style.pointerEvents = 'auto';
+      });
+
+      // Hide when leaving trigger (unless pinned)
+      trigger.addEventListener('mouseleave', function() {
+        if (!tooltipPinned) {
+          hoverTimeout = setTimeout(function() {
+            if (!tooltip.matches(':hover')) {
+              tooltip.style.opacity = '0';
+              tooltip.style.pointerEvents = 'none';
+            }
+          }, 300);
+        }
+      });
+
+      // Keep visible when hovering over tooltip
+      tooltip.addEventListener('mouseenter', function() {
+        clearTimeout(hoverTimeout);
+        tooltip.style.opacity = '1';
+        tooltip.style.pointerEvents = 'auto';
+      });
+
+      // Hide when leaving tooltip (unless pinned)
+      tooltip.addEventListener('mouseleave', function() {
+        if (!tooltipPinned) {
+          hoverTimeout = setTimeout(function() {
+            tooltip.style.opacity = '0';
+            tooltip.style.pointerEvents = 'none';
+          }, 300);
+        }
+      });
+
+      // Pin tooltip on click (make it sticky)
+      trigger.addEventListener('click', function(e) {
+        e.preventDefault();
+        tooltipPinned = true;
+        tooltip.style.opacity = '1';
+        tooltip.style.pointerEvents = 'auto';
+        clearTimeout(hoverTimeout);
+        
+        // Add visual indicator that it's pinned
+        trigger.style.backgroundColor = '#e3f2fd';
+        trigger.style.borderRadius = '4px';
+      });
+
+      // Unpin tooltip if user clicks outside
+      document.addEventListener('mousedown', function(e) {
+        if (!trigger.contains(e.target) && !tooltip.contains(e.target)) {
+          tooltipPinned = false;
+          tooltip.style.opacity = '0';
+          tooltip.style.pointerEvents = 'none';
+          
+          // Remove visual indicator
+          trigger.style.backgroundColor = '';
+          trigger.style.borderRadius = '';
+        }
+      });
+
+      // Handle scroll buttons with error handling
+      const leftBtn = tooltip.querySelector('.img-scroll-left');
+      const rightBtn = tooltip.querySelector('.img-scroll-right');
+      
+      if (leftBtn) {
+        leftBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (currentIndex > 0) {
+            currentIndex--;
+            showImages(currentIndex);
+          }
+        });
+      }
+      
+      if (rightBtn) {
+        rightBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (currentIndex < images.length - 3) {
+            currentIndex++;
+            showImages(currentIndex);
+          }
+        });
+      }
+
+      // Add click event to images for modal slider
+      images.forEach(function(img, idx) {
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', function(e) {
+          e.stopPropagation();
+          openImageSlider(images.map(i => i.src), idx);
+        });
+      });
+    });
+
+    // Modal slider functions
+    const modal = document.getElementById("imageSliderModal");
+    const closeModal = document.getElementById("closeImageSliderModal");
+    const slidesContainer = modal ? modal.querySelector(".slides") : null;
+    let sliderImages = [];
+    let currentSlide = 0;
+
+    function openImageSlider(srcArray, startIdx) {
+      if (!modal || !slidesContainer) return;
+      
+      sliderImages = srcArray;
+      slidesContainer.innerHTML = '';
+      sliderImages.forEach(src => {
+        const slide = document.createElement('div');
+        slide.className = 'slide';
+        const img = document.createElement('img');
+        img.src = src;
+        slide.appendChild(img);
+        slidesContainer.appendChild(slide);
+      });
+      currentSlide = startIdx;
+      showSlide(currentSlide);
+      modal.classList.add('open');
+    }
+
+    function showSlide(n) {
+      const slides = slidesContainer ? slidesContainer.querySelectorAll('.slide') : [];
+      if (!slides.length) return;
+      currentSlide = (n + slides.length) % slides.length;
+      slides.forEach((slide, idx) => {
+        slide.classList.toggle('active', idx === currentSlide);
+      });
+    }
+
+    if (modal) {
+      const prevBtn = modal.querySelector("#prevBtn");
+      const nextBtn = modal.querySelector("#nextBtn");
+      
+      if (prevBtn) {
+        prevBtn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          showSlide(currentSlide - 1);
+        });
+      }
+      
+      if (nextBtn) {
+        nextBtn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          showSlide(currentSlide + 1);
+        });
+      }
+      
+      if (closeModal) {
+        closeModal.addEventListener("click", function() {
+          modal.classList.remove("open");
+        });
+      }
+      
+      modal.addEventListener("click", function(e) {
+        if (e.target === modal) modal.classList.remove("open");
+      });
+    }
+  });
+</script>
+
+<!-- Show alert and highlight row -->
+<script nonce="{{ csp_nonce }}">
+  // filepath: a:\Workspace\Track_and_Trace_v2\static\templates\Day_Planning\DP_PickTable.html
+  document.addEventListener("DOMContentLoaded", function() {
+    const table = document.getElementById('order-listing');
+    const modal = document.getElementById('trayScanModal');
+    const msgBarId = 'dp-table-msg-bar';
+    let msgBar = document.getElementById(msgBarId);
+
+    // Create message bar if not present
+    if (!msgBar && table) {
+      msgBar = document.createElement('div');
+      msgBar.id = msgBarId;
+      msgBar.style.display = 'none';
+      msgBar.style.width = '100%';
+      msgBar.style.margin = '0 0 8px 0';
+      msgBar.style.padding = '10px 24px';
+      msgBar.style.background = '#d1eaff';
+      msgBar.style.color = '#0056b3';
+      msgBar.style.fontWeight = 'bold';
+      msgBar.style.borderRadius = '8px';
+      msgBar.style.fontSize = '1.1rem';
+      msgBar.style.textAlign = 'center';
+      msgBar.style.transition = 'opacity 0.3s, background 0.3s, color 0.3s';
+      table.parentNode.insertBefore(msgBar, table);
+    }
+
+    // Highlight style (if not present)
+    if (!document.getElementById('dp-row-action-highlight-style')) {
+      var style = document.createElement('style');
+      style.id = 'dp-row-action-highlight-style';
+      style.innerHTML = `
+        .dp-row-action-highlight {
+          box-shadow: 0 0 0 3px #007bff, 0 0 10px #007bff55 !important;
+          transition: box-shadow 9.3s;
+          background-color: #fff5bd !important;
+          animation: highlightAnimation 2s ease-in-out;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const btnMsg = {
+      "Draft": "Drafted successfully",
+      "Submit": "Submitted successfully",
+      "Cancel": "Cancelled successfully"
+    };
+    const btnBg = {
+      "Draft": "#d1eaff",    // blue
+      "Submit": "#d4f7d4",   // green
+      "Cancel": "#ffd6d6"    // red
+    };
+    const btnColor = {
+      "Draft": "#0056b3",
+      "Submit": "#218838",
+      "Cancel": "#b30000"
+    };
+
+    document.querySelectorAll('.tray-scan-modal-buttons button').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+
+        // 1. Close the modal immediately
+        if (modal) modal.classList.remove('open');
+
+        // 2. Show alert and highlight row
+        let btnText = btn.textContent.trim();
+        let msg = btnMsg[btnText] || "Action successful";
+        let bg = btnBg[btnText] || "#d1eaff";
+        let color = btnColor[btnText] || "#0056b3";
+        if (msgBar) {
+          msgBar.textContent = msg;
+          msgBar.style.display = 'block';
+          msgBar.style.opacity = '1';
+          msgBar.style.background = bg;
+          msgBar.style.color = color;
+        }
+        document.querySelectorAll('tr.highlighted-tray-scan').forEach(function(row) {
+          row.classList.add('dp-row-action-highlight');
+          setTimeout(function() {
+            row.classList.remove('dp-row-action-highlight');
+          }, 2000);
+        });
+
+        // 3. Hide alert after 2s (and redirect if needed)
+        setTimeout(function() {
+          if (msgBar) {
+            msgBar.style.opacity = '0';
+            setTimeout(function() { msgBar.style.display = 'none'; }, 300);
+          }
+          // Uncomment below if you want to redirect after alert
+          // window.location.href = "{% url 'dp_pick_table' %}";
+        }, 3000);
+      });
+    });
+  });
+</script>
+
+<!-- script for buttons in form & highlight -->
+<script nonce="{{ csp_nonce }}">
+      document.addEventListener("DOMContentLoaded", function () {
+        // 1. Save the active row when clicking a tray scan trigger.
+        document.querySelectorAll(".tray-scan-btn").forEach(function(btn) {
+          btn.addEventListener("click", function(e) {
+            const row = e.target.closest("tr");
+            if (row) {
+              window.activeRow = row;
+            }
+            // Open the left modal (trayScanModal) as needed.
+            const trayModal = document.getElementById("trayScanModal");
+            if (trayModal) {
+              trayModal.classList.add("open");
+            }
+          });
+        });
+
+        // 2. Attach click event handlers to popup action buttons (Draft, Submit, Cancel)
+        document.querySelectorAll('.tray-scan-modal-buttons button').forEach(function(btn) {
+          btn.addEventListener("click", function(e) {
+            e.preventDefault();
+            
+            // Close both modals
+            const newPopupModal = document.getElementById("newPopupModal");
+            const trayScanModal = document.getElementById("trayScanModal");
+            if (newPopupModal) newPopupModal.classList.remove("open");
+            if (trayScanModal) trayScanModal.classList.remove("open");
+
+            // Highlight the active row for a few seconds.
+            document.querySelectorAll('#order-listing tbody tr').forEach(function(row) {
+        row.classList.remove("dp-row-action-highlight");
+      });
+
+      if (window.activeRow) {
+        window.activeRow.classList.add("dp-row-action-highlight");
+        setTimeout(() => {
+          window.activeRow.classList.remove("dp-row-action-highlight");
+        }, 2000);
+      }
+      });
+    });
+  });
+</script>
+
+<!-- // --- Child Screen Lock Feature ---
+// When child screen (tray scan modal) is open, only allow scroll and Eye icon (view) access on parent.
+// All other actions (edit, delete, filter, etc.) are blocked visually and functionally.
+-->
+<script nonce="{{ csp_nonce }}">
+document.addEventListener("DOMContentLoaded", function () {
+  // Only disables actions, not table scroll!
+  function lockParentActions() {
+    // Disable all actions except view (eye) icon
+    document.querySelectorAll(
+      'img[alt="Edit Disabled"], img[alt="Delete Disabled"], .fa-filter, button:not(#closeTrayScanModal_DayPlanning):not(#trayValidateBtn):not(#trayScanRedoBtn)'
+    ).forEach(function (el) {
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0.4';
+      el.style.filter = 'grayscale(1)';
+      el.style.cursor = 'not-allowed';
+    });
+
+    // Also block all <a> except .tray-scan-btn-Jig (Eye icon)
+    document.querySelectorAll('a:not(.tray-scan-btn-Jig)').forEach(function (el) {
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0.4';
+      el.style.cursor = 'not-allowed';
+    });
+
+    // Do NOT grey out or change sidebar/menu panel color, just block pointer events if needed
+    var menuPanel = document.querySelector('.sidebar');
+    if (menuPanel) {
+      menuPanel.style.pointerEvents = 'none';
+      menuPanel.style.opacity = '';
+      menuPanel.style.filter = '';
+      menuPanel.style.cursor = 'not-allowed';
+    }
+    var mainPanel = document.querySelector('.main-panel');
+    if (mainPanel) {
+      mainPanel.style.pointerEvents = 'auto'; // keep main-panel interactive for scroll
+    }
+
+    // Ensure table scroll is always allowed
+    var tableResponsive = document.querySelector('.table-responsive');
+    if (tableResponsive) {
+      tableResponsive.style.pointerEvents = '';
+      tableResponsive.style.overflow = 'auto';
+    }
+    var table = document.getElementById('order-listing');
+    if (table) {
+      table.style.pointerEvents = '';
+    }
+  }
+
+  function unlockParentActions() {
+    document.querySelectorAll(
+      'img[alt="Edit Disabled"], img[alt="Delete Disabled"], .fa-filter, button'
+    ).forEach(function (el) {
+      el.style.pointerEvents = '';
+      el.style.opacity = '';
+      el.style.filter = '';
+      el.style.cursor = '';
+    });
+    document.querySelectorAll('a').forEach(function (el) {
+      el.style.pointerEvents = '';
+      el.style.opacity = '';
+      el.style.cursor = '';
+    });
+
+    // Restore menu panel access
+    var menuPanel = document.querySelector('.sidebar');
+    if (menuPanel) {
+      menuPanel.style.pointerEvents = '';
+      menuPanel.style.opacity = '';
+      menuPanel.style.filter = '';
+      menuPanel.style.cursor = '';
+    }
+    var mainPanel = document.querySelector('.main-panel');
+    if (mainPanel) {
+      mainPanel.style.pointerEvents = '';
+    }
+
+    // Restore table scroll (just in case)
+    var tableResponsive = document.querySelector('.table-responsive');
+    if (tableResponsive) {
+      tableResponsive.style.pointerEvents = '';
+      tableResponsive.style.overflow = '';
+    }
+    var table = document.getElementById('order-listing');
+    if (table) {
+      table.style.pointerEvents = '';
+    }
+  }
+
+  // Listen for modal open/close
+  var modal = document.getElementById("trayScanModal_DayPlanning");
+  var closeBtn = document.getElementById("closeTrayScanModal_DayPlanning");
+
+  // When any view icon is clicked and modal opens, lock parent
+  document.querySelectorAll('.tray-scan-btn-Jig').forEach(function(link) {
+    link.addEventListener('click', function() {
+      setTimeout(lockParentActions, 100);
+    });
+  });
+
+  // When modal closes, unlock parent
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function() {
+      setTimeout(unlockParentActions, 200);
+    });
+  }
+});
+</script>
+
+<!-- IQF Accept Table Sorting JavaScript -->
+<script nonce="{{ csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    // Column mapping for sorting
+    const columnMapping = {
+        '0': 'lot_id',
+        '1': 'date_time',
+        '2': 'model_no',
+        '3': 'polishing_stk_no',
+        '4': 'plating_color',
+        '5': 'polish_finish',
+        '6': 'vendor_location',
+        '7': 'tray_type',
+        '8': 'no_of_trays',
+        '9': 'accept_qty',
+        '10': 'process_status',
+        '11': 'batch_status',
+        '12': 'current_location',
+        '13': 'accepted_remarks',
+        '14': 'remarks'
+    };
+
+    // Get current sort parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentSort = urlParams.get('sort');
+    const currentDirection = urlParams.get('direction');
+
+    // Update header icons based on current sort
+    if (currentSort && currentDirection) {
+        const sortedColumn = Object.keys(columnMapping).find(key => columnMapping[key] === currentSort);
+        if (sortedColumn) {
+            const header = document.querySelector(`[data-column-index="${sortedColumn}"]`);
+            if (header) {
+                header.classList.add('sorted');
+                header.querySelector('.sort-icon').style.display = 'none';
+                
+                if (currentDirection === 'asc') {
+                    header.querySelector('.sort-asc').style.display = 'inline';
+                } else {
+                    header.querySelector('.sort-desc').style.display = 'inline';
+                }
+            }
+        }
+    }
+
+    // Add click handlers for sorting
+    document.querySelectorAll('.sortable').forEach(function(header) {
+        header.addEventListener('click', function() {
+            const columnIndex = this.getAttribute('data-column-index');
+            const sortField = columnMapping[columnIndex];
+            
+            if (!sortField) return;
+
+            const url = new URL(window.location);
+            const currentSort = url.searchParams.get('sort');
+            const currentDirection = url.searchParams.get('direction');
+            
+            let newDirection = 'asc';
+            if (currentSort === sortField && currentDirection === 'asc') {
+                newDirection = 'desc';
+            }
+            
+            url.searchParams.set('sort', sortField);
+            url.searchParams.set('direction', newDirection);
+            url.searchParams.set('page', '1');
+            
+            window.location.href = url.toString();
+        });
+    });
+});
+</script>
+
+{% endblock %} {% endblock content %}

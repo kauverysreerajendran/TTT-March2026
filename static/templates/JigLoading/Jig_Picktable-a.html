@@ -1,0 +1,6008 @@
+{% extends "base.html" %}
+{% load static %}
+{% load custom_tags %}
+{% load stock_filters %}
+{% block content %}
+
+
+<!-- Jig Loading - Inline Styles -->
+<style>
+.tray-id-input.model-bg-1 { background: #e0f7fa !important; }   /* Primary model */
+.tray-id-input.model-bg-2 { background: #fce4ec !important; }   /* Secondary model */
+.tray-id-input.model-bg-3 { background: #fff9c4 !important; }   /* Third model */
+.tray-id-input.model-bg-4 { background: #e1bee7 !important; }   /* Fourth model */
+.tray-id-input.model-bg-5 { background: #c8e6c9 !important; }   /* Fifth model */
+
+/* Jig ID and Broken Hooks input */
+#jigIdInput,
+#brokenBuildupHooksInput {
+  background: #ebfdff !important;
+}
+
+/* Tray ID inputs (Delink Information section) */
+.tray-id-input {
+  background: #ebfdff !important;
+}
+    #global-loading-spinner {
+    z-index: 10000 !important; /* Lower than SweetAlert2 (which uses 1060+) */
+  }
+.tray-scan-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.tray-scan-tab {
+  border-radius: 8px;
+  padding: 15px 14px 8px 0px;
+  min-width: 120px;
+  max-width: 170px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+}
+.tray-scan-tab label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #028084;
+  margin-bottom: 4px;
+}
+.tray-scan-tab input[type="text"] {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 10px 8px;
+  font-size: 14px;
+  background: #fff;
+  margin-bottom: 4px;
+}
+.tray-scan-tab input[type="text"]:focus {
+  border-color: #028084;
+  background: #e0f7fa;
+  outline: none;
+}
+.tray-scan-tab .tray-qty {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 2px;
+}
+.tray-scan-tab .tray-error-message {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 2px;
+  position: absolute;
+  bottom: 4px;
+  left: 8px;
+}
+@media (max-width: 600px) {
+  .tray-scan-tab {
+    min-width: 90px;
+    max-width: 98vw;
+    padding: 8px 6px;
+  }
+  .tray-scan-tabs {
+    gap: 6px;
+  }
+}
+
+  #delinkInfoTable {
+    width: 100%;
+    min-width: 220px;
+    table-layout: auto;
+  }
+  #delinkInfoTable th,
+  #delinkInfoTable td {
+    text-align: center;
+    vertical-align: middle;
+    padding: 8px;
+  }
+
+  /* Make modal height dynamic and reduce empty space */
+  .right-slide-modal.open {
+    right: 0 !important;
+    opacity: 1 !important;
+    height: auto !important;
+    max-height: 90vh !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    overflow-y: visible !important;
+  }
+
+  .add-jig-window .jig-modal-content {
+    flex: 1;
+    padding: 20px 24px;
+    overflow-y: auto;
+  }
+
+  .add-jig-window > *:not(.jig-modal-header):not(.jig-modal-footer) {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .add-jig-window > *:first-child:not(.jig-modal-header) {
+    padding-top: 20px;
+  }
+
+  .jig-modal-footer {
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    padding: 20px 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    border-radius: 0 0 16px 16px;
+    margin: 0;
+  }
+
+  td .open-jig-modal-btn {
+    position: relative;
+    z-index: 10;
+    pointer-events: auto;
+  }
+
+  /* Horizontal Modal Layout - Centered Design */
+  #jigAddModal.right-slide-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    z-index: 10500 !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow-y: auto !important;
+  }
+
+  #jigAddModal.right-slide-modal.open {
+    display: flex !important;
+    opacity: 1 !important;
+  }
+
+  .add-jig-window {
+    background: #fff !important;
+    border-radius: 16px !important;
+    padding: 0 !important;
+    min-width: 1000px !important;
+    max-width: 95vw !important;
+    max-height: 95vh !important;
+    overflow-y: auto !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    position: relative !important;
+    margin: 20px !important;
+  }
+  .jig-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(
+      90deg,
+      #e0f7fa 0%,
+      #b2ebf2 33%,
+      #ffe0b2 66%,
+      #f8bbd0 100%
+    );
+    /* Teal, light blue, light yellow, light pink - equally distributed */
+    padding: 20px 24px;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 2px 12px rgba(56, 132, 132, 0.18);
+    margin: 0;
+  }
+
+  .jig-modal-header h3 {
+    color: white;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .jig-modal-header .close-btn {
+    color: rgb(234, 55, 55);
+    font-size: 20px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .jig-modal-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .btn-action {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 20px;
+    font-size: 13px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-action.teal {
+    background-color: #4db6ac;
+  }
+
+  .btn-action.blue {
+    background-color: #42a5f5;
+  }
+
+  .btn-action.transparent {
+    background-color: #e7e7e7;
+    color: #666;
+    border: 1px solid #ddd;
+  }
+  .btn-action.model-images {
+  background-color: #f7fafd !important;
+  color: #028084 !important;
+  border: 1px solid #bdbdbd !important;
+  box-shadow: 0 2px 8px rgba(2, 128, 132, 0.08);
+  font-weight: 600;
+  cursor: default;
+}
+
+  .cycle-status {
+    background: #e8f5e9;
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: #2e7d32;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .form-fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px 20px;
+    margin-bottom: 16px;
+  }
+
+.form-group {
+  position: relative !important;
+  display: block !important;
+}
+.jig-id-valid-alert, .jig-id-error-alert {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 100;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
+  .form-group label {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  .form-group input {
+    padding: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #f9f9f9;
+  }
+
+  .form-group input:focus {
+    outline: none;
+    border-color: #2196f3;
+    background: white;
+  }
+
+  /* Light blue background for Jig ID, Broken Hooks, and Tray ID inputs */
+  #jigIdInput,
+  #brokenBuildupHooksInput,
+  .tray-id-input {
+    background: #e0f7fa !important;
+  }
+
+  /* Light blue background for Jig ID, Broken Hooks, and Tray ID inputs */
+  #jigIdInput,
+  #brokenBuildupHooksInput,
+  .tray-id-input {
+    background: #e0f7fa !important;
+  }
+
+  .delink-section {
+    border-radius: 8px;
+    padding: 16px;
+    /* Fix: auto height, allow content to expand, never crop */
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block;
+    margin-top: 10px;
+  }
+
+  .delink-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .delink-header span:first-child {
+    font-weight: 600;
+    color: #495057;
+  }
+
+  .delink-count {
+    font-size: 12px;
+    color: #6c757d;
+  }
+
+  .delink-toggle {
+    color: #6c757d;
+  }
+
+  .delink-content {
+    margin-top: 12px;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .add-jig-window {
+      min-width: 90vw;
+      max-width: 95vw;
+      margin: 10px;
+      max-height: 90vh;
+    }
+
+    .jig-modal-header {
+      padding: 16px 20px;
+    }
+
+    .add-jig-window > *:not(.jig-modal-header):not(.jig-modal-footer) {
+      padding-left: 20px;
+      padding-right: 20px;
+    }
+
+    .form-fields-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 16px;
+    }
+
+    .jig-modal-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .btn-action {
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .add-jig-window {
+      min-width: 95vw;
+      max-width: 98vw;
+      margin: 5px;
+      max-height: 95vh;
+    }
+
+    .jig-modal-header {
+      padding: 12px 16px;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .add-jig-window > *:not(.jig-modal-header):not(.jig-modal-footer) {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .form-fields-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+  }
+  .jig-modal-section {
+    flex: 1;
+    min-width: 220px;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .jig-modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .jig-modal-actions button,
+  .jig-modal-actions .cycle-status {
+    flex: 1;
+    font-size: 15px;
+  }
+  .jig-modal-form .form-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .jig-modal-form .form-group label {
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: #555;
+  }
+  .jig-modal-form .form-group input {
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    font-size: 13px;
+  }
+  .jig-modal-options {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .jig-modal-options button {
+    flex: 1;
+    font-size: 15px;
+  }
+  .model-slider-wrapper {
+    margin: 0;
+  }
+  .model-slider-container {
+    overflow-x: auto;
+    width: 100%;
+  }
+  .model-slider {
+    display: flex;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+  @media (max-width: 900px) {
+    #jigAddModal.right-slide-modal,
+    .add-jig-window {
+      flex-direction: column !important;
+      height: auto !important;
+      max-width: 100vw !important;
+      min-width: 0 !important;
+      padding: 10px !important;
+    }
+    .jig-modal-section,
+    .jig-modal-form {
+      max-width: 100vw !important;
+      min-width: 0 !important;
+    }
+    .jig-modal-form .form-section {
+      grid-template-columns: 1fr !important;
+    }
+  }
+  /* Lot status pill common style (used in Brass Audit and Jig Loading) */
+  .lot-status-pill {
+    border: 1px solid #bdbdbd;
+    background-color: #f4f3f3;
+    color: #666;
+    font-size: 13px;
+    white-space: nowrap;
+    padding: 5px 12px;
+    border-radius: 999px;
+    display: inline-block;
+    min-width: 90px;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  /* Status variations */
+  .lot-status-yet {
+    background: linear-gradient(135deg, #fffdf7, #fffaf0);
+    border-color: #e6c07a;
+    color: #9d7a2a;
+  }
+
+  .lot-status-draft {
+    background: linear-gradient(135deg, #e3f2fd, #e1f5fe);
+    border-color: #1976d2;
+    color: #1976d2;
+  }
+
+  .lot-status-accepted {
+    background: linear-gradient(135deg, #e8f5e8, #e6fff0);
+    border-color: #2e7d32;
+    color: #2e7d32;
+  }
+
+  .lot-status-few {
+    background: linear-gradient(135deg, #fff9e6, #fff2d1);
+    border-color: #f0ad4e;
+    color: #a56b00;
+  }
+
+  .lot-status-rejected {
+    background: linear-gradient(135deg, #ffebee, #ffe8e8);
+    border-color: #dc3545;
+    color: #c62828;
+  }
+
+  .lot-status-onhold {
+    background: linear-gradient(135deg, #f7f7ff, #f3f3ff);
+    border-color: #6c757d;
+    color: #4b5563;
+  }
+
+  /* Keep modal look identical to Brass Audit - small responsive tweaks */
+  @media (max-width: 480px) {
+    .lot-status-pill {
+      min-width: 70px;
+      font-size: 12px;
+      padding: 4px 10px;
+    }
+  }
+  /* Model card color palette for visual distinction */
+  .model-loaded-item.bg-1 {
+    background: linear-gradient(135deg, #e8f5e8 0%, #fff5bd 100%);
+  }
+  .model-loaded-item.bg-2 {
+    background: linear-gradient(135deg, #e3f2fd 0%, #ffe0e0 100%);
+  }
+  .model-loaded-item.bg-3 {
+    background: linear-gradient(135deg, #fff3e0 0%, #e0f7fa 100%);
+  }
+  .model-loaded-item.bg-4 {
+    background: linear-gradient(135deg, #f3e5f5 0%, #e1f5fe 100%);
+  }
+  .model-loaded-item.bg-5 {
+    background: linear-gradient(135deg, #fff8e1 0%, #fce4ec 100%);
+  }
+  /* Add more as needed */
+
+  /* REMOVED CONFLICTING RIGHT-SLIDE MODAL CSS */
+
+  /* Ensure Add Jig button is clickable */
+  .open-jig-modal-btn {
+    position: relative !important;
+    z-index: 10 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+  }
+
+  /* Tray Scan Modal CSS */
+  .tray-scan-modal {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 100vw;
+    height: 100vh;
+    background: none !important;
+    z-index: 20000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tray-scan-modal.open {
+    display: flex !important;
+  }
+
+  .tray-scan-modal-content {
+    background: #fff;
+    border-radius: 10px;
+    padding: 28px 32px 18px 32px;
+    min-width: 320px;
+    max-width: 90vw;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+    position: relative;
+  }
+
+  .tray-scan-close-readonly {
+    position: absolute;
+    top: 8px;
+    right: 16px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #d9534f;
+    cursor: pointer;
+  }
+
+  .tray-validate-btn {
+    background: #fff;
+    border: 2px solid #028084;
+    color: #028084;
+    border-radius: 25px;
+    padding: 6px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .tray-validate-btn[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    border-color: #ccc;
+    color: #666;
+  }
+
+  .modal-top-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding-bottom: 10px;
+  }
+
+  .modal-top-header img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .status-icon.active.pass {
+    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%) !important;
+    border-color: #2e7d32 !important;
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4) !important;
+  }
+  /* --- Model Gallery Card Fix --- */
+  .model-slider .model-loaded-item {
+    min-width: 110px !important;
+    max-width: 120px !important;
+    width: 110px !important;
+    flex: 0 0 110px !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 8px 6px !important;
+    margin-right: 10px !important;
+    box-sizing: border-box !important;
+  }
+
+  .model-slider .model-loaded-item img {
+    width: 70px !important;
+    height: 70px !important;
+    object-fit: contain !important;
+    margin: 0 auto 6px auto !important;
+    display: block !important;
+    border-radius: 8px !important;
+  }
+
+  .model-slider .model-loaded-item > div {
+    width: 100%;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+  }
+
+  .model-slider .model-loaded-item .model-no-label {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #333 !important;
+    margin-top: 4px !important;
+    margin-bottom: 0 !important;
+    display: block !important;
+  }
+
+  /* ========== Tablet override — paste at file end (after other table styles) ========== */
+  /* --- Tablet: freeze first 3 columns consistently with desktop --- */
+  @media (pointer: coarse) and (min-width: 680px) and (max-width: 1400px) {
+    * {
+      font-size: 20px !important; /* Increase font size for better readability */
+    }
+
+    :root {
+      --app-font-size: 20px;
+    }
+    .rounded-circle {
+      padding: 17px !important;
+    }
+    .model-image-tooltip {
+      transform: translateX(-25%) !important;
+      top: 45% !important;
+      z-index: 500000 !important; /* high so it sits above table & scrollbar */
+    }
+
+    /* Core layout blocks */
+    .content-wrapper,
+    .card,
+    .card-body,
+    .table-responsive,
+    #order-listing,
+    #trayScanModal_DayPlanning,
+    .tray-scan-modal-DayPlanning,
+    .pagination-wrapper {
+      font-size: var(--app-font-size) !important;
+      line-height: 1.35 !important;
+    }
+
+    /* Table headings / cells / icons */
+    #order-listing th,
+    #order-listing td,
+    #order-listing thead th {
+      font-size: var(--app-font-size) !important;
+      vertical-align: middle !important;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    /* Ensure heading/title and date controls match */
+    h4.text-left.mt-0.mb-3,
+    .calendar-bar .date-input-group label,
+    .calendar-bar .date-input-group input,
+    #search-date-range-simple,
+    #clear-date-filter-simple,
+    .calendar-btn,
+    #trayScanModal_DayPlanning input.form-control,
+    #trayValidateBtn,
+    #trayScanModal_DayPlanning table th,
+    #trayScanModal_DayPlanning table td,
+    #modalModelNo_DayPlanning {
+      font-size: var(--app-font-size) !important;
+    }
+
+    /* Reserve space for filter icons in header cells */
+    #order-listing th {
+      position: relative;
+      overflow: visible !important;
+      white-space: normal !important; /* allow wrapping */
+    }
+
+    /* Ensure filter icons always stay to the right */
+    #order-listing th .fa-filter {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px !important;
+      opacity: 0.8;
+      cursor: pointer;
+    }
+
+    /* Column 1 */
+    #order-listing th:nth-child(1),
+    #order-listing td:nth-child(1) {
+      position: sticky;
+      left: 0 !important;
+      min-width: 90px !important;
+      max-width: 90px !important;
+      background: #f7fafd;
+      z-index: 30;
+    }
+
+    /* Column 2 */
+    #order-listing th:nth-child(2),
+    #order-listing td:nth-child(2) {
+      position: sticky;
+      left: 90px !important; /* = width of col1 */
+      min-width: 125px !important;
+      max-width: 125px !important;
+      background: #f7fafd;
+      z-index: 25;
+    }
+
+    /* Column 3 */
+    #order-listing th:nth-child(3),
+    #order-listing td:nth-child(3) {
+      position: sticky;
+      left: 215px !important; /* 75 (col1) + 100 (col2 min) */
+      min-width: 140px !important;
+      max-width: 140px !important;
+      background: #f7fafd;
+      z-index: 20;
+    }
+
+    /* Sticky header */
+    #order-listing thead th {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: #028084 !important;
+      color: #e5fcff !important;
+    }
+  }
+
+  @media (pointer: coarse) and (min-width: 680px) and (max-width: 1400px) {
+    .table-container {
+      overflow-x: auto;
+    }
+
+    /* Other columns (fit remaining space) */
+    #order-listing th:nth-child(4) {
+      min-width: 140px !important;
+      max-width: 140px !important;
+    }
+    #order-listing th:nth-child(5) {
+      min-width: 120px !important;
+      max-width: 120px !important;
+    }
+    #order-listing th:nth-child(6) {
+      min-width: 135px !important;
+      max-width: 135px !important;
+    }
+    #order-listing th:nth-child(7) {
+      min-width: 115px !important;
+      max-width: 125px !important;
+    }
+    #order-listing th:nth-child(8) {
+      min-width: 140px !important;
+      max-width: 140px !important;
+    }
+    #order-listing th:nth-child(9) {
+      min-width: 140px !important;
+      max-width: 145px !important;
+    }
+    #order-listing th:nth-child(10) {
+      min-width: 120px !important;
+      max-width: 120px !important;
+    }
+    #order-listing th:nth-child(11) {
+      min-width: 120px !important;
+      max-width: 130px !important;
+    }
+    #order-listing th:nth-child(12) {
+      min-width: 130px !important;
+      max-width: 130px !important;
+    }
+    #order-listing th:nth-child(13) {
+      min-width: 120px !important;
+      max-width: 130px !important;
+    }
+    #order-listing th:nth-child(14) {
+      min-width: 130px !important;
+      max-width: 130px !important;
+    }
+    #order-listing th:nth-child(15) {
+      min-width: 115px !important;
+      max-width: 115px !important;
+    }
+    #order-listing th:nth-child(16) {
+      min-width: 130px !important;
+      max-width: 150px !important;
+    }
+    #order-listing th:nth-child(17) {
+      min-width: 130px !important;
+      max-width: 130px !important;
+    }
+    #order-listing th:nth-child(18) {
+      min-width: 130px !important;
+      max-width: 130px !important;
+    }
+    #order-listing th:nth-child(19) {
+      min-width: 140px !important;
+      max-width: 140px !important;
+    }
+    #order-listing th:nth-child(20) {
+      min-width: 130px !important;
+      max-width: 130px !important;
+    }
+
+    /* Prevent overlap */
+    #order-listing th:nth-child(-n + 3),
+    #order-listing td:nth-child(-n + 3) {
+      z-index: 45 !important;
+    }
+
+    /* Hide hidden columns */
+    #order-listing th[hidden],
+    #order-listing td[hidden] {
+      display: none !important;
+    }
+  }
+  .model-image-tooltip {
+    position: fixed !important;
+    z-index: 99999 !important;
+    /* Optionally, add a box-shadow for visibility */
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  }
+  /* Add to your CSS file for Excel-like grid lines */
+  .table-bordered th,
+  .table-bordered td {
+    border: 1px solid #d9dedf !important;
+  }
+  /* Make the table header sticky */
+  thead th {
+    position: sticky;
+    top: 0;
+    background-color: white; /* or your table header bg color */
+    z-index: 5; /* ensure it stays above the table rows */
+  }
+
+  #order-listing thead th {
+    height: 38px !important; /* Increase as needed */
+    background: #028084 !important;
+    color: #e5fcff !important;
+    vertical-align: middle !important;
+    border-bottom: 2.5px solid #bdbdbd !important; /* Thicker grey line below heading */
+  }
+  /* style for hol/unhold row - blurred bg */
+  #order-listing tr:last-child td {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    /* background: #f4f3f3 !important; */
+  }
+  /* Gird line color combination */
+  #order-listing th,
+  #order-listing td {
+    border-right: 1.5px solid #bababa !important; /* Vertical lines: blue */
+    border-bottom: 1.5px solid #121413 !important; /* Horizontal lines: green */
+  }
+
+  /* Default: Desktop/Laptop (wider columns for larger font) - server */
+  /* #order-listing th:nth-child(1) {
+  min-width: 90px;
+  max-width: 90px;
+} */ /* S.No */
+  /* #order-listing th:nth-child(2) {
+  min-width: 90px;
+  max-width: 100px;
+} */ /* Last Updated */
+  /* #order-listing th:nth-child(3) {
+  min-width: 90px;
+  max-width: 120px;
+} */ /* Plating */
+  #order-listing th:nth-child(4) {
+    min-width: 110px;
+    max-width: 120px;
+  } /* Polishing Stk No */
+  #order-listing th:nth-child(5) {
+    min-width: 90px;
+    max-width: 100px;
+  } /* Plating Color */
+  #order-listing th:nth-child(6) {
+    min-width: 100px;
+    max-width: 110px;
+  } /* Category */
+  #order-listing th:nth-child(7) {
+    min-width: 90px;
+    max-width: 95px;
+  } /* Polish Finish */
+  #order-listing th:nth-child(8) {
+    min-width: 110px;
+    max-width: 110px;
+  } /* Version */
+  #order-listing th:nth-child(9) {
+    min-width: 105px;
+    max-width: 105px;
+  } /* Tray Cate-Capacity */
+  #order-listing th:nth-child(10) {
+    min-width: px;
+    max-width: 100px;
+  } /* Source */
+  #order-listing th:nth-child(11) {
+    min-width: 115px;
+    max-width: 115px;
+  } /* No of Trays */
+  #order-listing th:nth-child(12) {
+    min-width: 100px;
+    max-width: 105px;
+  } /* Input Qty */
+  #order-listing th:nth-child(13) {
+    min-width: 95px;
+    max-width: 100px;
+  } /* Process Status */
+  #order-listing th:nth-child(14) {
+    min-width: 95px;
+    max-width: 100px;
+  } /*  Action */
+  #order-listing th:nth-child(15) {
+    min-width: 90px;
+    max-width: 100px;
+  } /* Lot Status */
+  #order-listing th:nth-child(16) {
+    min-width: 110px;
+    max-width: 110px;
+  } /* Current Stage */
+  #order-listing th:nth-child(17) {
+    min-width: 110px;
+    max-width: 100px;
+  } /* Remarks */
+  #order-listing th:nth-child(18) {
+    min-width: 100px;
+    max-width: 110px;
+  }
+
+  @media (min-width: 600px) and (max-width: 900px) {
+    #order-listing {
+      table-layout: auto !important; /* Let columns auto-fit content */
+      width: 100% !important;
+      min-width: unset !important;
+      max-width: 100vw !important;
+    }
+    /* Adjust width for all headings (th) and cells (td) */
+    #order-listing th,
+    #order-listing td {
+      min-width: 160px !important;
+      max-width: 260px !important;
+      width: 180px !important;
+    }
+    #order-listing th {
+      position: relative;
+      padding-right: 48px !important; /* More space for filter icon */
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: ellipsis;
+    }
+    #order-listing th .fa-filter {
+      position: absolute;
+      right: 18px !important;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+      background: transparent;
+      pointer-events: auto;
+    }
+  }
+  /* Right-align filter icons */
+  #order-listing th .fa-filter {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  #order-listing th .fa-filter:hover {
+    opacity: 1;
+  }
+
+  #order-listing th:last-child,
+  #order-listing td:last-child {
+    border-right: none;
+    max-width: 95px;
+    min-width: 100px;
+  }
+  /* Overall Table Shrink */
+  #order-listing tr,
+  #order-listing td,
+  #order-listing th {
+    height: 20px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  /* Table heading font size */
+  /* Add this at the end of your <style> block in DP_PickTable.html */
+
+  /* Professional table header styling with proper text wrapping */
+  #order-listing th {
+    position: relative;
+    padding: 8px 12px 8px 16px !important;
+    text-align: left !important;
+    vertical-align: middle !important;
+    white-space: normal !important;
+    line-height: 1.3 !important;
+    word-break: keep-all !important;
+    hyphens: none !important;
+    /* font-size: 13px; */
+    /* font-weight: 600 !important; */
+    background: #028084 !important;
+    color: #e5fcff !important;
+    border-bottom: 2.5px solid #bdbdbd !important;
+    /* min-width: 80px;
+  max-width: 140px; */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    z-index: 20 !important;
+  }
+
+  /* Make sure header cells for sticky columns are always above body cells */
+  /* Fix: Prevent shadow/rows from showing behind sticky columns while scrolling */
+  #order-listing th:nth-child(-n + 3),
+  #order-listing td:nth-child(-n + 3) {
+    z-index: 30 !important;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Prevent sticky columns from overlapping sticky header */
+  #order-listing td:nth-child(-n + 3) {
+    z-index: 11 !important;
+  }
+  /* Make the first column sticky and opaque */
+  #order-listing td:first-child,
+  #order-listing th:first-child {
+    position: sticky;
+    left: 0;
+    background: #fff; /* Or match your table background */
+    z-index: 2; /* Above blurred rows */
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.03); /* Optional: subtle shadow */
+  }
+  /* Force specific table headers to wrap onto two lines */
+  #order-listing th:nth-child(4),   /* Polishing Stk No */
+#order-listing th:nth-child(5),   /* Plating Color */
+#order-listing th:nth-child(7),   /* Polish Finish */
+#order-listing th:nth-child(9),   /* Tray Cate-Capacity */
+#order-listing th:nth-child(11),  /* No of Tray */
+#order-listing th:nth-child(12),  /* Input Qty */
+#order-listing th:nth-child(13)   /* Process Status */ {
+    white-space: normal !important;
+    line-height: 1.2 !important;
+    word-break: break-word !important;
+
+    text-align: center;
+    vertical-align: middle;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
+  /* Freeze style for 1st - 3 columns */
+  /* --- Freeze first 3 columns and table header for #order-listing --- */
+  #order-listing {
+    position: relative;
+    border-collapse: separate !important;
+    border-spacing: 0;
+    background: #fff;
+    /* Ensure enough left padding for sticky columns */
+  }
+
+  #order-listing th,
+  #order-listing td {
+    background-clip: padding-box;
+    /* Prevent overlap artifacts */
+    z-index: 1;
+  }
+
+  /* Sticky header */
+  #order-listing thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #028084 !important;
+    color: #e5fcff !important;
+  }
+
+  /* Freeze 1st column */
+  #order-listing th:nth-child(1),
+  #order-listing td:nth-child(1) {
+    position: sticky;
+    left: 0 !important;
+    z-index: 12; /* Above header */
+    background: #f7fafd;
+    min-width: 75px;
+    max-width: 75px;
+  }
+
+  /* Freeze 2nd column - Last Updated*/
+  #order-listing th:nth-child(2),
+  #order-listing td:nth-child(2) {
+    position: sticky;
+    left: 75px; /* Match min-width of 1st col */
+    z-index: 12;
+    background: #f7fafd;
+    min-width: 100px; /* Increased width */
+    max-width: 110px; /* Increased width */
+  }
+
+  /* Freeze 3rd column */
+  #order-listing th:nth-child(3),
+  #order-listing td:nth-child(3) {
+    position: sticky;
+    left: 175px; /* 100px (1st) + 90px (2nd) */
+    z-index: 12;
+    background: #f7fafd;
+    min-width: 130px; /* Increased width 100 - old value*/
+    max-width: 140px; /* Increased width  110 - old value*/
+  }
+
+  /* Prevent sticky columns from overlapping sticky header */
+  #order-listing th:nth-child(-n + 3) {
+    z-index: 12;
+  }
+  #order-listing td:nth-child(-n + 3) {
+    z-index: 11;
+  }
+
+  /* Ensure sticky columns and header work together */
+  #order-listing th,
+  #order-listing td {
+    box-sizing: border-box;
+    /* Prevent content shake */
+    /* overflow: hidden; */
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* FIX 1a: Hold row blur - only non-S.No cells get blur + not-allowed cursor */
+  .blurred-heading,
+  .blurred-cell {
+    filter: blur(2px) grayscale(0.7) opacity(0.6);
+    pointer-events: none !important;
+    user-select: none;
+    cursor: not-allowed !important;
+    background: #f5f5f5 !important;
+  }
+
+  /* FIX 1b: Hold row - applied to tr, but td:first-child (S.No) must be exempt */
+  tr.row-on-hold td {
+    filter: blur(2px) grayscale(0.7) opacity(0.6);
+    pointer-events: none !important;
+    user-select: none;
+    cursor: not-allowed !important;
+    background: #f5f5f5 !important;
+  }
+  /* S.No cell (first td) is NOT blurred and cursor is normal */
+  tr.row-on-hold td:first-child {
+    filter: none !important;
+    pointer-events: auto !important;
+    user-select: auto !important;
+    cursor: default !important;
+    background: inherit !important;
+  }
+
+  /* FIX 1c: S.No number must not be cropped - ensure min-width and no overflow hidden on sno-value */
+  .sno-value {
+    display: inline-block;
+    min-width: 18px;
+    text-align: right;
+    white-space: nowrap;
+    overflow: visible;
+  }
+  /* Show remark tooltip above the trigger instead of below */
+  .remark-tooltip {
+    top: auto !important;
+    bottom: 110% !important;
+  }
+
+  /* FIX 2: Chat icon green fill after remark sent */
+  .chat-icon-sent {
+    filter: none !important;
+    opacity: 1 !important;
+  }
+  .chat-icon-sent img {
+    filter: hue-rotate(90deg) saturate(3) brightness(0.85) !important;
+    opacity: 1 !important;
+  }
+
+  /* FIX 6: Info icon tooltip styling */
+  .remark-info-tooltip {
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    max-width: 220px;
+    white-space: normal;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .remark-info-trigger:hover .remark-info-tooltip {
+    opacity: 1;
+  }
+  .remark-info-trigger {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+  }
+  #trayScanDetails.table-grid {
+    display: grid !important;
+    grid-template-columns: 94px 175px 150px !important;
+    gap: 0px !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-right: 10px;
+    margin-top: 10px;
+    border: 1px solid #ddd;
+  }
+
+  #trayScanModal {
+    overflow: scroll !important;
+    width: 435px !important;
+  }
+  #trayScanDetails.table-grid::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  #trayScanDetails.table-grid::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  #trayScanDetails.table-grid::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+  }
+
+  #trayScanDetails.table-grid::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  .tray-scan-modal.open {
+    width: 500px !important;
+  }
+  /* For the 4-column layout (with validation status) */
+  #trayScanDetails.table-grid.four-column {
+    grid-template-columns: 50px 1fr 100px 140px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Styling individual grid cells, only inside trayScanDetails */
+  #trayScanDetails.table-grid > div {
+    background: #f7f7f7;
+    padding: 8px 12px;
+    font-size: 12px;
+    border: 1px solid #ddd;
+    margin: 0; /* reset any margin from <p> or others */
+  }
+
+  /* S.no column specific styling */
+  #trayScanDetails.table-grid > div:nth-child(3n + 1):not(:nth-child(-n + 4)) {
+    text-align: center;
+    font-weight: 600;
+    padding: 8px 4px; /* Reduced horizontal padding for S.no */
+  }
+
+  /* For mobile responsiveness */
+  @media (max-width: 768px) {
+    #trayScanDetails.table-grid {
+      grid-template-columns: 45px 1fr 1fr !important; /* Even smaller S.no column on mobile */
+    }
+    #trayScanDetails.table-grid.four-column {
+      grid-template-columns: 40px 1fr 80px 100px !important;
+    }
+    #trayScanDetails.table-grid
+      > div:nth-child(3n + 1):not(:nth-child(-n + 4)) {
+      padding: 6px 2px; /* Further reduced padding on mobile */
+      font-size: 11px;
+    }
+  }
+
+  /* For very small screens */
+  @media (max-width: 480px) {
+    #trayScanDetails.table-grid {
+      grid-template-columns: 35px 1fr 80px !important; /* Minimal S.no column */
+    }
+    #trayScanDetails.table-grid.four-column {
+      grid-template-columns: 30px 1fr 70px 90px !important;
+    }
+  }
+  /* Lot ID Colors for Tray Table */
+  .lot-color-1 {
+    background-color: #e8f5e8 !important;
+  } /* Light Green */
+  .lot-color-2 {
+    background-color: #e3f2fd !important;
+  } /* Light Blue */
+  .lot-color-3 {
+    background-color: #fff3e0 !important;
+  } /* Light Orange */
+  .lot-color-4 {
+    background-color: #f3e5f5 !important;
+  } /* Light Purple */
+  .lot-color-5 {
+    background-color: #fff8e1 !important;
+  } /* Light Yellow */
+  .lot-color-6 {
+    background-color: #ffebee !important;
+  } /* Light Red */
+
+  /* Color legend styling */
+  .lot-legend {
+    margin-top: 10px;
+    font-size: 12px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .lot-legend span {
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-weight: bold;
+  }
+  /* REMOVED CONFLICTING MODAL BASE STYLES */
+
+  /* Modal Header */
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .modal-header h3 {
+    font-size: 18px;
+    margin: 0;
+  }
+
+  .highlight {
+    color: #028084;
+  }
+
+  .close-btn {
+    font-size: 26px;
+    text-decoration: none;
+    color: red;
+    cursor: pointer;
+  }
+
+  .close-btn:hover {
+    color: red;
+  }
+
+  /* Modal Actions */
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 10px 0;
+    flex-wrap: wrap;
+  }
+
+  .btn-action {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 20px;
+    font-size: 13px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+
+  .btn-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-action.blue {
+    background-color: #0378bd;
+  }
+
+  .btn-action.teal {
+    background-color: #02b4a8;
+  }
+
+  .cycle-status {
+    background: #c9fcff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    color: #1c3636;
+    font-size: 13px;
+  }
+
+  /* Form Section in Modal */
+  .form-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px !important;
+    margin-bottom: 20px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .form-group label {
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: #555;
+  }
+
+  .form-group input {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    font-size: 13px;
+  }
+
+  /* QR validation error styling */
+  .qr-validation-error {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* UPDATED: Tray Table in Modal - Changed to 2 columns */
+
+  .tray-table {
+    position: sticky;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0px;
+    margin: 5px 0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    max-height: 110px; /* Set a max height for scroll */
+    overflow-y: auto !important; /* Enable vertical scroll */
+    overflow-x: hidden !important;
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #b0b0b0 #f5f5f5; /* Firefox */
+  }
+  /* Make the first two grid items (headers) sticky */
+  .tray-table > div:nth-child(1),
+  .tray-table > div:nth-child(2) {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #d1f2f3 !important;
+    font-weight: bold;
+    color: #028084;
+    border-bottom: 2px solid #b0b0b0;
+  }
+
+  /* Chrome, Edge, Safari */
+  .tray-table::-webkit-scrollbar {
+    width: 6px;
+  }
+  .tray-table::-webkit-scrollbar-thumb {
+    background: #b0b0b0;
+    border-radius: 4px;
+  }
+  .tray-table::-webkit-scrollbar-track {
+    background: #f5f5f5;
+    border-radius: 4px;
+  }
+
+  .tray-table > div {
+    background: #f0fdfc;
+    border: 1px solid #d1d1d1;
+    padding: 8px;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .tray-table > div:nth-child(-n + 2) {
+    /* Changed from -n+3 to -n+2 */
+    position: sticky;
+    background: #d1f2f3 !important;
+    font-weight: bold;
+    color: #028084;
+  }
+
+  /* Status indicator styling */
+  #selectedItemsStatus {
+    animation: fadeIn 0.3s ease;
+    margin: 15px 0;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #666;
+    display: none;
+  }
+
+  /* Action Buttons in Modal */
+  .action-buttons {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .action-buttons button {
+    flex: 1 1 calc(50% - 6px);
+    padding: 10px;
+    border: none;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-twitter {
+    background-color: #028084a8;
+    color: white;
+  }
+
+  .btn-success {
+    background-color: #28a745;
+    color: white;
+  }
+
+  .btn-warning {
+    background-color: #ffc107;
+    color: #000;
+  }
+
+  .btn-danger {
+    background-color: #dc3545;
+    color: white;
+  }
+
+  /* Animations for Modal */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Toast animations */
+  @keyframes slideInToast {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideOutToast {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+  }
+
+  /* Modal message animations */
+  @keyframes slideInMessage {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideOutMessage {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+  }
+
+  /* Filter indicator animation */
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  /* Model Slider in Modal */
+  .model-slider-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+  }
+
+  .slider-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.1);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    z-index: 10;
+    display: none;
+  }
+
+  .prev-btn {
+    left: 4px;
+  }
+
+  .next-btn {
+    right: 4px;
+  }
+
+  .model-slider-container {
+    overflow: hidden;
+    margin: 0 40px;
+  }
+
+  .model-slider {
+    display: flex;
+    transition: transform 0.3s ease;
+    gap: 12px;
+  }
+
+  .model-loaded-item {
+    min-width: 160px;
+    flex: 0 0 auto;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #e8f5e8 0%, #fff5bd 100%);
+    border: 2px solid #28a745;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-top: 10px;
+  }
+
+  /* Responsive Design for Modal */
+  @media (max-width: 600px) {
+    .add-jig-window {
+      padding: 16px;
+    }
+
+    .tray-table {
+      grid-template-columns: 1fr;
+    }
+
+    .form-section {
+      grid-template-columns: 1fr;
+    }
+
+    .action-buttons button {
+      flex: 1 1 100%;
+    }
+  }
+
+  /* Responsive styles for Tray Distribution and Case Accountability cards */
+  @media (max-width: 768px) {
+    #halfFilledTraySection > div {
+      margin: 5px 0;
+      padding: 10px;
+    }
+    
+    #halfFilledTraySection h6 {
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    
+    #halfFilledTraySection .tray-scan-tab {
+      min-width: 100%;
+      margin-bottom: 8px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    #halfFilledTraySection > div {
+      padding: 8px;
+      margin: 3px 0;
+    }
+    
+    #halfFilledTraySection h6 {
+      font-size: 13px;
+    }
+    
+    #halfFilledTraySection .tray-scan-tab {
+      padding: 6px 8px;
+    }
+    
+    #halfFilledTraySection input[type="text"] {
+      font-size: 14px;
+      padding: 6px 8px;
+    }
+  }
+
+/* Ensure modal is visible when opened */
+.right-slide-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1100; /* Above SweetAlert2 */
+}
+
+.right-slide-modal.open {
+  display: block;
+}
+
+.add-jig-window {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 80%;
+  height: 100%;
+  background: white;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+}
+
+.right-slide-modal.open .add-jig-window {
+  transform: translateX(0);
+}
+/* Ensure sticky columns also get highlighted */
+.jig-row-action-highlight td:nth-child(1),
+.jig-row-action-highlight td:nth-child(2),
+.jig-row-action-highlight td:nth-child(3) {
+  background-color: #fff5bd !important;
+}
+</style>
+
+<div class="content-wrapper">
+  <div class="col-12 grid-margin stretch-card">
+    <div class="card-body" style="padding-bottom: 12px">
+      <h5 class="text-left mt-0 mb-4" style="font-weight: 700">
+        Jig Loading Pick Table
+      </h5>
+      <div class="table-responsive">
+        <table id="order-listing" class="table">
+          <thead>
+            <tr>
+              <th>S.No <i class="fa fa-filter" aria-hidden="true"></i></th>
+              <th>
+                Last<br />Updated
+                <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th>
+                Plating<br />
+                Stk No <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th>
+                Polishing<br />Stk No
+                <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th>
+                Plating Color <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th>
+                Polish Finish <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th style="display: none">
+                Version <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th>
+                No of <br />
+                Trays <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th>LOT Qty <i class="fa fa-filter" aria-hidden="true"></i></th>
+              <th>Jig Type <i class="fa fa-filter" aria-hidden="true"></i></th>
+              <th>In.p Info<i class="fa fa-filter" aria-hidden="true"></i></th>
+              <th>
+                Process Status <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th>Action <i class="fa fa-filter" aria-hidden="true"></i></th>
+              <th>
+                Lot <br />
+                Status <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th>
+                Current <br />
+                Stage <i class="fa fa-filter" aria-hidden="true"></i>
+              </th>
+              <th>Remarks <i class="fa fa-filter" aria-hidden="true"></i></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for data in master_data %}
+            <tr
+              class="highlighted-tray-scan"
+              data-batch-id="{{ data.batch_id }}"
+              data-stock-lot-id="{{ data.stock_lot_id }}"
+            >
+              <!-- S.No -->
+              <td>
+                <div style="display: flex; align-items: center; gap: 3px">
+                  <input
+                    type="checkbox"
+                    class="model-select-checkbox"
+                    data-model-no="{{ data.model_stock_no__model_no }}"
+                    data-stock-lot-id="{{ data.stock_lot_id }}"
+                    data-img-url="{{ data.model_images.0|default:'/static/assets/images/imagePlaceholder.png' }}"
+                    style="display: none; border: 2px solid #dc3545"
+                  />
+                  <span style="display: flex; align-items: center; gap: 2px">
+                    <label class="hold-toggle-switch" style="margin-bottom: 0">
+                      <input type="checkbox" class="hold-toggle-btn" checked />
+                      <span class="hold-slider"></span>
+                    </label>
+                    <span
+                      class="hold-remark-icon"
+                      style="display: inline-block; cursor: pointer"
+                      title=""
+                    >
+                      <img
+                        src="{% static 'assets/icons/view2.png' %}"
+                        alt="Remark"
+                        style="width: 12px; height: 12px"
+                      />
+                    </span>
+                      <span class="sno-value">{{ forloop.counter }}</span>
+
+                  </span>
+                </div>
+              </td>
+              <!-- Last Updated -->
+              <td>
+                {{ data.brass_audit_last_process_date_time|date:"d-M-y" }}<br />
+                <span
+                  style="
+                    display: inline-block;
+                    margin-top: 4px;
+                    word-break: break-all;
+                  "
+                >
+                  {{ data.brass_audit_last_process_date_time|date:"h:i A" }}
+                </span>
+              </td>
+              <!-- Plating Stk No -->
+              <td>
+                {% if data.plating_stk_no %}
+                  <span class="model-hover-trigger" style="cursor: pointer; word-break: break-all">
+                    {{ data.plating_stk_no|highlight_plating_color|safe }}
+                  </span>
+                {% elif data.model_stock_no.plating_stk_no %}
+                  <span class="model-hover-trigger" style="cursor: pointer; word-break: break-all">
+                    {{ data.model_stock_no.plating_stk_no|highlight_plating_color|safe }}
+                  </span>
+                {% else %}
+                  <span style="color: #dc3545; font-weight: 600">Empty</span>
+                {% endif %}
+              </td>
+              
+              <!-- Polishing Stk No -->
+              <td>
+                {% if data.polishing_stk_no %}
+                  {{ data.polishing_stk_no }}
+                {% elif data.model_stock_no.polishing_stk_no %}
+                  {{ data.model_stock_no.polishing_stk_no }}
+                {% else %}
+                  <span style="color: #dc3545; font-weight: 600">Empty</span>
+                {% endif %}
+              </td>
+              <!-- Plating Color -->
+              <td>{{ data.plating_color }}</td>
+              <!-- Polish Finish -->
+              <td>{{ data.polish_finish }}</td>
+              <!-- Version (hidden) -->
+              <td style="display: none">
+                {{ data.version__version_internal }}
+              </td>
+              <!-- No of Trays -->
+              <td>{{ data.no_of_trays }}</td>
+              <!-- LOT Qty -->
+              <td>
+                <input
+                  type="number"
+                  class="edit-qty-input"
+                  value="{{ data.display_qty|default:0 }}"
+                  data-batch-id="{{ data.batch_id }}"
+                  style="
+                    width: 60px;
+                    padding: 2px 6px;
+                    font-size: 13px;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                  "
+                  readonly
+                />
+              </td>
+              <!-- Jig Type -->
+              <td>{{ data.jig_capacity }} Jig</td>
+              <!-- In.p Info -->
+              <td>
+                <span
+                  class="mobile-cross-icon"
+                  style="
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                  "
+                >
+                  <img
+                    src="{% static 'assets/icons/viewRemarks.png' %}"
+                    alt="View Remarks"
+                    style="width:22px; height:22px; object-fit:contain; {% if data.inprocess_remarks %}filter:none; opacity:1;{% else %}filter:grayscale(1); opacity:0.6;{% endif %}"
+                    title="{% if data.inprocess_remarks %}View Remarks{% else %}No remarks{% endif %}"
+                  />
+                </span>
+              </td>
+              <!-- Process Status -->
+              <td>
+                <div class="d-flex">
+                  <div
+                    title="Tray Scan"
+                    class="d-flex align-items-center justify-content-center rounded-circle ms-1"
+                    style="
+                      width: 20px;
+                      height: 20px;
+                      color: white;
+                      font-weight: bold;
+                      line-height: 20px;
+                      text-align: center;
+                      padding-top: 1px;
+                      padding-right: 1px;
+                      background: #bdbdbd;
+                    "
+                  >
+                    L
+                  </div>
+                </div>
+              </td>
+              <!-- Action -->
+              <td>
+                <a
+                  href="#"
+                  class="jig-delete-batch-btn"
+                  data-stock-lot-id="{{ data.stock_lot_id }}"
+                  title="Delete"
+                >
+                  <img
+                    src="{% static 'assets/icons/bin.png' %}"
+                    alt="Delete"
+                    style="width: 20px; margin-right: 8px; height: auto"
+                  />
+                </a>
+                <!-- Add Jig Button - UI -->
+                <button
+                  type="button"
+                  class="btn btn-social-icon-text btn-twitter open-jig-modal-btn"
+                  style="background-color: #028084a8"
+                  data-batch-id="{{ data.batch_id }}"
+                  data-stock-lot-id="{{ data.stock_lot_id }}"
+                  data-jig-qr-id="{{ data.jig_id|default:'' }}"
+                >
+                  <i class="fa fa-plus"></i>Add Jig
+                </button>
+
+                  <!-- View Tray Info Button (like Brass Audit) -->
+                    <a
+                      href="#"
+                      class="tray-scan-btn-Jig"
+                      title="View Tray Info"
+                      data-batch-id="{{ data.batch_id }}"
+                      data-stock-lot-id="{{ data.stock_lot_id }}"
+                      data-model-no="{{ data.model_stock_no__model_no|default:'' }}"
+                      data-plating-stk-no="{{ data.plating_stk_no|default:'' }}"
+                      data-total-batch-quantity="{{ data.display_qty|default:0 }}"
+                      data-missing-qty="{{ data.missing_qty|default:0 }}"
+                      data-physical-qty="{{ data.physical_qty|default:0 }}"
+                      data-model-image="{{ data.model_images.0|default:'/static/assets/images/imagePlaceholder.png' }}"
+                      style="margin-left: 8px; vertical-align: middle;"
+                    >
+                      <img
+                        src="{% static 'assets/icons/view.png' %}"
+                        alt="View"
+                        style="width: 22px; height: 22px; object-fit: contain;"
+                      />
+                    </a>
+              </td>
+              <!-- Lot Status -->
+              <td>
+                <div
+                  class="d-inline-block px-3 fw-semibold text-center rounded-pill lot-status-pill {{ data.lot_status_class }}"
+                >
+                  {{ data.lot_status|default:"Yet to Start" }}
+                </div>
+              </td>
+              <!-- Current Stage -->
+              <td>
+                <div
+                  class="d-inline-block px-3 fw-semibold text-center rounded-pill"
+                  style="
+                    border: 1px solid #d1edf3;
+                    background-color: #d1edf3;
+                    color: #033b5d;
+                    font-size: 13px;
+                    white-space: nowrap;
+                    padding: 5px;
+                  "
+                >
+                  {{ data.last_process_module|default:"N/A" }}
+                </div>
+              </td>
+              <!-- Remarks -->
+              <td>
+                <!-- FIX 2 & 6: Chat remark icon with working send, lock after send, persist via localStorage, info shows remark -->
+                <span style="display:inline-flex; align-items:center; gap:5px;">
+                  <!-- Chat icon trigger -->
+                  <a
+                    href="#"
+                    title=""
+                    class="remark-chat-trigger"
+                    data-lot-id="{{ data.stock_lot_id }}"
+                    data-batch-id="{{ data.batch_id }}"
+                    style="
+                      display: inline-flex;
+                      align-items: center;
+                      height: 20px;
+                      margin-left: 5px;
+                      position: relative;
+                      cursor: pointer;
+                    "
+                  >
+                    <img
+                      src="{% static 'assets/icons/chat_icon.png' %}"
+                      alt="Chat"
+                      class="chat-icon-img"
+                      style="width: 20px; height: 20px; opacity: 0.7"
+                    />
+                    <!-- Chat tooltip popup -->
+                    <div
+                      class="remark-tooltip remark-chat-popup"
+                      style="
+                        position: absolute;
+                        bottom: 110%;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        width: 270px;
+                        background: #fff;
+                        border: 1px solid #ccc;
+                        border-radius: 6px;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                        opacity: 0;
+                        visibility: hidden;
+                        transition: opacity 0.3s ease, visibility 0.3s ease;
+                        padding: 15px;
+                        z-index: 1000;
+                      "
+                    >
+                      <div class="remark-sent-display" style="display:none; font-size:13px; color:#333; word-break:break-word;"></div>
+                      <div class="remark-input-area" style="display:flex; align-items:flex-start; gap:6px;">
+                        <textarea
+                          placeholder="Type your remark..."
+                          class="remark-textarea"
+                          style="
+                            flex: 1;
+                            height: 40px;
+                            resize: vertical;
+                            border: 1px solid #ccc;
+                            padding: 5px;
+                            border-radius: 4px;
+                            font-family: Arial, sans-serif;
+                            font-size: 14px;
+                          "
+                        ></textarea>
+                        <button
+                          type="button"
+                          class="remark-send-btn"
+                          style="
+                            background-color: #007bff;
+                            color: #fff;
+                            border: none;
+                            padding: 6px 12px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            align-self: flex-end;
+                          "
+                        >
+                          <i class="fa fa-send"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </a>
+                  <!-- FIX 6: Info icon showing entered remark on hover -->
+                  <span class="remark-info-trigger" data-lot-id="{{ data.stock_lot_id }}" style="display:none;">
+                    <img src="{% static 'assets/icons/view2.png' %}" alt="Remark Info" style="width:14px;height:14px; opacity:0.8;">
+                    <span class="remark-info-tooltip"></span>
+                  </span>
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Pagination Section -->
+    <div class="pagination-wrapper">
+      <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-end mb-0">
+          {% if page_obj.has_previous %}
+          <li>
+            <a
+              href="?page={{ page_obj.previous_page_number }}"
+              aria-label="Previous"
+            >
+              <span aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+            </a>
+          </li>
+          {% else %}
+          <li class="disabled">
+            <span aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+          </li>
+          {% endif %}
+          
+          {# Always show page 1 #}
+          {% if page_obj.number == 1 %}
+          <li class="active"><span>1</span></li>
+          {% else %}
+          <li><a href="?page=1">1</a></li>
+          {% endif %}
+          
+          {# Show ... if needed #}
+          {% if page_obj.number > 4 %}
+          <li class="disabled"><span>…</span></li>
+          {% endif %}
+          
+          {# Show pages around current #}
+          {% for num in page_obj.paginator.page_range %}
+            {% if num > 1 and num < page_obj.paginator.num_pages %}
+              {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                {% if num == page_obj.number %}
+                <li class="active"><span>{{ num }}</span></li>
+                {% else %}
+                <li><a href="?page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          
+          {# Show ... before last page #}
+          {% if page_obj.number < page_obj.paginator.num_pages|add:'-3' %}
+          <li class="disabled"><span>…</span></li>
+          {% endif %}
+          
+          {# Always show last page if more than one page #}
+          {% if page_obj.paginator.num_pages > 1 %}
+            {% if page_obj.number == page_obj.paginator.num_pages %}
+            <li class="active">
+              <span>{{ page_obj.paginator.num_pages }}</span>
+            </li>
+            {% else %}
+            <li>
+              <a href="?page={{ page_obj.paginator.num_pages }}">{{ page_obj.paginator.num_pages }}</a>
+            </li>
+            {% endif %}
+          {% endif %} {% if page_obj.has_next %}
+          <li>
+            <a href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+              <span aria-hidden="true"
+                ><i class="fa fa-chevron-right"></i
+              ></span>
+            </a>
+          </li>
+          {% else %}
+          <li class="disabled">
+            <span aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<!-- Hold Remark Modal -->
+<div
+  id="holdRemarkModal"
+  style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.18);
+    z-index: 20000;
+    align-items: center;
+    justify-content: center;
+  "
+>
+  <div
+    style="
+      background: #fff;
+      border-radius: 10px;
+      padding: 28px 32px 18px 32px;
+      min-width: 320px;
+      max-width: 90vw;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+      position: relative;
+    "
+  >
+    <span
+      id="closeHoldRemarkModal"
+      style="
+        position: absolute;
+        top: 8px;
+        right: 16px;
+        font-size: 22px;
+        font-weight: bold;
+        color: #d9534f;
+        cursor: pointer;
+      "
+      >&times;</span
+    >
+    <h5 style="margin-bottom: 16px; color: #028084">Row Hold Remark</h5>
+    <textarea
+      id="holdRemarkInput"
+      maxlength="50"
+      style="
+        width: 100%;
+        height: 60px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 15px;
+        resize: none;
+      "
+      placeholder="Enter remark (max 50 chars)"
+    ></textarea>
+    <div style="text-align: right; margin-top: 10px">
+      <button
+        id="saveHoldRemarkBtn"
+        style="
+          background: #007bff;
+          color: #fff;
+          border: none;
+          border-radius: 20px;
+          padding: 6px 18px;
+          font-size: 15px;
+          cursor: pointer;
+        "
+      >
+        Save & Proceed
+      </button>
+    </div>
+    <div
+      id="holdRemarkError"
+      style="color: red; font-size: 13px; min-height: 18px; margin-top: 6px"
+    ></div>
+  </div>
+</div>
+
+<!-- Tray Info Table -->
+<div id="trayScanModal_Jig" class="tray-scan-modal">
+  <!-- Remove background frame: only show modal content -->
+  <div class="tray-scan-modal-content">
+    <span id="closeTrayScanModal_Jig" class="tray-scan-close-readonly"
+      >&times;</span
+    >
+
+    <div class="modal-top-header">
+      <div class="user-profile">
+        <img
+          id="trayModalUserImg_Jig"
+          src="/static/assets/images/imagePlaceholder.png"
+          alt="Model image"
+        />
+      </div>
+      <div>
+        <span
+          id="modalModelNo_Jig"
+          style="font-weight: 600; color: #028084; font-size: 18px"
+        ></span>
+        <div style="margin-top: 4px">
+          <span
+            id="modalLotQty_Jig"
+            style="font-weight: 600; color: #3c3c3c"
+          ></span>
+          <span
+            id="modalMissingQty_Jig"
+            style="font-weight: 600; color: #dc3545; margin-left: 12px"
+          ></span>
+          <span
+            id="modalPhysicalQty_Jig"
+            style="font-weight: 600; color: #28a745; margin-left: 12px"
+          ></span>
+        </div>
+      </div>
+    </div>
+
+    <hr style="margin: 10px 0 14px 0; border-color: #e9ecef" />
+
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      "
+    >
+      <h5 style="margin: 0; font-weight: 700; color: #028084">
+        Jig Loading - Tray Scan
+      </h5>
+<!--       <button id="trayValidateBtn_Jig" class="tray-validate-btn" type="button">
+        Tray Validate
+      </button> -->
+    </div>
+
+    <div id="trayScanDetails_Jig" class="table-grid tray-scan-table"></div>
+  </div>
+</div>
+
+<!-- Add Jig Button - Window (functional) -->
+<div id="jigAddModal" class="right-slide-modal" tabindex="-1">
+  <div class="add-jig-window">
+    <!-- Header with close button -->
+    <div class="jig-modal-header">
+      <h3
+        id="jigAddModalTitle"
+        style="color: rgb(0, 0, 0); margin: 0; font-weight: 600"
+      >
+        Jig Loading
+        <span id="modalPlatingStockNo" style="display: none"></span>
+      </h3>
+      <div style="display: flex; gap: 10px; align-items: center">
+        <button type="button" class="btn-action blue" id="addJigBtnAlt">
+          <i class="fa fa-database"></i> Add Jig
+        </button>
+        <button type="button" class="btn-action teal" id="jigCompositionBtn">
+          <i class="fa fa-cogs"></i> Jig Composition
+        </button>
+        <button type="button" class="btn-action blue" id="addModelBtn" disabled>
+          + Add Model
+        </button>
+        <span class="cycle-status"
+          >No of Cycle: <span id="modalNoOfCycle"></span
+        ></span>
+        <span
+          class="close-btn"
+          style="color: rgb(223, 50, 50); font-size: 24px; cursor: pointer"
+          >&times;</span
+        >
+      </div>
+    </div>
+
+    <!-- FIX 3: Model Images Row - single image slot only (removed duplicate) -->
+    <div
+      class="jig-modal-model-images-row"
+      style="
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 10px 0 16px 0;
+        padding: 0 24px;
+      "
+    >
+      <!-- Primary model image badge -->
+      <button
+        type="button"
+        class="btn-action transparent model-images"
+        disabled
+        style="display: flex; align-items: center; gap: 8px"
+      >
+        <img
+          id="modelImagePreview"
+          src="/static/assets/images/imagePlaceholder.png"
+          alt="Model Image"
+          style="
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            object-fit: contain;
+            background: #f7f7f7;
+          "
+        />
+        <span
+          id="modelImageLabel"
+          style="font-weight: 600; color: #028084"
+        ></span>
+      </button>
+      <!-- Additional model tabs will be appended here by JS when Add Model is used -->
+    </div>
+
+    <!-- Jig Loading - Form Fields Grid -->
+    <form id="jigAddForm" autocomplete="off">
+      <div
+        class="form-fields-grid"
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 18px;
+          margin-bottom: 16px;
+          flex-wrap: nowrap;
+        "
+      >
+      <!-- JIG ID INPUT -->
+        <div class="form-group" style="min-width: 120px; position: relative;">
+          <label for="jigIdInput">Jig ID</label>
+          <input
+            type="text"
+            id="jigIdInput"
+            maxlength="9"
+            required
+            placeholder="Enter Jig ID"
+            style="width: 100%"
+          />
+        </div>
+        <!-- Nickel Bath Type -->
+        <div class="form-group" style="min-width: 120px">
+          <label for="nickelBathTypeInput">Nickel Bath Type</label>
+          <input
+            type="text"
+            id="nickelBathTypeInput"
+            readonly
+            style="width: 100%"
+          />
+        </div>
+         <!-- Tray Type -->
+        <div class="form-group" style="min-width: 120px">
+          <label for="trayTypeInput">Tray Type</label>
+          <input type="text" id="trayTypeInput" readonly style="width: 100%" />
+        </div>
+        <!-- Lot Qty -->
+        <div class="form-group" style="min-width: 120px ">
+          <label for="reallotQty">Lot Qty</label>
+          <input
+            type="number"
+            id="reallotQty"
+            readonly
+            style="width: 100% ; background: #e6f7f7; border: none; font-weight: 600; color: #033b5d;"
+            value="{{ data.display_qty|default:0 }}"
+          />
+        </div>
+        <!-- Jig Capacity -->
+        <div class="form-group" style="min-width: 85px">
+          <label for="jigCapacityInput">Jig Capacity</label>
+          <input
+            type="number"
+            id="jigCapacityInput"
+            readonly
+            style="width: 100%"
+          />
+        </div>
+
+        <!-- Loaded Cases Qty -->
+        <div class="form-group" style="min-width: 120px">
+          <label for="loadedCasesQtyInput">Loaded Cases Qty</label>
+          <span
+            id="loadedCasesQtyDisplay"
+            style="display: inline-block; width: 100%; border: 1.5px solid #ccc; background: #f9f9f9; font-weight: bold; text-align: center; border-radius: 6px; padding: 10px 0; font-size: 15px;"
+            tabindex="-1"
+            draggable="false"
+            ondragstart="return false;"
+            ondrop="return false;"
+            onmousedown="if(event.detail>1){event.preventDefault();}"
+          >
+          </span>
+          <span id="excessMessage" style="color: #dc3545; font-size: 12px; margin-top: 4px; display: block;"></span>
+           
+          <input type="hidden" id="lotQtyHidden" value="0" />
+        </div>
+        <div class="form-group" style="min-width: 120px">
+          <label for="emptyHooksInput">Empty Hooks</label>
+          <input
+            type="number"
+            id="emptyHooksInput"
+            readonly
+            style="width: 100%"
+          />
+        </div>
+        <!-- Broken Hooks -->
+        <div class="form-group" style="min-width: 120px">
+          <label for="brokenBuildupHooksInput">Broken Hooks</label>
+          <input
+            type="number"
+            id="brokenBuildupHooksInput"
+            min="0"
+            max="5"
+            style="width: 100%"
+            oninput="validateBrokenHooksInput(this)"
+          />
+        </div>
+      </div>
+    </form>
+
+    <!-- Delink Information Section (collapsible) -->
+<div class="delink-section">
+  <div class="delink-header" style="display: flex; align-items: center; justify-content: space-between;">
+    <span>
+      Delink Information
+      <span style="font-size: 13px; color: #028084; font-weight: 600; margin-left: 12px;">
+        (No of Trays: <span id="delinkTrayCount"></span>)
+      </span>
+    </span>
+  </div>
+</div>
+
+<div class="delink-content" id="delinkTableSection" style="display: flex; flex-wrap: wrap; margin-top: 10px; padding-bottom: 10px;">
+  <!-- Tray scan inputs will be rendered here by JS -->
+</div>
+
+<!-- Half Filled Tray Section (Dynamic Rendering) -->
+<div class="halffilled-section" id="halfFilledTraySection" style="display: none; margin-top: 20px; margin-bottom: 50px;">
+  <!-- Content will be dynamically generated by renderHalfFilledTraySection() -->
+</div>
+
+    <!-- Stick footer to bottom INSIDE add-jig-window -->
+    <div
+      class="jig-modal-footer"
+      style="
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: #f7fafd;
+        box-shadow: 0 -2px 12px rgba(56, 132, 132, 0.1);
+        padding: 10px 24px;
+        display: flex;
+        gap: 16px;
+        justify-content: flex-end;
+        z-index: 11000;
+      "
+    >
+      <button type="button" class="btn-action teal" id="submitJigBtn">
+        Submit
+      </button>
+      <button type="button" class="btn-action blue" id="draftJigBtn">
+        Draft
+      </button>
+      <button type="button" class="btn-action transparent" id="clearJigBtn">
+        Clear
+      </button>
+      <button
+        type="button"
+        class="btn-action btn-danger"
+        id="cancelJigBtn"
+      >
+        Cancel
+      </button>
+    </div>
+
+
+  </div>
+</div>
+
+
+
+
+{% block script %}
+
+
+<!-- Active Row Highlight Script for Jig Loading -->
+<script nonce="{{ csp_nonce }}">
+(function () {
+  // Initialize highlight tracking variables
+  window.currentHighlightedRow = null;
+  window.currentHighlightedLotId = null;
+  window.originalRowPosition = null;
+  
+  // Function to highlight and move row to top
+  function highlightAndMoveRowToTop(row, lotId) {
+    console.log(`🎯 Highlighting and moving row to top for Lot ID: ${lotId}`);
+    
+    // If there's already a highlighted row, restore it first
+    if (window.currentHighlightedRow && window.originalRowPosition) {
+      restorePreviousRowPosition();
+    }
+    
+    // Store original position
+    const tableBody = row.parentElement;
+    const allRows = Array.from(tableBody.children);
+    const originalIndex = allRows.indexOf(row);
+    
+    window.currentHighlightedRow = row;
+    window.currentHighlightedLotId = lotId;
+    window.originalRowPosition = {
+      row: row,
+      parent: tableBody,
+      nextSibling: row.nextElementSibling,
+      index: originalIndex
+    };
+    
+    // Add highlight class
+    row.classList.add('jig-row-action-highlight');
+    
+    // Move to top of table
+    tableBody.insertBefore(row, tableBody.firstChild);
+    
+    // Scroll to top to make it visible
+    const table = tableBody.closest('table');
+    if (table) {
+      table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    console.log(`✅ Row highlighted and moved to top for Lot ID: ${lotId}`);
+  }
+  
+  // Function to restore previous row to its original position
+  function restorePreviousRowPosition() {
+    if (!window.originalRowPosition) return;
+    
+    const { row, parent, nextSibling, index } = window.originalRowPosition;
+    
+    console.log(`🔄 Restoring row to original position for Lot ID: ${window.currentHighlightedLotId}`);
+    
+    // Remove highlight class
+    row.classList.remove('jig-row-action-highlight');
+    
+    // Restore to original position
+    if (nextSibling) {
+      parent.insertBefore(row, nextSibling);
+    } else {
+      parent.appendChild(row);
+    }
+    
+    // Clear tracking variables
+    window.currentHighlightedRow = null;
+    window.currentHighlightedLotId = null;
+    window.originalRowPosition = null;
+    
+    console.log(`✅ Row restored to original position`);
+  }
+  
+  // Make functions globally available
+  window.highlightAndMoveRowToTop = highlightAndMoveRowToTop;
+  window.restorePreviousRowPosition = restorePreviousRowPosition;
+  
+  // Add modal close listener using MutationObserver for both modals
+  const jigAddModal = document.getElementById('jigAddModal');
+  if (jigAddModal) {
+    const observer1 = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          if (!jigAddModal.classList.contains('open')) {
+            restorePreviousRowPosition();
+          }
+        }
+      });
+    });
+    observer1.observe(jigAddModal, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
+  
+  const trayScanModal = document.getElementById('trayScanModal_Jig');
+  if (trayScanModal) {
+    const observer2 = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          if (!trayScanModal.classList.contains('open')) {
+            restorePreviousRowPosition();
+          }
+        }
+      });
+    });
+    observer2.observe(trayScanModal, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
+})();
+</script>
+
+
+<!-- Add Jig button - rendering (Modal Popup - Delink Information Table) -->
+<script nonce="{{ csp_nonce }}">
+(function () {
+  // Enhanced success alert helper for "Draft" button with better z-index handling
+  function showSuccess(title, onComplete) {
+    if (typeof hideGlobalSpinner === "function") hideGlobalSpinner();
+    
+    if (window.Swal) {
+      // Temporarily reduce modal z-index to ensure SweetAlert appears on top
+      const modal = document.getElementById('jigAddModal');
+      const originalZIndex = modal ? modal.style.zIndex : null;
+      if (modal) modal.style.zIndex = '1000';
+      
+      // Configure SweetAlert with maximum z-index values
+      Swal.fire({
+        icon: "success",
+        title: title,
+        showConfirmButton: false,
+        timer: 1200,
+        customClass: {
+          popup: 'swal2-override-zindex'
+        },
+        backdrop: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      }).then(() => {
+        // Restore modal z-index after SweetAlert closes
+        if (modal && originalZIndex) modal.style.zIndex = originalZIndex;
+        if (onComplete) onComplete();
+      });
+      
+      // Force z-index application with multiple attempts
+      setTimeout(() => {
+        const swalContainer = document.querySelector('.swal2-container');
+        const swalPopup = document.querySelector('.swal2-popup');
+        const swalBackdrop = document.querySelector('.swal2-backdrop-show');
+        
+        if (swalContainer) swalContainer.style.zIndex = '50000';
+        if (swalPopup) swalPopup.style.zIndex = '50001';
+        if (swalBackdrop) swalBackdrop.style.zIndex = '49999';
+      }, 1);
+      
+      // Second attempt after render
+      setTimeout(() => {
+        const swalContainer = document.querySelector('.swal2-container');
+        const swalPopup = document.querySelector('.swal2-popup');
+        if (swalContainer) swalContainer.style.zIndex = '50000';
+        if (swalPopup) swalPopup.style.zIndex = '50001';
+      }, 50);
+      
+    } else {
+      alert(title);
+      if (onComplete) onComplete();
+    }
+  }
+
+  // CSRF helper
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === name + "=") {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  const csrftoken = getCookie("csrftoken");
+  
+  function getCsrfToken() {
+    return csrftoken;
+  }
+
+
+
+  
+  document.addEventListener("DOMContentLoaded", function () {
+    
+  
+  // --- Instant Jig ID Validation ---
+const jigIdInput = document.getElementById("jigIdInput");
+if (jigIdInput) {
+  jigIdInput.addEventListener("input", function () {
+    const jigId = this.value.trim();
+    // const batchId = document.querySelector(".open-jig-modal-btn")?.getAttribute("data-batch-id") || "";
+
+    // Use modal context instead of DOM query
+    const batchId = window.currentModalContext?.batchId || "";
+    const jigType = window.currentModalContext?.jigType || "";
+
+    // Remove alerts if empty
+    if (jigId.length === 0) {
+      removeJigIdAlert(this);
+      this.style.borderColor = "";
+      this.style.backgroundColor = "";
+      this.title = "";
+      return;
+    }
+
+    console.log("🚀 Sending validation request for:", {jig_id: jigId, batch_id: batchId, jig_type: jigType});
+    
+    fetch("/jig_loading/validate-lock-jig-id/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken,
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        jig_id: jigId,
+        batch_id: batchId,
+        lot_id: window.currentModalContext?.lotId || "",
+        jig_type: jigType
+      }),
+    })
+      .then(async resp => {
+        console.log("📡 Response status:", resp.status);
+        console.log("📡 Response ok:", resp.ok);
+        console.log("📡 Response content-type:", resp.headers.get('content-type'));
+        
+        // Check if response is JSON
+        const contentType = resp.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.log("❌ Response is not JSON, got:", contentType);
+          const text = await resp.text();
+          console.log("📄 Response text (first 200 chars):", text.substring(0, 200));
+          showJigIdValidationError(jigIdInput, "Validation error - server response issue");
+          return;
+        }
+        
+        let data;
+        try {
+          data = await resp.json();
+          console.log("📊 Response data:", data);
+        } catch (e) {
+          console.log("❌ Failed to parse JSON:", e);
+          showJigIdValidationError(jigIdInput, "Validation error");
+          return;
+        }
+        
+// Handle response based on valid flag, not HTTP status
+if (data.valid === true) {
+  // Accept both "Jig ID is available to use" and "Jig ID is valid" as success
+  if (
+    data.message &&
+    (data.message.trim() === "Jig ID is available to use" ||
+      data.message.trim() === "Jig ID is valid" ||
+      data.message.trim() === "Jig ID is drafted by you for this batch.")
+  ) {
+    let msg =
+      data.message.trim() === "Jig ID is drafted by you for this batch."
+        ? "Jig ID is valid"
+        : data.message;
+    showJigIdValidationSuccess(jigIdInput, msg);
+    // Only move focus if full 9 characters entered and valid
+    if (jigId.length === 9) {
+      setTimeout(() => {
+        autoFocusNextEmptyInput();
+      }, 10);
+    }
+  } else {
+    // If valid===true but message is not a known valid message, treat as error
+    showJigIdValidationError(
+      jigIdInput,
+      data.message || "Validation error"
+    );
+    // --- FIX: Auto-select only if 9 chars entered and invalid ---
+    if (jigId.length === 9) {
+      jigIdInput.focus();
+      jigIdInput.select();
+    }
+    // Do NOT move focus pointer to next
+  }
+} else {
+  showJigIdValidationError(
+    jigIdInput,
+    data.message || "Validation error"
+  );
+  // --- FIX: Auto-select only if 9 chars entered and invalid ---
+  if (jigId.length === 9) {
+    jigIdInput.focus();
+    jigIdInput.select();
+  }
+}
+      })
+      .catch((error) => {
+        console.log("💥 Fetch error:", error);
+        showJigIdValidationError(jigIdInput, "Network error");
+      });
+  });
+}
+    
+    
+    
+    // --- Tray Scan Modal Logic ---
+    document.querySelectorAll(".tray-scan-btn-Jig").forEach(function (link) {
+      link.addEventListener("click", async function (e) {
+        e.preventDefault();
+        const modal = document.getElementById("trayScanModal_Jig");
+        const detailsDiv = document.getElementById("trayScanDetails_Jig");
+        const batchId = link.getAttribute("data-batch-id");
+        const lotId = link.getAttribute("data-stock-lot-id");
+        const modelNo = link.getAttribute("data-model-no") || "";
+        const platingStkNo = link.getAttribute("data-plating-stk-no") || "";
+        const lotQty = link.getAttribute("data-total-batch-quantity") || "0";
+        const missingQty = link.getAttribute("data-missing-qty") || "0";
+        const physicalQty = link.getAttribute("data-physical-qty") || "0";
+        const modelImg =
+          link.getAttribute("data-model-image") ||
+          "/static/assets/images/imagePlaceholder.png";
+
+        // Set header info
+        document.getElementById("trayModalUserImg_Jig").src = modelImg;
+        document.getElementById(
+          "modalModelNo_Jig"
+        ).textContent = `Model No: ${platingStkNo}`;
+        document.getElementById(
+          "modalLotQty_Jig"
+        ).textContent = `Lot Qty: ${lotQty}`;
+        
+
+        modal.classList.add("open");
+
+        // Load trays
+        let traysData = [];
+        try {
+          const resp = await fetch(
+            `/jig_loading/tray-info/?lot_id=${lotId}&batch_id=${batchId}`
+          );
+          const result = await resp.json();
+          traysData = result.trays || [];
+        } catch (e) {
+          traysData = [];
+        }
+
+        // Build Brass style table
+        let html = `<table class="table table-bordered table-sm" style="width:100%; margin-bottom:0;">
+        <thead>
+          <tr><th>S.no</th><th>Tray ID</th><th>Tray Qty</th></tr>
+        </thead><tbody>`;
+        traysData.forEach(function (tray, idx) {
+          html += `<tr>
+                   <td>${idx === 0 ? "1 (Top Tray)" : idx + 1}</td>
+                   <td><input type="text" class="form-control" value="${
+                     tray.tray_id
+                   }" readonly /></td>
+                   <td><input type="text" class="form-control" value="${
+                     tray.tray_quantity
+                   }" readonly /></td>
+                 </tr>`;
+        });
+        html += "</tbody></table>";
+        detailsDiv.innerHTML = html;
+
+        // attach validation data to button
+        const validateBtn = document.getElementById("trayValidateBtn_Jig");
+        validateBtn.dataset.batchId = batchId;
+        validateBtn.dataset.lotId = lotId;
+        validateBtn.disabled = false;
+        validateBtn.textContent = "Tray Validate";
+        validateBtn.classList.remove("validated");
+      });
+    });
+
+    // Close modal
+    const closeBtn = document.getElementById("closeTrayScanModal_Jig");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function () {
+        window.location.reload();
+        const modal = document.getElementById("trayScanModal_Jig");
+        modal.classList.remove("open");
+      });
+    }
+
+    // Tray validate in view icon - Pick Table
+    const trayValidateBtn = document.getElementById("trayValidateBtn_Jig");
+    if (trayValidateBtn) {
+      trayValidateBtn.addEventListener("click", async function () {
+        const batchId = trayValidateBtn.dataset.batchId;
+        const lotId = trayValidateBtn.dataset.lotId;
+        try {
+          const resp = await fetch(`/jig_loading/tray-validate/`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": csrftoken,
+            },
+            body: JSON.stringify({ batch_id: batchId, lot_id: lotId }),
+          });
+          const data = await resp.json();
+          if (resp.ok && data.validated) {
+            trayValidateBtn.textContent = "Validated";
+            trayValidateBtn.disabled = true;
+            trayValidateBtn.classList.add("validated");
+            // show small success toast - keep same pattern as brass if available
+            alert(data.message || "Validation successful");
+          } else {
+            // show error
+            alert(data.message || "Validation failed");
+          }
+        } catch (err) {
+          alert("Validation request failed");
+        }
+      });
+    }
+
+
+/* Jig ID Input - Validate */
+function showJigIdValidationSuccess(input, message) {
+  // Remove previous alerts (valid and error)
+  removeJigIdAlert(input);
+  input.style.borderColor = "#28a745";
+  input.style.backgroundColor = "#eafaf1";
+  input.title = message || "Jig ID validated successfully";
+  let validDiv = input.parentNode.querySelector(".jig-id-valid-alert");
+  if (!validDiv) {
+    validDiv = document.createElement("div");
+    validDiv.className = "jig-id-valid-alert";
+    validDiv.style.cssText =
+      "color: #28a745; font-size: 12px; margin-top: 2px; margin-bottom: 8px; position: absolute; left: 0; top: 100%;";
+    validDiv.textContent = message || "Valid";
+    input.parentNode.appendChild(validDiv);
+  } else {
+    validDiv.textContent = message || "Valid";
+  }
+}
+
+function showJigIdValidationError(input, message) {
+  // Remove previous alerts (valid and error)
+  removeJigIdAlert(input);
+  input.style.borderColor = "#dc3545";
+  input.style.backgroundColor = "#ffeaea";
+  input.title = message || "Jig ID validation error";
+  let errorDiv = input.parentNode.querySelector(".jig-id-error-alert");
+  if (!errorDiv) {
+    errorDiv = document.createElement("div");
+    errorDiv.className = "jig-id-error-alert";
+    errorDiv.style.cssText =
+      "color: #dc3545; font-size: 12px; margin-top: 2px; position: absolute; left: 0; top: 100%;";
+    errorDiv.textContent = message || "Invalid";
+    input.parentNode.appendChild(errorDiv);
+  } else {
+    errorDiv.textContent = message || "Invalid";
+  }
+}
+
+function removeJigIdAlert(input) {
+  const errorAlerts = input.parentNode.querySelectorAll(".jig-id-error-alert");
+  errorAlerts.forEach((a) => a.remove());
+  const validAlerts = input.parentNode.querySelectorAll(".jig-id-valid-alert");
+  validAlerts.forEach((a) => a.remove());
+}
+  
+
+// Update Submit Button State
+function updateSubmitButtonState() {
+  const submitBtn = document.getElementById("submitJigBtn");
+  const submitBtnErrorMsg = document.getElementById("submitBtnErrorMsg");
+  
+  if (!submitBtn) return;
+  
+  // Get current empty hooks value from the modal
+  const emptyHooksElement = document.getElementById("emptyHooksInput");
+  const emptyHooks = emptyHooksElement ? parseInt(emptyHooksElement.value || "0") : 0;
+  
+  // Calculate if submit should be enabled (opposite of save: enable when empty_hooks == 0)
+  const canSubmit = emptyHooks === 0 && window.backendOverallValid === true;
+
+  // Update button state
+  submitBtn.disabled = !canSubmit;
+  
+  if (!canSubmit) {
+    submitBtn.style.background = "#e0e0e0";
+    submitBtn.style.color = "#888";
+    submitBtn.style.cursor = "not-allowed";
+    if (submitBtnErrorMsg) {
+      submitBtnErrorMsg.textContent = "All hooks must be filled before submitting.";
+      submitBtnErrorMsg.style.display = "block";
+    }
+  } else {
+    submitBtn.style.background = "";
+    submitBtn.style.color = "";
+    submitBtn.style.cursor = "";
+    if (submitBtnErrorMsg) {
+      submitBtnErrorMsg.textContent = "";
+      submitBtnErrorMsg.style.display = "none";
+    }
+  }
+}
+
+// Recalculate loaded cases qty based on scanned trays
+function recalcLoadedCasesQty() {
+  const loadedCaseQtyElem = document.getElementById('loadedCasesQtyDisplay');
+  const jigCapacityElem = document.getElementById('jigCapacityInput');
+  const lotQtyElem = document.getElementById('lotQtyHidden');
+  
+  if (!loadedCaseQtyElem || !jigCapacityElem) return;
+  
+  let total = 0;
+  
+  // Count all tray inputs (delink and half-filled)
+  document.querySelectorAll(".tray-id-input").forEach(function (inp) {
+    if (
+      inp.value.trim() !== "" &&
+      inp.parentNode.querySelector(".tray-valid-alert")
+    ) {
+      total += parseInt(inp.getAttribute("data-tray-qty") || "0", 10);
+    }
+  });
+  
+  // Update modal data validation based on scanned trays
+  if (window.currentModalData) {
+    window.currentModalData.loaded_cases_qty = total;
+    window.currentModalData.empty_hooks = Math.max(0, window.currentModalData.jig_capacity - total);
+    window.currentModalData.can_save = total >= window.currentModalData.jig_capacity;
+    if (window.currentModalData.modal_validation) {
+      window.currentModalData.modal_validation.overall_valid = window.currentModalData.can_save;
+      window.currentModalData.modal_validation.hooks_balance_valid = window.currentModalData.can_save;
+    }
+  }
+  
+  // Update display: loaded / jig_capacity, cap at jig_capacity
+  const denominator = jigCapacityElem.value;
+  const displayTotal = Math.min(total, parseInt(denominator));
+  loadedCaseQtyElem.textContent = `${displayTotal}/${denominator}`;
+  
+  // Update submit button state
+  updateSubmitButtonState();
+}
+
+// Manual Draft - Fetch and restore data when opening modal
+function openJigAddModal(batchId, lotId, jigQrId) {
+
+// Set Lot Qty from table row if available
+const lotQtyInput = document.getElementById("reallotQty");
+if (lotQtyInput) {
+  // Find the table row with matching batchId
+  const row = document.querySelector(`tr[data-batch-id="${batchId}"]`);
+  if (row) {
+    const lotQtyCellInput = row.querySelector('input.edit-qty-input');
+    if (lotQtyCellInput) {
+      lotQtyInput.value = lotQtyCellInput.value;
+    }
+  }
+}
+
+
+   clearJigIdValidationAlert();
+  // 🎯 Store modal context for draft operations
+  window.currentModalContext = {
+    batchId: batchId,
+    lotId: lotId,
+    jigQrId: jigQrId
+  };
+  console.log("🎯 Modal context stored:", window.currentModalContext);
+  
+  fetch(
+    `/jig_loading/jig-add-modal-data/?batch_id=${batchId}&lot_id=${lotId}&jig_qr_id=${jigQrId}`
+  )
+    .then((resp) => {
+      if (!resp.ok) throw new Error("Failed to fetch modal data");
+      return resp.json();
+    })
+    .then((data) => {
+
+            // Set Lot Qty from the fetched data (original lot quantity), not from table edit input
+      const lotQtyInput = document.getElementById("reallotQty");
+      if (lotQtyInput) {
+        lotQtyInput.value = data.lot_qty || 0;  // Use original lot qty from backend
+      }
+
+      console.log("🎨 About to render modal content");
+      try {
+        renderModalContent(data);
+        console.log("✅ Modal content rendered successfully");
+      } catch (error) {
+        console.error("💥 Error rendering modal content:", error);
+        // If updateSaveButtonState is not defined, skip it
+        if (error.message.includes('updateSaveButtonState is not defined')) {
+          console.log("updateSaveButtonState not defined, skipping");
+          // Try to render without it
+          try {
+            // Remove the call to updateSaveButtonState from renderModalContent
+            // Since we can't modify it, show the modal anyway
+            console.log("Attempting to open modal without updateSaveButtonState");
+          } catch (e) {
+            console.error("Failed to render modal", e);
+          }
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Failed to render modal content. Please try again.'
+          });
+          return;
+        }
+      }
+
+      // Set jig type in modal context for validation
+      window.currentModalContext.jigType = data.jig_type;
+
+      // Render tray inputs from backend data
+      renderDelinkTableFromData(data.delink_table || []);
+
+      // Wait for tray inputs to be rendered before restoring draft
+      setTimeout(() => {
+        fetch(`/jig_loading/manual-draft-fetch/?batch_id=${batchId}&lot_id=${lotId}`)
+          .then(resp => resp.json())
+          .then(result => {
+            if (result.success && result.draft_data) {
+              restoreDraftData(result.draft_data);
+            } else {
+              // No draft data - focus first empty input
+              setTimeout(() => {
+                autoFocusNextEmptyInput();
+              }, 100);
+            }
+          });
+      }, 300); // Wait 300ms for tray inputs to be present
+
+      console.log("🔓 About to open modal");
+      document.getElementById("jigAddModal").classList.add("open");
+      console.log("✅ Modal opened");
+      applyUIConfiguration(data.ui_config || {});
+    })
+    .catch(() => {
+      alert("Failed to load modal data. Please try again.");
+    });
+}
+
+
+// Auto Focus Pointer - Next Empty Input 
+function autoFocusNextEmptyInput() {
+  // 1. Jig ID
+  const jigIdInput = document.getElementById("jigIdInput");
+  if (
+    jigIdInput &&
+    jigIdInput.value.trim() === "" &&
+    !jigIdInput.disabled &&
+    jigIdInput.offsetParent !== null
+  ) {
+    jigIdInput.focus();
+    return;
+  }
+  // If Jig ID is error (red border) and message is "Jig ID is drafted by you for this batch."
+  if (
+    jigIdInput &&
+    jigIdInput.value.trim() !== "" &&
+    !jigIdInput.disabled &&
+    jigIdInput.offsetParent !== null
+  ) {
+    const errorDiv = jigIdInput.parentNode.querySelector(".jig-id-error-alert");
+    if (
+      errorDiv &&
+      errorDiv.textContent &&
+      errorDiv.textContent.trim() === "Jig ID is drafted by you for this batch."
+    ) {
+      jigIdInput.focus();
+      jigIdInput.select();
+      return;
+    }
+  }
+  // 2. Broken Hooks
+  const brokenHooksInput = document.getElementById("brokenBuildupHooksInput"); // Do not recalc empty hooks here
+  if (
+    brokenHooksInput &&
+    brokenHooksInput.value.trim() === "" &&
+    !brokenHooksInput.disabled &&
+    brokenHooksInput.offsetParent !== null
+  ) {
+    brokenHooksInput.focus();
+    return;
+  }
+  // 3. Delink Tray IDs (in order first)
+  const delinkTrayInputs = document.querySelectorAll("#delinkTableSection .tray-id-input");
+  for (let input of delinkTrayInputs) {
+    if (
+      input.value.trim() === "" &&
+      !input.disabled &&
+      input.offsetParent !== null
+    ) {
+      input.focus();
+      return;
+    }
+  }
+  
+  // 4. Half-filled Tray ID (after all delink trays)
+  const halfFilledTrayInput = document.querySelector("#halfFilledTraySection .tray-id-input");
+  if (
+    halfFilledTrayInput &&
+    halfFilledTrayInput.value.trim() === "" &&
+    !halfFilledTrayInput.disabled &&
+    halfFilledTrayInput.offsetParent !== null
+  ) {
+    halfFilledTrayInput.focus();
+    return;
+  }
+}
+
+// Restoring Manual Draft 
+function restoreDraftData(draftData) {
+  if (!draftData) return;
+
+  // Restore Jig ID and trigger validation
+  const jigIdInput = document.getElementById("jigIdInput");
+  if (jigIdInput && draftData.jig_id) {
+    jigIdInput.value = draftData.jig_id;
+    setTimeout(() => {
+      jigIdInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }, 100);
+  }
+
+  // Restore tray inputs by row_index
+  if (Array.isArray(draftData.trays)) {
+    draftData.trays.forEach((tray) => {
+      if (tray.tray_id && tray.row_index !== undefined) {
+        const trayInput = document.querySelector(
+          `.tray-id-input[data-row-index="${tray.row_index}"]`
+        );
+        if (trayInput) {
+          trayInput.value = tray.tray_id;
+          setTimeout(() => {
+            validateAndMoveToNext(trayInput);
+          }, 100 + (parseInt(tray.row_index) * 50));
+        }
+      }
+    });
+
+    // Restore half-filled tray (row_index is null)
+    const halfFilledTray = draftData.trays.find(tray => tray.row_index === null && tray.tray_id);
+    if (halfFilledTray) {
+      const halfFilledSection = document.getElementById('halfFilledTraySection');
+      if (halfFilledSection) {
+        const input = halfFilledSection.querySelector('.tray-id-input');
+        if (input) {
+          input.value = halfFilledTray.tray_id;
+          setTimeout(() => {
+            validateAndMoveToNext(input);
+          }, 100);
+        }
+      }
+    }
+  }
+
+  // Restore broken hooks
+  const brokenHooksInput = document.getElementById("brokenBuildupHooksInput"); // Do not recalc empty hooks here
+  if (brokenHooksInput && draftData.broken_buildup_hooks !== undefined) {
+    brokenHooksInput.value = draftData.broken_buildup_hooks;
+  }
+
+  // Always focus next empty input in order (Jig ID → Tray IDs → Broken Hooks)
+  setTimeout(() => {
+    autoFocusNextEmptyInput();
+  }, 400);
+}
+
+// Clear Jig ID validation alerts (display as per the current input state)
+function clearJigIdValidationAlert() {
+  const jigIdInput = document.getElementById("jigIdInput");
+  if (jigIdInput) {
+    removeJigIdAlert(jigIdInput);
+    jigIdInput.style.borderColor = "";
+    jigIdInput.style.backgroundColor = "";
+    jigIdInput.title = "";
+  }
+}
+
+
+
+// Save button - enable/disable and render modal content
+function renderModalContent(data) {
+
+  // ✅ STORE BACKEND TRUTH GLOBALLY (SINGLE SOURCE)
+  window.backendCanSave = data.can_save === true;
+  window.backendOverallValid = data.modal_validation?.overall_valid === true;
+
+  window.currentModalValidation = data.modal_validation || {};
+  document.getElementById("modalPlatingStockNo").textContent = (
+    data.form_title.split(":")[1] || ""
+  ).trim();
+  document.getElementById("jigIdInput").value = data.jig_id || "";
+  document.getElementById("nickelBathTypeInput").value =
+    data.nickel_bath_type || "";
+  document.getElementById("trayTypeInput").value =
+    data.tray_type || "Normal";
+  document.getElementById("brokenBuildupHooksInput").value =
+    data.broken_buildup_hooks || 0;
+  document.getElementById("emptyHooksInput").value = data.empty_hooks || 0;
+
+  // Set loaded case qty display and lot qty hidden
+  const loadedCaseQtyElem = document.getElementById('loadedCasesQtyDisplay');
+  const lotQtyElem = document.getElementById('lotQtyHidden');
+  if (loadedCaseQtyElem && lotQtyElem) {
+    // Use effective_jig_capacity from backend data
+    const effectiveCapacity = data.effective_jig_capacity || data.jig_capacity || 0;
+    loadedCaseQtyElem.textContent = `0/${effectiveCapacity}`;
+    // Set lotQtyElem to effective_jig_capacity for correct validation and calculation
+    lotQtyElem.value = effectiveCapacity;
+  }
+
+  const excessMessageElem = document.getElementById('excessMessage');
+  if (excessMessageElem) {
+    excessMessageElem.textContent = data.excess_message || '';
+  }
+  document.getElementById("jigCapacityInput").value =
+    data.jig_capacity || 0;
+    
+  // Set broken hooks max based on jig capacity
+  const brokenHooksInput = document.getElementById("brokenBuildupHooksInput");
+  if (brokenHooksInput && data.jig_capacity) {
+    const maxBrokenHooks = data.jig_capacity >= 144 ? 10 : 5;
+    brokenHooksInput.setAttribute('max', maxBrokenHooks);
+  }
+  
+  document.getElementById("modalNoOfCycle").textContent =
+    data.no_of_cycle || 1;
+  renderModelImages(data.model_images || []);
+  document.getElementById("modelImageLabel").textContent =
+    data.plating_stk_no || "Not Found";
+  applyValidationRules(data.modal_validation || {});
+  document.getElementById("addModelBtn").disabled = !data.add_model_enabled;
+
+  // Render Half-Filled Tray Section
+  renderHalfFilledTraySection(data.tray_distribution || {}, data.broken_buildup_hooks || 0, data.half_filled_tray_cases || 0);
+
+  // Debug logging
+  console.log("🔍 Save Button Debug:", {
+    can_save: data.can_save,
+    empty_hooks: data.empty_hooks,
+    loaded_cases_qty: data.loaded_cases_qty,
+    jig_capacity: data.jig_capacity,
+    modal_validation: data.modal_validation
+  });
+
+  // Update Submit button state after setting all values (this handles both backend data and dynamic updates)
+  updateSubmitButtonState();
+
+  // Recalculate loaded cases qty based on scanned trays
+  recalcLoadedCasesQty();
+
+  // Also call updateSaveButtonState when broken hooks input changes
+  if (brokenHooksInput && !brokenHooksInput.hasListener) {
+    brokenHooksInput.hasListener = true; // Prevent duplicate listeners
+    brokenHooksInput.addEventListener("input", function() {
+      const brokenHooks = parseInt(this.value || 0);
+      // FIX 4: Preserve Jig ID AND preserve delink tray section (do NOT clear it)
+      const currentJigId = document.getElementById("jigIdInput")?.value || "";
+      
+      // Snapshot current tray IDs before re-render so we can restore them
+      const currentTrayValues = {};
+      document.querySelectorAll('#delinkTableSection .tray-id-input').forEach(inp => {
+        const rowIdx = inp.getAttribute('data-row-index');
+        if (rowIdx !== null) currentTrayValues[rowIdx] = inp.value;
+      });
+
+      fetch(`/jig_loading/jig-add-modal-data/?batch_id=${window.currentModalContext.batchId}&lot_id=${window.currentModalContext.lotId}&jig_qr_id=${window.currentModalContext.jigQrId}&broken_hooks=${brokenHooks}`)
+        .then(resp => resp.json())
+        .then(data => {
+          // Re-render modal content fields (Nickel Bath, Tray Type, capacities etc.)
+          // but do NOT touch the delink table section
+          renderModalContentFieldsOnly(data);
+
+          // Restore Jig ID
+          if (currentJigId) {
+            const jigIdInput = document.getElementById("jigIdInput");
+            if (jigIdInput) jigIdInput.value = currentJigId;
+          }
+
+          // FIX 4: Update delink table from backend but preserve already-entered tray IDs
+          const delinkTable = data.delink_table || [];
+          renderDelinkTableFromData(delinkTable);
+          // Restore previously entered tray values
+          Object.keys(currentTrayValues).forEach(rowIdx => {
+            const inp = document.querySelector(`#delinkTableSection .tray-id-input[data-row-index="${rowIdx}"]`);
+            if (inp && currentTrayValues[rowIdx]) {
+              inp.value = currentTrayValues[rowIdx];
+            }
+          });
+
+          // FIX 4: Decrease last tray ID qty by brokenHooks (only visual - backend handles validation)
+          // The backend delink_table already returns updated tray quantities when broken_hooks is passed
+          // So the re-rendered delink table already reflects the decreased last tray qty
+
+          // Re-render half-filled tray section with updated broken hooks data
+          renderHalfFilledTraySection(data.tray_distribution || {}, data.broken_buildup_hooks || 0, data.half_filled_tray_cases || 0);
+          
+          recalcLoadedCasesQty();
+        });
+    });
+  }
+}
+
+
+// FIX 4: Helper - update only form fields (not delink table) when broken hooks changes
+function renderModalContentFieldsOnly(data) {
+  window.backendCanSave = data.can_save === true;
+  window.backendOverallValid = data.modal_validation?.overall_valid === true;
+  window.currentModalValidation = data.modal_validation || {};
+
+  const fields = {
+    'nickelBathTypeInput': data.nickel_bath_type || '',
+    'trayTypeInput': data.tray_type || 'Normal',
+    'brokenBuildupHooksInput': data.broken_buildup_hooks || 0,
+    'emptyHooksInput': data.empty_hooks || 0,
+    'jigCapacityInput': data.jig_capacity || 0,
+  };
+  Object.entries(fields).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  });
+
+  const loadedCaseQtyElem = document.getElementById('loadedCasesQtyDisplay');
+  const lotQtyElem = document.getElementById('lotQtyHidden');
+  if (loadedCaseQtyElem && lotQtyElem) {
+    const effectiveCapacity = data.effective_jig_capacity || data.jig_capacity || 0;
+    lotQtyElem.value = effectiveCapacity;
+    // Don't reset the display count here - recalcLoadedCasesQty will handle it
+  }
+
+  const excessMessageElem = document.getElementById('excessMessage');
+  if (excessMessageElem) excessMessageElem.textContent = data.excess_message || '';
+
+  document.getElementById('modalNoOfCycle').textContent = data.no_of_cycle || 1;
+
+  applyValidationRules(data.modal_validation || {});
+  document.getElementById('addModelBtn').disabled = !data.add_model_enabled;
+  updateSubmitButtonState();
+}
+
+
+
+function renderDelinkTableFromData(delinkTable) {
+  const delinkTableSection = document.getElementById('delinkTableSection');
+  if (!delinkTableSection) return;
+  
+  // Clear existing content
+  delinkTableSection.innerHTML = '';
+  
+  // Update delink count in header
+  const delinkCount = document.querySelector('.delink-count');
+  if (delinkCount) {
+    delinkCount.textContent = `(No of Trays: ${delinkTable.length})`;
+  }
+  
+  // Render tray inputs based on delink table data
+  delinkTable.forEach((tray, index) => {
+    const trayTab = document.createElement('div');
+    trayTab.className = `tray-scan-tab ${tray.model_bg || 'model-bg-1'}`;
+    
+    trayTab.innerHTML = `
+    
+      <input 
+        type="text" 
+        id="tray-${index}"
+        class="tray-id-input ${tray.model_bg || 'model-bg-1'}" 
+        placeholder="Scan Tray ${index + 1} Id"
+        data-row-index="${index}"
+        data-batch-id="${window.currentModalContext?.batchId || ''}"
+        data-lot-id="${window.currentModalContext?.lotId || ''}"
+        data-tray-qty="${tray.tray_quantity}"
+        autocomplete="off"
+        maxlength="9"
+        style="text-transform: uppercase;"
+      />
+      
+    `;
+    
+    delinkTableSection.appendChild(trayTab);
+  });
+  
+  // Setup scanning listeners for new inputs
+  setupTrayScanningListeners();
+}
+
+function renderHalfFilledTraySection(trayDistribution, brokenHooks = 0, halfFilledTrayCases = 0) {
+  const halfFilledSection = document.getElementById('halfFilledTraySection');
+  
+  if (!halfFilledSection) return;
+  
+  // Clear any previous content
+  halfFilledSection.innerHTML = '';
+  
+  // Show section if we have broken hooks with partial tray cases
+  if (brokenHooks > 0 && halfFilledTrayCases > 0) {
+    halfFilledSection.style.display = 'block';
+    
+    let html = `
+    <!-- Half-Filled Tray Card for Broken Hooks -->
+    <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 10px 0;">
+      <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <h6 style="margin: 0; color: #856404; font-weight: 600;">
+          <i class="fa fa-exclamation-triangle" style="margin-right: 8px;"></i>Half-Filled Tray (Due to Broken Hooks)
+        </h6>
+      </div>
+      
+      <!-- Tray Scanning Input for Half-Filled Tray -->
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+        <div class="tray-scan-tab" style="background: #fff;  min-width: 210px; display: flex; flex-direction: row; align-items: center; gap: 10px;">
+        
+          <input 
+            type="text" 
+            class="tray-id-input model-bg-1" 
+            placeholder="Scan Half-Filled Tray ID"
+            data-row-index="half-filled"
+            data-tray-qty="${halfFilledTrayCases}"
+            data-batch-id="${window.currentModalContext?.batchId || ''}"
+            data-lot-id="${window.currentModalContext?.lotId || ''}"
+            maxlength="9"
+            style="border: none; background: #fff; flex: 1;"
+          />
+          <div style=" background: #ffffff; padding: 6px 8px; border-radius: 4px; font-size: 14px; color: #856404; font-weight: 600; min-width: 80px; text-align: center;">
+            ${halfFilledTrayCases} cases
+          </div>
+        </div>
+      </div>
+      
+      <div style="background: #fff;  border-radius: 4px; padding: 8px; margin-top: 8px;">
+        <div style="color: #856404; font-size: 12px; font-weight: 600;">
+          <i class="fa fa-info-circle" style="margin-right: 5px; color: #f0ad4e;"></i>
+          This tray has ${halfFilledTrayCases} cases due to ${brokenHooks} broken hooks deduction
+        </div>
+      </div>
+    </div>`;
+    
+    halfFilledSection.innerHTML = html;
+    
+    // Setup scanning listeners for the half-filled tray input
+    setupTrayScanningListeners();
+    return;
+  }
+  
+  // Check if we need to show tray distribution (original logic for non-broken-hooks cases)
+  const currentLot = trayDistribution.current_lot;
+  const leftoverLot = trayDistribution.half_filled_lot;
+  
+  if ((currentLot && currentLot.total_cases > 0) || (leftoverLot && leftoverLot.total_cases > 0)) {
+    halfFilledSection.style.display = 'block';
+    
+    let html = `
+    <!-- Tray Distribution Card -->
+    <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin: 10px 0;">
+      <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <h6 style="margin: 0; color: #028084; font-weight: 600;">
+          <i class="fa fa-calculator" style="margin-right: 8px;"></i>Tray Distribution
+        </h6>
+      </div>`;
+
+    // Current Lot Distribution
+    if (currentLot && currentLot.distribution) {
+      const dist = currentLot.distribution;
+      html += `
+      <div style="margin-bottom: 15px;">
+        <div style="color: #028084; font-weight: 600; margin-bottom: 8px; font-size: 14px;">
+          Current Cycle: ${currentLot.total_cases} cases (${dist.total_trays} trays)
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">`;
+
+      dist.trays.forEach((tray, index) => {
+        const isPartial = !tray.is_full;
+        const bgColor = isPartial ? "#fff3cd" : "#d1ecf1";
+        const borderColor = isPartial ? "#f0ad4e" : "#5bc0de";
+        const textColor = isPartial ? "#856404" : "#0c5460";
+
+        html += `
+        <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: ${textColor}; font-weight: 600;">
+          ${isPartial ? "Top Tray" : "Tray " + tray.tray_number}: ${tray.cases} cases
+        </div>`;
+      });
+
+      html += `</div>`;
+
+      // Case Accountability Green Line
+      if (dist.full_trays_count > 0 || dist.partial_tray_cases > 0) {
+        let accountabilityText = '';
+        let totalCases = 0;
+        
+        if (dist.full_trays_count > 0 && dist.partial_tray_cases > 0) {
+          // Both full and partial trays
+          accountabilityText = `${dist.full_trays_count} full tray${dist.full_trays_count > 1 ? "s" : ""} × ${currentLot.tray_capacity} = ${dist.full_trays_count * currentLot.tray_capacity} cases + 1 partial tray × ${dist.partial_tray_cases} = ${dist.partial_tray_cases} cases`;
+          totalCases = (dist.full_trays_count * currentLot.tray_capacity) + dist.partial_tray_cases;
+        } else if (dist.full_trays_count > 0) {
+          // Only full trays
+          accountabilityText = `${dist.full_trays_count} full tray${dist.full_trays_count > 1 ? "s" : ""} × ${currentLot.tray_capacity} = ${dist.full_trays_count * currentLot.tray_capacity} cases`;
+          totalCases = dist.full_trays_count * currentLot.tray_capacity;
+        } else if (dist.partial_tray_cases > 0) {
+          // Only partial tray
+          accountabilityText = `1 partial tray × ${dist.partial_tray_cases} = ${dist.partial_tray_cases} cases`;
+          totalCases = dist.partial_tray_cases;
+        }
+
+        html += `
+        <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 8px; margin-top: 8px;">
+          <div style="color: #155724; font-size: 12px; font-weight: 600;">
+            <i class="fa fa-arrow-right" style="margin-right: 5px; color: #28a745;"></i>
+            ${accountabilityText}
+          </div>
+        </div>`;
+      }
+
+      html += `</div>`;
+    }
+
+    // Half-Filled Tray Section (if exists)
+    if (leftoverLot && leftoverLot.distribution && leftoverLot.total_cases > 0) {
+      const leftDist = leftoverLot.distribution;
+      html += `
+      <div style="border-top: 1px dashed #ffeaa7; padding-top: 10px; background: #fff3cd; border-radius: 4px;">
+        <div style="color: #856404; font-weight: 600; margin-bottom: 8px; font-size: 14px;">
+          Half Filled Tray ID Scan: ${leftoverLot.total_cases} cases (${leftDist.total_trays} trays)
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="halfFilledTrayInputs">`;
+
+      leftDist.trays.forEach((tray, index) => {
+        const isPartial = !tray.is_full;
+        const bgColor = isPartial ? "#fff3cd" : "#d4edda";
+        const borderColor = isPartial ? "#ffeaa7" : "#c3e6cb";
+        const textColor = isPartial ? "#856404" : "#155724";
+
+        if (tray.scan_required) {
+          // Show scanning input for partial tray
+          html += `
+          <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 4px; padding: 8px; font-size: 12px; color: ${textColor}; font-weight: 600; min-width: 200px;">
+            <div style="margin-bottom: 4px;">Tray ${tray.tray_number}: ${tray.cases} cases (Scan Required)</div>
+            <input type="text" class="tray-id-input half-filled-tray-input" placeholder="Scan Tray ID (${tray.cases} pcs)" 
+                   data-tray-qty="10" data-row-index="half_${index}" 
+                   data-batch-id="${window.currentModalContext?.batchId || ''}" 
+                   data-lot-id="${window.currentModalContext?.lotId || ''}"
+                   style="width: 100%; padding: 4px; border-radius: 3px; border: 1px solid #ccc; font-size: 12px;">
+          </div>`;
+        } else {
+          // Show automatic assignment for full tray
+          html += `
+          <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 4px; padding: 8px; font-size: 12px; color: ${textColor}; font-weight: 600; min-width: 200px;">
+            <div>Tray ${tray.tray_number}: ${tray.cases} cases (Auto Assigned)</div>
+            <div style="font-size: 11px; opacity: 0.8;">Will use existing tray ID</div>
+            <input type="hidden" class="half-filled-tray-input" value="AUTO-${tray.tray_number}" data-tray-qty="${tray.cases}" data-row-index="half_${index}" data-batch-id="${window.currentModalContext?.batchId || ''}" data-lot-id="${window.currentModalContext?.lotId || ''}">
+          </div>`;
+        }
+      });
+
+      html += `</div>`;
+      
+      // Case Accountability for Half-Filled Tray Section
+      if (leftDist.total_trays > 0) {
+        let accountabilityText = '';
+        
+        // Calculate total cases in half-filled section
+        let totalCasesInHalf = leftDist.trays.reduce((sum, tray) => sum + tray.cases, 0);
+        let trayCount = leftDist.trays.length;
+        
+        // Generate accountability text based on actual cases
+        if (trayCount === 1) {
+          // Single tray case
+          accountabilityText = `${trayCount} partial tray = ${totalCasesInHalf} cases`;
+        } else {
+          // Multiple trays case
+          let fullTraysInHalf = leftDist.trays.filter(t => t.cases === leftoverLot.tray_capacity).length;
+          let partialTraysInHalf = leftDist.trays.filter(t => t.cases < leftoverLot.tray_capacity);
+          
+          if (fullTraysInHalf > 0 && partialTraysInHalf.length > 0) {
+            let partialCases = partialTraysInHalf.reduce((sum, tray) => sum + tray.cases, 0);
+            accountabilityText = `${fullTraysInHalf} full tray${fullTraysInHalf > 1 ? "s" : ""} × ${leftoverLot.tray_capacity} = ${fullTraysInHalf * leftoverLot.tray_capacity} cases + ${partialTraysInHalf.length} partial tray${partialTraysInHalf.length > 1 ? "s" : ""} = ${partialCases} cases`;
+          } else if (fullTraysInHalf > 0) {
+            accountabilityText = `${fullTraysInHalf} full tray${fullTraysInHalf > 1 ? "s" : ""} × ${leftoverLot.tray_capacity} = ${fullTraysInHalf * leftoverLot.tray_capacity} cases`;
+          } else {
+            let partialCases = partialTraysInHalf.reduce((sum, tray) => sum + tray.cases, 0);
+            accountabilityText = `${partialTraysInHalf.length} partial tray${partialTraysInHalf.length > 1 ? "s" : ""} = ${partialCases} cases`;
+          }
+        }
+
+        if (accountabilityText) {
+          html += `
+          <div style="border-radius: 4px; padding: 8px; margin-top: 8px;">
+            <div style="color: #856404; font-size: 12px; font-weight: 600;">
+              <i class="fa fa-arrow-right" style="margin-right: 5px; color: #f0ad4e;"></i>
+              ${accountabilityText}
+            </div>
+          </div>`;
+        }
+      }
+      
+      html += `</div>`;
+    }
+
+    html += `</div>`;
+    
+    // Set the HTML content
+    halfFilledSection.innerHTML = html;
+  } else {
+    halfFilledSection.style.display = 'none';
+  }
+}
+
+
+  
+  
+  function renderModelImages(images) {
+      const imgElement = document.getElementById("modelImagePreview");
+      if (images && images.length > 0) {
+        imgElement.src = images[0].url;
+        imgElement.alt = images[0].alt_text || "Model Image";
+      } else {
+        imgElement.src = "/static/assets/images/imagePlaceholder.png";
+        imgElement.alt = "No Image Available";
+      }
+    }
+
+
+
+
+    
+
+    /* Instant tray ID validation while typing by triggering 
+      the backend validation on every input change (not just on Enter & on the fly). */
+  function setupTrayScanningListeners() {
+      const trayInputs = document.querySelectorAll(
+        ".tray-id-input:not([readonly])"
+      );
+      trayInputs.forEach((input) => {
+        input.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            validateAndMoveToNext(this);
+          }
+        });
+
+        input.addEventListener("input", function () {
+          // Remove both error and valid alerts if input is empty
+          if (this.value.trim() === "") {
+            removeValidAlert(this, true); // true: remove both error and valid
+            this.style.borderColor = "";
+            this.style.backgroundColor = "";
+            this.title = "";
+            return;
+          }
+
+          this.style.borderColor = "";
+          this.style.backgroundColor = "";
+          removeValidAlert(this);
+
+          // INSTANT VALIDATION ON EVERY INPUT (from 1st char)
+          if (this.value.length <= 9) {
+            validateAndMoveToNext(this);
+          }
+        });
+
+        input.addEventListener("focus", function () {
+          this.select();
+        });
+
+                // Add drag prevention
+        input.addEventListener("dragstart", function(e) { e.preventDefault(); });
+        input.addEventListener("drop", function(e) { e.preventDefault(); });
+        input.addEventListener("dragover", function(e) { e.preventDefault(); });
+        input.addEventListener("dragenter", function(e) { e.preventDefault(); });
+        input.addEventListener("dragleave", function(e) { e.preventDefault(); });
+      });
+    }
+
+  /* Delink Tabke - Tray ID Validation */
+function validateAndMoveToNext(input) {
+  const trayId = input.value.trim();
+  const rowIndex = parseInt(input.dataset.rowIndex);
+  const batchId = input.getAttribute("data-batch-id") || "";
+  const lotId = input.getAttribute("data-lot-id") || "";
+
+  // Helper: recalculate loaded cases qty from all valid tray inputs [Loaded Case Qty Filed]
+  recalcLoadedCasesQty();
+
+  if (!trayId) {
+    showTrayValidationError(input, "Tray ID is required");
+    recalcLoadedCasesQty();
+    return;
+  }
+  if (trayId.length < 6) {
+    showTrayValidationError(input, "Invalid tray ID format");
+    recalcLoadedCasesQty();
+    return;
+  }
+
+  // Check for duplicates first - always show error for duplicates
+  const allTrayInputs = document.querySelectorAll(".tray-id-input");
+  let isDuplicate = false;
+  for (let inp of allTrayInputs) {
+    if (inp !== input && inp.value.trim() === trayId) {
+      isDuplicate = true;
+      break;
+    }
+  }
+
+  if (isDuplicate) {
+    showTrayValidationError(input, "Duplicate tray ID detected");
+    recalcLoadedCasesQty();
+    // For duplicates, auto-select and don't move focus
+    if (trayId.length === 9) {
+      input.focus();
+      input.select();
+    }
+    return;
+  }
+
+  // If not 9 characters yet, don't validate or move focus
+  if (trayId.length < 9) {
+    // Remove any existing alerts for incomplete input
+    removeValidAlert(input, true);
+    input.style.borderColor = "";
+    input.style.backgroundColor = "";
+    input.title = "";
+    recalcLoadedCasesQty();
+    return;
+  }
+
+  // Only validate when exactly 9 characters (complete tray ID)
+  if (trayId.length === 9) {
+    // For half-filled trays, accept any valid tray ID without backend validation
+    if (input.closest('#halfFilledTraySection')) {
+      showTrayValidationSuccess(input);
+      recalcLoadedCasesQty();
+      return;
+    }
+    // Instant backend validation
+    fetch(
+      `/jig_loading/validate-tray-id/?tray_id=${encodeURIComponent(
+        trayId
+      )}&batch_id=${encodeURIComponent(batchId)}&lot_id=${encodeURIComponent(lotId)}`
+    )
+      .then((resp) => resp.json())
+      .then((data) => {
+        if (data.valid) {
+          input.setAttribute('data-tray-qty', data.tray_quantity);
+          showTrayValidationSuccess(input);
+          recalcLoadedCasesQty();
+          // Valid tray: move focus to next empty input
+          const nextInput = findNextEmptyTrayInput(rowIndex);
+          if (nextInput) {
+            nextInput.focus();
+          } else {
+            input.blur();
+          }
+        } else {
+          showTrayValidationError(
+            input,
+            data.message || "Tray ID not valid for this batch"
+          );
+          recalcLoadedCasesQty();
+          // Invalid tray: auto-select current input, don't move focus
+          input.focus();
+          input.select();
+        }
+      })
+      .catch(() => {
+        showTrayValidationError(input, "Tray ID validation failed");
+        recalcLoadedCasesQty();
+        // Error case: auto-select current input, don't move focus
+        input.focus();
+        input.select();
+      });
+  }
+}
+
+
+
+    // Remove alerts: error only (default) or both error and valid if clear
+  function removeValidAlert(input, removeValidToo = false) {
+      // Remove error alerts only if input is cleared (not on every input)
+      if (input.value.trim() === "") {
+        const errorAlerts = input.parentNode.querySelectorAll(
+          ".tray-error-message"
+        );
+        errorAlerts.forEach((a) => a.remove());
+        // Optionally remove valid alerts
+        if (removeValidToo) {
+          const validAlerts =
+            input.parentNode.querySelectorAll(".tray-valid-alert");
+          validAlerts.forEach((a) => a.remove());
+        }
+      } else {
+        // Only remove valid alerts if requested, keep error alert visible
+        if (removeValidToo) {
+          const validAlerts =
+            input.parentNode.querySelectorAll(".tray-valid-alert");
+          validAlerts.forEach((a) => a.remove());
+        }
+      }
+    }
+
+    /* Instant Tray ID - Validation Success Display */
+function showTrayValidationSuccess(input) {
+  // Remove previous valid alert only
+  const validAlerts = input.parentNode.querySelectorAll(".tray-valid-alert");
+  validAlerts.forEach((a) => a.remove());
+
+  // Also remove error alert if present (so only valid is shown)
+  const errorAlerts = input.parentNode.querySelectorAll(".tray-error-message");
+  errorAlerts.forEach((a) => a.remove());
+
+  input.style.borderColor = "#28a745";
+  input.style.backgroundColor = "#eafaf1";
+  input.title = "Tray ID validated successfully";
+
+  let validDiv = input.parentNode.querySelector(".tray-valid-alert");
+  if (!validDiv) {
+    validDiv = document.createElement("div");
+    validDiv.className = "tray-valid-alert";
+    validDiv.style.cssText =
+      "color: #28a745; font-size: 12px; margin-top: -5px; position: absolute; left: 15px; top: 100%;";
+    validDiv.textContent = "Valid";
+    input.parentNode.appendChild(validDiv);
+  }
+}
+
+
+/* Instant Tray ID - Validation Error Display (Invalid / Duplicate / Not found) */
+    function showTrayValidationError(input, message) {
+      // Remove previous error alert only
+      const errorAlerts = input.parentNode.querySelectorAll(".tray-error-message");
+      errorAlerts.forEach((a) => a.remove());
+
+      // Also remove valid alert if present (so only error is shown)
+      const validAlerts = input.parentNode.querySelectorAll(".tray-valid-alert");
+      validAlerts.forEach((a) => a.remove());
+
+      input.style.borderColor = "#dc3545";
+      input.style.backgroundColor = "#ffeaea";
+      input.title = message;
+
+      let errorDiv = input.parentNode.querySelector(".tray-error-message");
+      if (!errorDiv) {
+        errorDiv = document.createElement("div");
+        errorDiv.className = "tray-error-message";
+        errorDiv.style.cssText =
+          "color: #dc3545; font-size: 12px; margin-top: 0px; position: absolute; left: 0; top: 100%;";
+        input.parentNode.appendChild(errorDiv);
+      }
+      errorDiv.textContent = message;
+    }
+
+
+    /* UI Configuration Application */
+    function applyUIConfiguration(config) {
+      if (config.readonly_fields) {
+        config.readonly_fields.forEach((fieldId) => {
+          const element = document.getElementById(fieldId + "Input");
+          if (element) {
+            element.readOnly = true;
+            element.style.background = "#f8f9fa";
+          }
+        });
+      }
+      if (config.required_fields) {
+        config.required_fields.forEach((fieldId) => {
+          const element = document.getElementById(fieldId + "Input");
+          if (element) {
+            element.required = true;
+          }
+        });
+      }
+    }
+
+    function applyValidationRules(validation) {
+      if (!validation.overall_valid) {
+        console.warn("⚠️ Modal validation failed:", validation);
+      }
+      Object.keys(validation).forEach((key) => {
+        if (key.endsWith("_valid") && !validation[key]) {
+          console.warn(`⚠️ Validation failed for: ${key}`);
+        }
+      });
+      
+      // Apply max broken hooks validation
+      if (validation.max_broken_hooks) {
+        const brokenHooksInput = document.getElementById('brokenBuildupHooksInput');
+        if (brokenHooksInput) {
+          brokenHooksInput.setAttribute('max', validation.max_broken_hooks);
+          console.log(`🔧 Set broken hooks max to: ${validation.max_broken_hooks}`);
+          
+          // Validate current value and clamp if needed
+          const currentValue = parseInt(brokenHooksInput.value || '0');
+          if (currentValue > validation.max_broken_hooks) {
+            const oldValue = currentValue;
+            brokenHooksInput.value = validation.max_broken_hooks;
+            console.warn(`⚠️ Clamped broken hooks from ${oldValue} to ${validation.max_broken_hooks}`);
+            
+            // Show notification to user
+            const notification = document.createElement('div');
+            notification.style.cssText = 'position: absolute; background: #dc3545; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 1000; top: 100%; left: 0;';
+            notification.textContent = `Maximum ${validation.max_broken_hooks} broken hooks allowed for this jig`;
+            
+            const parent = brokenHooksInput.parentNode;
+            if (parent.style.position !== 'relative') parent.style.position = 'relative';
+            parent.appendChild(notification);
+            
+            setTimeout(() => notification.remove(), 3000);
+            
+            // Trigger a recalculation of delink table with corrected broken hooks
+            if (window.currentModalContext) {
+              const { batchId, lotId, jigQrId } = window.currentModalContext;
+              // Delink table is already rendered from initial modal data
+            }
+          }
+        }
+      }
+    }
+
+
+    /* Pointer Handling - Auto Focus First Empty Tray */
+    function autoFocusFirstEmptyTray() {
+      setTimeout(() => {
+        // Don't auto-focus if user is currently typing in broken hooks field
+        const brokenHooksInput = document.getElementById('brokenBuildupHooksInput');
+        if (brokenHooksInput && document.activeElement === brokenHooksInput) {
+          return;
+        }
+        
+        const firstEmptyInput = document.querySelector(
+          ".tray-id-input:not([readonly]):not([value])"
+        );
+        if (firstEmptyInput) {
+          firstEmptyInput.focus();
+        }
+      }, 100);
+    }
+
+    /* Pointer Handling */
+    function findNextEmptyTrayInput(currentRowIndex) {
+      const trayInputs = document.querySelectorAll(
+        ".tray-id-input:not([readonly])"
+      );
+      for (let input of trayInputs) {
+        const rowIndex = parseInt(input.dataset.rowIndex);
+        if (rowIndex > currentRowIndex && !input.value.trim()) {
+          return input;
+        }
+      }
+      return null;
+    }
+
+    // Attach to Add Jig button
+    const buttons = document.querySelectorAll(".open-jig-modal-btn");
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const batchId = btn.getAttribute("data-batch-id");
+        const lotId = btn.getAttribute("data-stock-lot-id");
+        const jigQrId = btn.getAttribute("data-jig-qr-id") || "";
+        openJigAddModal(batchId, lotId, jigQrId);
+      });
+    });
+
+    // Modal close
+    const modalCloseBtn = document.querySelector("#jigAddModal .close-btn");
+    if (modalCloseBtn) {
+      modalCloseBtn.addEventListener("click", function () {
+        window.location.reload();
+        clearJigIdValidationAlert();
+        document.getElementById("jigAddModal").classList.remove("open");
+      });
+    }
+
+    // --- Clear Button Logic ---
+    const clearBtn = document.getElementById("clearJigBtn");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function () {
+        // Clear auto-save data
+        const batchId = document.querySelector(".open-jig-modal-btn")?.getAttribute("data-batch-id");
+        const lotId = document.querySelector(".open-jig-modal-btn")?.getAttribute("data-stock-lot-id");
+        if (batchId && lotId) {
+          
+        }
+        
+        // Clear Tray ID inputs
+        document.querySelectorAll(".tray-id-input").forEach(function (input) {
+          input.value = "";
+          input.style.borderColor = "";
+          input.style.backgroundColor = "";
+          input.title = "";
+          // Remove alerts
+          removeValidAlert(input, true);
+        });
+
+        // Clear Broken Hooks
+        const brokenHooksInput = document.getElementById("brokenBuildupHooksInput"); // Do not recalc empty hooks here
+        if (brokenHooksInput) {
+          brokenHooksInput.value = "";
+          brokenHooksInput.style.borderColor = "";
+          brokenHooksInput.style.backgroundColor = "";
+          brokenHooksInput.title = "";
+        }
+
+        // Clear Jig ID
+        const jigIdInput = document.getElementById("jigIdInput");
+        if (jigIdInput) {
+          jigIdInput.value = "";
+          jigIdInput.style.borderColor = "";
+          jigIdInput.style.backgroundColor = "";
+          jigIdInput.title = "";
+        }
+
+        // Focus first empty input after clearing
+        setTimeout(() => {
+          autoFocusNextEmptyInput();
+        }, 100);
+      });
+    }
+
+
+    // Cancel button logic
+    const cancelJigBtn = document.getElementById("cancelJigBtn");
+      if (cancelJigBtn) {
+        cancelJigBtn.addEventListener("click", function () {
+          document.getElementById("jigAddModal").classList.remove("open");
+          window.location.href = "/jig_loading/JigView/"; // Go back to Jig Loading Pick Table
+        });
+    }
+
+  
+// Enhanced CSS to ensure SweetAlert is always above modal and spinner
+const style = document.createElement('style');
+style.innerHTML = `
+.swal2-override-zindex {
+  z-index: 50000 !important;
+}
+.swal2-container {
+  z-index: 50000 !important;
+}
+.swal2-popup {
+  z-index: 50001 !important;
+}
+.swal2-backdrop-show {
+  z-index: 49999 !important;
+}
+`;
+document.head.appendChild(style);
+
+/* Manual Draft Button / Lot Status as Draft */
+
+const draftJigBtn = document.getElementById("draftJigBtn");
+if (draftJigBtn) {
+  draftJigBtn.addEventListener("click", async function () {
+
+
+    // Use stored modal context instead of searching DOM
+    const batchId = window.currentModalContext?.batchId || "";
+    const lotId = window.currentModalContext?.lotId || "";
+    
+    console.log("💾 Drafting data for:", { batchId, lotId });
+
+    const draftData = {
+      jig_id: document.getElementById("jigIdInput")?.value,
+      no_of_cycle: document.getElementById("modalNoOfCycle")?.textContent,
+      broken_buildup_hooks: document.getElementById("brokenBuildupHooksInput")?.value,
+      plating_stk_no: document.getElementById("modelImageLabel")?.textContent,
+      trays: Array.from(document.querySelectorAll(".tray-id-input")).map(input => ({
+        tray_id: input.value,
+        tray_qty: input.getAttribute("data-tray-qty"),
+        row_index: input.getAttribute("data-row-index")
+      })),
+      add_model_clicked: document.getElementById("addModelBtn")?.disabled === false
+    };
+
+    try {
+      const resp = await fetch("/jig_loading/manual-draft/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken,
+        },
+        body: JSON.stringify({
+          batch_id: batchId,
+          lot_id: lotId,
+          draft_data: draftData
+        }),
+      });
+      const result = await resp.json();
+
+      if (result.success) {
+        // Clear auto-save after successful manual draft
+        
+        showSuccess("Drafted successfully", function() {
+          window.location.href = "/jig_loading/JigView/";
+        });
+      } else {
+        if (window.Swal) {
+          Swal.fire({
+            icon: "error",
+            title: "Draft save failed",
+            showConfirmButton: false,
+            timer: 1500
+          });
+        } else {
+          alert("Draft save failed.");
+        }
+      }
+    } catch (err) {
+      if (typeof hideGlobalSpinner === "function") hideGlobalSpinner();
+      if (window.Swal) {
+        Swal.fire({
+          icon: "error",
+          title: "Error saving draft",
+          showConfirmButton: false,
+          timer: 1000
+        });
+      } else {
+        alert("Error saving draft.");
+      }
+    }
+  });
+}
+
+// Submit button logic
+const submitJigBtn = document.getElementById("submitJigBtn");
+if (submitJigBtn) {
+  submitJigBtn.addEventListener("click", async function () {
+    // Use stored modal context
+    const batchId = window.currentModalContext?.batchId || "";
+    const lotId = window.currentModalContext?.lotId || "";
+    const jigQrId = document.getElementById("jigIdInput")?.value || "";
+
+    console.log("🚀 Submitting jig data for:", { batchId, lotId, jigQrId });
+
+    // Validate before submission
+    const validationErrors = [];
+    
+    // Check if all required fields are filled
+    if (!jigQrId.trim()) {
+      validationErrors.push("Jig ID is required");
+    }
+    
+    // Check for any tray validation errors
+    const errorInputs = document.querySelectorAll(".tray-id-input[data-error='true']");
+    if (errorInputs.length > 0) {
+      validationErrors.push(`${errorInputs.length} tray ID(s) have validation errors`);
+    }
+    
+    // Check if jig ID has validation errors
+    const jigIdInput = document.getElementById("jigIdInput");
+    const jigErrorAlert = jigIdInput?.parentElement?.querySelector('.jig-id-error-alert');
+    if (jigErrorAlert && !jigErrorAlert.style.display === 'none') {
+      validationErrors.push("Jig ID validation failed");
+    }
+    
+    // Check if empty hooks is zero (requirement for submission)
+    const emptyHooks = parseInt(document.getElementById("emptyHooksInput")?.value || 0);
+    if (emptyHooks !== 0) {
+      validationErrors.push("Empty hooks must be 0 to submit");
+    }
+    
+    // Show validation errors if any
+    if (validationErrors.length > 0) {
+      if (window.Swal) {
+        Swal.fire({
+          icon: "error",
+          title: "Validation Failed",
+          html: "Please fix the following errors before submitting:<br><br>• " + validationErrors.join("<br>• "),
+          showConfirmButton: true
+        });
+      } else {
+        alert("Validation Failed:\n\n• " + validationErrors.join("\n• "));
+      }
+      return; // Stop submission
+    }
+
+    // Collect data
+    const modal = document.getElementById('jigAddModal');
+    const combinedLotIdsStr = modal?.getAttribute('data-combined-lot-ids');
+    const combinedLotIds = combinedLotIdsStr ? JSON.parse(combinedLotIdsStr) : [];
+    
+    const submitData = {
+      batch_id: batchId,
+      lot_id: lotId,
+      jig_qr_id: jigQrId,
+      loaded_cases_qty: document.getElementById("loadedCasesQtyDisplay")?.textContent.split('/')[0] || 0,
+      broken_buildup_hooks: document.getElementById("brokenBuildupHooksInput")?.value || 0,
+      empty_hooks: document.getElementById("emptyHooksInput")?.value || 0,
+      jig_type: document.getElementById("jigCapacityInput")?.value || '',
+      jig_capacity: document.getElementById("jigCapacityInput")?.value || 0,
+      nickel_bath_type: document.getElementById("nickelBathTypeInput")?.value || '',
+      forging_info: '',  // Add if needed
+      no_of_cycle: document.getElementById("modalNoOfCycle")?.textContent || 1,
+      tray_info: [],  // Collect tray info
+      delink_table: [],  // Collect delink table
+      half_filled_tray_data: [],  // Collect half filled
+      combined_lot_ids: combinedLotIds,  // Add combined lot IDs for multi-model
+    };
+    
+    console.log('📦 Submit data:', submitData);
+    if (combinedLotIds.length > 1) {
+      console.log('🔀 Multi-model submission with lots:', combinedLotIds);
+    }
+
+    // Collect tray data
+    document.querySelectorAll(".tray-id-input").forEach(input => {
+      if (input.value.trim()) {
+        submitData.tray_info.push({
+          tray_id: input.value,
+          tray_qty: input.getAttribute("data-tray-qty"),
+          row_index: input.getAttribute("data-row-index")
+        });
+      }
+    });
+
+    try {
+      const resp = await fetch("/jig_loading/jig-submit/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken,
+        },
+        body: JSON.stringify(submitData),
+      });
+      const result = await resp.json();
+
+      if (result.success) {
+        showSuccess("Jig submitted successfully", function() {
+          // Close the modal after success
+          const modal = document.getElementById("jigAddModal");
+          if (modal) {
+            modal.classList.remove("open");
+          }
+        });
+      } else {
+        if (window.Swal) {
+          Swal.fire({
+            icon: "error",
+            title: "Submit failed",
+            text: result.message || "Unknown error",
+            showConfirmButton: true
+          });
+        } else {
+          alert("Submit failed: " + (result.message || "Unknown error"));
+        }
+      }
+    } catch (err) {
+      if (typeof hideGlobalSpinner === "function") hideGlobalSpinner();
+      if (window.Swal) {
+        Swal.fire({
+          icon: "error",
+          title: "Error submitting jig",
+          text: err.message,
+          showConfirmButton: true
+        });
+      } else {
+        alert("Error submitting jig: " + err.message);
+      }
+    }
+  });
+}
+
+// Event delegation for tray-id-input instant validation
+document.addEventListener('input', function(e) {
+  if (e.target.classList.contains('tray-id-input')) {
+    // Remove both error and valid alerts if input is empty
+    if (e.target.value.trim() === "") {
+      removeValidAlert(e.target, true); // true: remove both error and valid
+      e.target.style.borderColor = "";
+      e.target.style.backgroundColor = "";
+      e.target.title = "";
+      // Recalculate loaded cases qty on clear
+      const loadedCaseQtyElem = document.getElementById('loadedCasesQtyDisplay');
+      const lotQtyElem = document.getElementById('lotQtyHidden');
+      if (loadedCaseQtyElem && lotQtyElem) {
+        let total = 0;
+        document.querySelectorAll(".tray-id-input").forEach(function (inp) {
+          if (
+            inp.value.trim() !== "" &&
+            inp.parentNode.querySelector(".tray-valid-alert")
+          ) {
+            total += parseInt(inp.getAttribute("data-tray-qty") || "0", 10);
+          }
+        });
+        loadedCaseQtyElem.textContent = `${total}/${lotQtyElem.value}`;
+      }
+      return;
+    }
+
+    e.target.style.borderColor = "";
+    e.target.style.backgroundColor = "";
+    removeValidAlert(e.target);
+
+    // INSTANT VALIDATION ON EVERY INPUT (from 1st char)
+    if (e.target.value.length <= 9) {
+      validateAndMoveToNext(e.target);
+    }
+  }
+  
+  // Broken hooks validation
+  if (e.target.id === 'brokenBuildupHooksInput') {
+    validateBrokenHooksInput(e.target);
+  }
+});
+
+// Add validation for change and blur events to catch paste/programmatic changes
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'brokenBuildupHooksInput') {
+    validateBrokenHooksInput(e.target);
+  }
+});
+
+document.addEventListener('blur', function(e) {
+  if (e.target.id === 'brokenBuildupHooksInput') {
+    validateBrokenHooksInput(e.target);
+  }
+});
+
+// Prevent input of invalid values in broken hooks field
+document.addEventListener('input', function(e) {
+  if (e.target.id === 'brokenBuildupHooksInput') {
+    // Input validation is now handled by the direct event listener on the input element
+    // This global listener is redundant and can be removed
+  }
+});
+
+function validateBrokenHooksInput(input) {
+  // Get jig capacity to determine max broken hooks
+  const jigCapacityInput = document.getElementById('jigCapacityInput');
+  const jigCapacity = jigCapacityInput ? parseInt(jigCapacityInput.value || 0) : 0;
+  
+  // Max broken hooks based on jig capacity (same logic as backend)
+  const maxBrokenHooks = jigCapacity >= 144 ? 10 : 5;
+  const currentValue = parseInt(input.value || '0');
+  
+  // Block input if it exceeds the maximum
+  if (currentValue > maxBrokenHooks) {
+    input.value = maxBrokenHooks;
+    console.warn(`⚠️ Broken hooks limited to ${maxBrokenHooks} for jig capacity ${jigCapacity}`);
+    
+    // Show a brief notification to user
+    const notification = document.createElement('div');
+    notification.style.cssText = 'position: absolute; background: #dc3545; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 1000; top: 100%; left: 0; white-space: nowrap;';
+    notification.textContent = `Maximum ${maxBrokenHooks} broken hooks allowed`;
+    
+    const parent = input.parentNode;
+    if (parent.style.position !== 'relative') parent.style.position = 'relative';
+    parent.appendChild(notification);
+    
+    setTimeout(() => notification.remove(), 2000);
+  }
+  // Removed the refreshModalWithBrokenHooks call since the direct event listener handles it
+}
+
+// Function to refresh modal data when broken hooks change
+async function refreshModalWithBrokenHooks(brokenHooksValue) {
+  // This function is no longer used - removed to prevent conflicts
+  console.warn('refreshModalWithBrokenHooks called but is deprecated');
+}
+
+  });
+
+// Add clear auto-save to modal close handlers
+document.addEventListener('click', function(e) {
+  // Clear auto-save when modal is closed or cleared (but NOT for Save button)
+  if (e.target.classList.contains('close-btn') || e.target.id === 'clearJigBtn') {
+    // Clear restored draft tray IDs to prevent conflict in next modal open
+    window.restoredDraftTrayIds = [];
+    
+    // Clear modal context
+    if (window.currentModalContext) {
+      console.log("🧹 Clearing modal context:", window.currentModalContext);
+      window.currentModalContext = null;
+    }
+  }
+});
+
+
+
+
+})();
+
+// Add event listeners for modal interactions to comply with CSP
+document.addEventListener('DOMContentLoaded', function() {
+  // Close modal on close button click
+  document.querySelectorAll('.close-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('jigAddModal').classList.remove('open');
+    });
+  });
+
+  // Close modal on cancel button click
+  const cancelBtn = document.getElementById('cancelJigBtn');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      document.getElementById('jigAddModal').classList.remove('open');
+    });
+  }
+
+  // Stop propagation on modal window click
+  const addJigWindow = document.querySelector('.add-jig-window');
+  if (addJigWindow) {
+    addJigWindow.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  }
+});
+
+// ==================== ADD MODEL FUNCTIONALITY (Jig Loading) ====================
+// Global variables for Add Model mode
+let currentModelNumber = '';
+let currentLotId = '';
+let currentBatchId = '';
+let currentQuantity = 0;
+let currentTrayType = '';
+let currentTrayCapacity = 0;
+let currentJigCapacity = 0;
+let currentEmptyHooks = 0;
+let currentPlatingColor = '';
+let currentPolishFinish = '';
+let currentJigType = '';
+let previouslyCombinedRows = new Set();
+let combinedModels = [];
+
+// Add Model button click handler
+document.addEventListener('DOMContentLoaded', function() {
+  const addModelBtn = document.getElementById('addModelBtn');
+  if (addModelBtn) {
+    addModelBtn.onclick = function() {
+      console.log('➕ Add Model button clicked');
+      
+      // Get context from window.currentModalContext (set in openJigAddModal)
+      if (!window.currentModalContext) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Cannot Add Model',
+          text: 'Modal context not found. Please close and reopen the modal.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+        return;
+      }
+      
+      const batchId = window.currentModalContext.batchId;
+      const lotId = window.currentModalContext.lotId;
+      const platingStockNo = document.getElementById('modalPlatingStockNo')?.textContent || '';
+      
+      // Get current quantity and empty hooks from modal inputs
+      const loadedCasesDisplay = document.getElementById('loadedCasesQtyDisplay')?.textContent || '0/0';
+      const loadedCasesQty = parseInt(loadedCasesDisplay.split('/')[0]) || 0;
+      const emptyHooks = parseInt(document.getElementById('emptyHooksInput')?.value) || 0;
+      const jigCapacity = parseInt(document.getElementById('jigCapacityInput')?.value) || 0;
+      
+      // Get tray type and capacity
+      const trayTypeElement = document.getElementById('trayTypeInput');
+      const trayType = trayTypeElement ? trayTypeElement.value : 'Normal';
+      
+      // Calculate tray capacity based on tray type
+      let trayCapacity = 8; // Default
+      if (trayType === 'Jumbo') trayCapacity = 12;
+      else if (trayType === 'Normal') trayCapacity = 8;
+      else if (trayType === 'Small') trayCapacity = 4;
+      
+      // Get current row's plating color, polish finish, and jig type from the table
+      console.log('🔍 Looking for current row with lot ID:', lotId);
+      const currentRow = document.querySelector(`tr[data-stock-lot-id="${lotId}"]`);
+      let platingColor = '';
+      let polishFinish = '';
+      let currentJigType = '';
+      
+      if (currentRow) {
+        console.log('✅ Found current row:', currentRow);
+        console.log('📊 Row cells count:', currentRow.cells.length);
+        
+        // Column indices (0-based):
+        // 0: S.No, 1: Last Updated, 2: Plating Stk No, 3: Polishing Stk No
+        // 4: Plating Color, 5: Polish Finish, 6: Version (hidden), 7: No of Trays
+        // 8: LOT Qty, 9: Jig Type, 10: In.p Info, 11: Process Status, 12: Action
+        const platingColorCell = currentRow.cells[4]; // Column 5 is Plating Color
+        const polishFinishCell = currentRow.cells[5]; // Column 6 is Polish Finish
+        const jigTypeCell = currentRow.cells[9]; // Column 10 is Jig Type
+        
+        platingColor = platingColorCell ? platingColorCell.textContent.trim() : '';
+        polishFinish = polishFinishCell ? polishFinishCell.textContent.trim() : '';
+        currentJigType = jigTypeCell ? jigTypeCell.textContent.trim() : '';
+        
+        console.log('📋 Extracted data from current row:', {
+          platingColor,
+          polishFinish,
+          currentJigType,
+          jigTypeRaw: jigTypeCell ? jigTypeCell.textContent : 'NULL'
+        });
+      } else {
+        console.error('❌ Could not find current row with lot ID:', lotId);
+        console.log('🔍 Available rows in table:');
+        const allRows = document.querySelectorAll('#order-listing tbody tr');
+        allRows.forEach((row, index) => {
+          const rowLotId = row.getAttribute('data-stock-lot-id');
+          const rowBatchId = row.getAttribute('data-batch-id');
+          console.log(`   Row ${index + 1}: lot=${rowLotId}, batch=${rowBatchId}`);
+        });
+      }
+      
+      console.log('🔧 ADD MODEL: Starting with data:', {
+        batchId, lotId, platingStockNo, loadedCasesQty, emptyHooks, jigCapacity, trayType, trayCapacity, platingColor, polishFinish, currentJigType
+      });
+      
+      if (!batchId || !lotId) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Cannot Add Model',
+          text: 'Missing batch or lot information.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+        return;
+      }
+      
+      if (emptyHooks <= 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Cannot Add Model',
+          text: 'No empty hooks available. The jig is full.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+        return;
+      }
+      
+      if (!platingColor || !polishFinish || !currentJigType) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Cannot Add Model',
+          text: 'Could not extract plating color, polish finish, or jig type from current row. Please refresh the page and try again.',
+          timer: 3000,
+          showConfirmButton: true
+        });
+        console.error('❌ Missing required data:', { platingColor, polishFinish, currentJigType });
+        return;
+      }
+      
+      enterAddModelMode(platingStockNo, lotId, batchId, loadedCasesQty, jigCapacity, emptyHooks, trayType, trayCapacity, platingColor, polishFinish, currentJigType);
+    };
+  }
+});
+
+// Enter Add Model Mode
+function enterAddModelMode(modelNumber, lotId, batchId, currentQty, jigCapacity, emptyHooks, trayType, trayCapacity, platingColor, polishFinish, jigType) {
+  // Initialize combinedModels if empty
+  if (combinedModels.length === 0) {
+    combinedModels = [{
+      modelNumber: modelNumber,
+      lotId: lotId,
+      batchId: batchId,
+      quantity: currentQty,
+      platingColor: platingColor || '',
+      polishFinish: polishFinish || '',
+      jigType: jigType || ''
+    }];
+  }
+  
+  // Store current modal context
+  currentModelNumber = modelNumber;
+  currentLotId = lotId;
+  currentBatchId = batchId;
+  currentQuantity = currentQty;
+  currentJigCapacity = jigCapacity;
+  currentEmptyHooks = emptyHooks;
+  currentTrayType = trayType;
+  currentTrayCapacity = trayCapacity;
+  currentPlatingColor = platingColor || '';
+  currentPolishFinish = polishFinish || '';
+  currentJigType = jigType || '';
+  
+  console.log('🎯 Entering Add Model Mode with:', {
+    modelNumber, lotId, batchId, currentQty, jigCapacity, emptyHooks, trayType, trayCapacity, platingColor, polishFinish, jigType
+  });
+  
+  // Close the jig modal
+  const jigModal = document.getElementById('jigAddModal');
+  if (jigModal) {
+    jigModal.classList.remove('open');
+  }
+  
+  // Add class to show checkboxes and visual indicators
+  document.body.classList.add('add-model-mode');
+  
+  // Show loading indicator
+  showAddModelLoadingIndicator();
+  
+  // Filter and highlight only compatible rows
+  filterAndHighlightCompatibleRows(modelNumber, lotId, batchId, trayType, platingColor, polishFinish, jigType);
+  
+  // Create and show Exit button
+  createExitAddModelButton();
+  
+  console.log('✅ Add Model Mode Activated');
+}
+
+// Show loading indicator
+function showAddModelLoadingIndicator() {
+  let loadingIndicator = document.getElementById('addModelLoadingIndicator');
+  if (!loadingIndicator) {
+    loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'addModelLoadingIndicator';
+    loadingIndicator.style.cssText = `
+      position: fixed; top: 140px; right: 20px; z-index: 10000;
+      background: #fff; border: 2px solid #007bff; border-radius: 12px;
+      padding: 15px 20px; box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+      display: flex; align-items: center; gap: 10px;
+    `;
+    loadingIndicator.innerHTML = `
+      <div style="width: 20px; height: 20px; border: 3px solid #f3f3f3; 
+           border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <span style="font-weight: 600; color: #007bff;">Filtering compatible rows...</span>
+    `;
+    document.body.appendChild(loadingIndicator);
+  }
+  loadingIndicator.style.display = 'flex';
+}
+
+// Hide loading indicator
+function hideAddModelLoadingIndicator() {
+  const loadingIndicator = document.getElementById('addModelLoadingIndicator');
+  if (loadingIndicator) {
+    loadingIndicator.style.display = 'none';
+  }
+}
+
+// Extract base model number (first 4 digits)
+function getBaseModel(platingStockNo) {
+  if (!platingStockNo) return '';
+  const match = platingStockNo.match(/^(\d{4})/);
+  return match ? match[1] : '';
+}
+
+// Check if two models are lookalikes (same family but different base models)
+function areLookalikes(model1, model2) {
+  const base1 = getBaseModel(model1);
+  const base2 = getBaseModel(model2);
+  
+  // Lookalike pairs: 2617 and 2648, 1805 and B1805 are NOT lookalikes (allowed cross-model)
+  const lookalikePairs = [
+    ['2617', '2648'],
+    ['2648', '2617']
+  ];
+  
+  return lookalikePairs.some(pair => 
+    (base1 === pair[0] && base2 === pair[1]) || 
+    (base1 === pair[1] && base2 === pair[0])
+  );
+}
+
+// Check if cross-model combination is specifically allowed
+function isCrossModelAllowed(model1, model2, platingColor, polishFinish) {
+  // Specific allowed cross-model combinations
+  // Currently only: 1805SAA02 + B1805SAA02 (both IPS, Buffed)
+  const crossModelRules = [
+    {
+      models: ['1805SAA02', 'B1805SAA02'],
+      platingColor: 'IPS',
+      polishFinish: 'Buffed'
+    }
+  ];
+  
+  return crossModelRules.some(rule => {
+    const modelsMatch = (
+      (rule.models.includes(model1) && rule.models.includes(model2)) ||
+      (rule.models.includes(model2) && rule.models.includes(model1))
+    );
+    const attributesMatch = 
+      rule.platingColor === platingColor && 
+      rule.polishFinish === polishFinish;
+    
+    return modelsMatch && attributesMatch;
+  });
+}
+
+// Filter and highlight compatible rows
+function filterAndHighlightCompatibleRows(modelNumber, lotId, batchId, trayType, platingColor, polishFinish, jigType) {
+  console.log(`🎯 ADD MODEL FILTER: Current model: ${modelNumber}`);
+  console.log(`   Jig Type: ${jigType}`);
+  console.log(`   Plating Color: ${platingColor}`);
+  console.log(`   Polish Finish: ${polishFinish}`);
+  console.log(`   Excluding current lot: ${lotId}`);
+  
+  const tableRows = document.querySelectorAll('#order-listing tbody tr');
+  let compatibleCount = 0;
+  let totalQtyAvailable = 0;
+  
+  const currentBaseModel = getBaseModel(modelNumber);
+  
+  tableRows.forEach(row => {
+    const rowBatchId = row.getAttribute('data-batch-id');
+    const rowLotId = row.getAttribute('data-stock-lot-id');
+    const checkbox = row.querySelector('.model-select-checkbox');
+    
+    // Get all required data from the row
+    const platingCell = row.cells[2]; // Column 3 is Plating Stk No
+    const rowPlatingStockNo = platingCell ? platingCell.textContent.trim() : '';
+    
+    const platingColorCell = row.cells[4]; // Column 5 is Plating Color
+    const rowPlatingColor = platingColorCell ? platingColorCell.textContent.trim() : '';
+    
+    const polishFinishCell = row.cells[5]; // Column 6 is Polish Finish
+    const rowPolishFinish = polishFinishCell ? polishFinishCell.textContent.trim() : '';
+    
+    // Get quantity from INPUT field's value attribute
+    const qtyCell = row.cells[8]; // Column 9 is LOT Qty
+    const qtyInput = qtyCell ? qtyCell.querySelector('input.edit-qty-input') : null;
+    const rowQty = qtyInput ? parseInt(qtyInput.value) || 0 : 0;
+    
+    // Get jig type and normalize (extract just the number + "Jig")
+    const jigTypeCell = row.cells[9]; // Column 10 is Jig Type
+    const rowJigTypeRaw = jigTypeCell ? jigTypeCell.textContent.trim() : '';
+    const rowJigType = rowJigTypeRaw; // Keep as is for comparison
+    
+    const rowBaseModel = getBaseModel(rowPlatingStockNo);
+    
+    // Calculate lookalike status early
+    const isLookalike = areLookalikes(modelNumber, rowPlatingStockNo);
+    
+    // Calculate same base model status early
+    const sameBaseModel = rowBaseModel === currentBaseModel;
+    
+    // Comprehensive compatibility checks
+    const reasons = [];
+    let isCompatible = true;
+    
+    // Rule 1: Must be different lot (not the current one)
+    if (rowLotId === lotId) {
+      isCompatible = false;
+      reasons.push('same lot');
+    }
+    
+    // Rule 2: Must have quantity available
+    if (rowQty <= 0) {
+      isCompatible = false;
+      reasons.push('no quantity');
+    }
+    
+    // Rule 5: Must have same polish finish (skip for lookalikes or same base models)
+    if (!(isLookalike || sameBaseModel) && rowPolishFinish !== polishFinish) {
+      isCompatible = false;
+      reasons.push(`different polish finish (${rowPolishFinish} vs ${polishFinish})`);
+    }
+    
+    // Rule 6: Model compatibility check (only if plating color or polish finish differ)
+    if (isCompatible && (rowPlatingColor !== platingColor || rowPolishFinish !== polishFinish)) {
+      const isCrossAllowed = isCrossModelAllowed(modelNumber, rowPlatingStockNo, platingColor, polishFinish);
+      
+      if (!sameBaseModel && !isCrossAllowed && !isLookalike) {
+        isCompatible = false;
+        reasons.push(`different base model (${rowBaseModel} vs ${currentBaseModel})`);
+      }
+    }
+    
+    if (isCompatible) {
+      // Show and enable checkbox
+      if (checkbox) {
+        checkbox.style.display = 'inline-block';
+        checkbox.disabled = false;
+        checkbox.checked = false;
+        checkbox.title = `Add ${rowPlatingStockNo} from this row (Qty: ${rowQty})`;
+      }
+      
+      // Highlight row
+      row.style.display = '';
+      row.style.backgroundColor = '#e3f2fd';
+      row.style.border = '2px solid #2196F3';
+      row.classList.add('compatible-row');
+      
+      compatibleCount++;
+      totalQtyAvailable += rowQty;
+      
+      console.log(`   ✅ COMPATIBLE: ${rowPlatingStockNo}, Lot ${rowLotId}, Qty ${rowQty}`);
+    } else {
+      // Hide incompatible rows
+      row.style.display = 'none';
+      if (checkbox) {
+        checkbox.style.display = 'none';
+        checkbox.checked = false;
+        checkbox.disabled = true;
+      }
+      
+      // Log exclusion reasons
+      if (reasons.length > 0) {
+        console.log(`   ❌ EXCLUDED: ${rowPlatingStockNo}, Lot ${rowLotId} - Reasons: ${reasons.join(', ')}`);
+      }
+    }
+  });
+  
+  console.log(`\n📊 FILTERING SUMMARY:`);
+  console.log(`   Total rows processed: ${tableRows.length}`);
+  console.log(`   Compatible rows found: ${compatibleCount}`);
+  console.log(`   Total quantity available: ${totalQtyAvailable}`);
+  console.log(`   Empty hooks required: ${currentEmptyHooks}\n`);
+  
+  hideAddModelLoadingIndicator();
+  
+  // Show summary
+  const summary = document.createElement('div');
+  summary.id = 'compatibleSummary';
+  summary.style.cssText = `
+    position: fixed; top: 140px; right: 20px; z-index: 10000;
+    background: #fff; border: 2px solid #28a745; border-radius: 12px;
+    padding: 15px 20px; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+  `;
+  summary.innerHTML = `
+    <div style="font-weight: 600; color: #28a745; margin-bottom: 5px;">
+      ${compatibleCount} Compatible Rows Found
+    </div>
+    <div style="font-size: 13px; color: #666;">
+      Total Available: ${totalQtyAvailable} cases
+    </div>
+    <div style="font-size: 13px; color: #666;">
+      Required: ${currentEmptyHooks} hooks
+    </div>
+  `;
+  document.body.appendChild(summary);
+  
+  // Setup checkbox listeners
+  setupCheckboxListeners();
+  
+  console.log(`📊 Summary: ${compatibleCount} compatible rows, ${totalQtyAvailable} total qty available`);
+}
+
+// Setup checkbox listeners
+function setupCheckboxListeners() {
+  const checkboxes = document.querySelectorAll('.model-select-checkbox:not([disabled])');
+  
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+      const selectedCheckboxes = document.querySelectorAll('.model-select-checkbox:checked');
+      console.log(`✅ ${selectedCheckboxes.length} rows selected`);
+      
+      // Update selection summary and button
+      updateSelectionSummaryAndButton();
+    });
+  });
+}
+
+// Update selection summary and confirmation button
+function updateSelectionSummaryAndButton() {
+  const selectedCheckboxes = document.querySelectorAll('.model-select-checkbox:checked');
+  const selectionCount = selectedCheckboxes.length;
+  
+  // Calculate total selected quantity and check capacity
+  let totalSelectedQty = 0;
+  const selectedModels = [];
+  
+  selectedCheckboxes.forEach(checkbox => {
+    const row = checkbox.closest('tr');
+    const qtyCell = row.cells[8];
+    const qtyInput = qtyCell ? qtyCell.querySelector('input.edit-qty-input') : null;
+    const qty = qtyInput ? parseInt(qtyInput.value) || 0 : 0;
+    
+    const platingCell = row.cells[2];
+    const platingStockNo = platingCell ? platingCell.textContent.trim() : '';
+    
+    const lotId = row.getAttribute('data-stock-lot-id');
+    const batchId = row.getAttribute('data-batch-id');
+    
+    totalSelectedQty += qty;
+    selectedModels.push({
+      platingStockNo,
+      lotId,
+      batchId,
+      qty
+    });
+  });
+  
+  // Check if selection exceeds empty hooks
+  const willExceed = (currentQuantity + totalSelectedQty) > currentJigCapacity;
+  const availableCapacity = currentEmptyHooks;
+  
+  console.log(`📊 Selection Summary:`, {
+    selectedCount: selectionCount,
+    totalSelectedQty,
+    currentQty: currentQuantity,
+    emptyHooks: currentEmptyHooks,
+    jigCapacity: currentJigCapacity,
+    willExceed
+  });
+  
+  // Update or create confirm button
+  let confirmBtn = document.getElementById('confirmSelectionBtn');
+  
+  if (selectionCount > 0) {
+    if (!confirmBtn) {
+      confirmBtn = document.createElement('button');
+      confirmBtn.id = 'confirmSelectionBtn';
+      confirmBtn.style.cssText = `
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 10001;
+        padding: 15px 30px;
+        font-size: 16px;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+      `;
+      document.body.appendChild(confirmBtn);
+      
+      confirmBtn.onclick = function() {
+        // Collect selected models data
+        const selectedCheckboxes = document.querySelectorAll('.model-select-checkbox:checked');
+        const selectedModelsData = [];
+        let totalQty = 0;
+        
+        selectedCheckboxes.forEach(checkbox => {
+          const row = checkbox.closest('tr');
+          const platingStockNoCell = row.querySelector('td:nth-child(3)');
+          const polishingStockNoCell = row.querySelector('td:nth-child(4)');
+          const qtyCell = row.querySelector('td:nth-child(9)');
+          const qtyInput = qtyCell ? qtyCell.querySelector('input.edit-qty-input') : null;
+          
+          if (platingStockNoCell && qtyInput) {
+            const platingStockNo = platingStockNoCell.textContent.trim();
+            const polishingStockNo = polishingStockNoCell ? polishingStockNoCell.textContent.trim() : '';
+            const qty = parseInt(qtyInput.value) || 0;
+            
+            // Get lot ID and batch ID from hidden cells or data attributes
+            const lotIdCell = row.cells[1]; // Assuming lot ID is in 2nd column
+            const batchIdCell = row.cells[0]; // Assuming batch ID is in 1st column (hidden)
+            
+            const lotId = lotIdCell ? lotIdCell.textContent.trim() : '';
+            const batchId = batchIdCell ? batchIdCell.textContent.trim() : '';
+            
+            selectedModelsData.push({
+              platingStockNo: platingStockNo,
+              polishingStockNo: polishingStockNo,
+              lotId: lotId,
+              batchId: batchId,
+              qty: qty
+            });
+            
+            totalQty += qty;
+          }
+        });
+        
+        console.log('🔘 Confirm button clicked, selected models:', selectedModelsData);
+        confirmModelSelection(selectedModelsData, totalQty);
+      };
+    }
+    
+    // Update button text and style
+    if (willExceed) {
+      confirmBtn.innerHTML = `⚠️ Exceeds Capacity (+${totalSelectedQty} cases)`;
+      confirmBtn.style.background = '#ff9800';
+      confirmBtn.style.color = '#fff';
+      confirmBtn.disabled = false; // Allow but show warning
+    } else {
+      confirmBtn.innerHTML = `✅ Add ${selectionCount} Model${selectionCount > 1 ? 's' : ''} (+${totalSelectedQty} cases)`;
+      confirmBtn.style.background = '#28a745';
+      confirmBtn.style.color = '#fff';
+      confirmBtn.disabled = false;
+    }
+    
+    confirmBtn.style.display = 'block';
+  } else {
+    if (confirmBtn) {
+      confirmBtn.style.display = 'none';
+    }
+  }
+  
+  // Update exit button
+  const exitBtn = document.getElementById('exitAddModelBtn');
+  if (exitBtn) {
+    if (selectionCount > 0) {
+     
+    } else {
+      exitBtn.innerHTML = '❌ Exit Add Model Mode';
+      exitBtn.style.background = '#dc3545';
+    }
+  }
+}
+
+// Confirm model selection and combine
+function confirmModelSelection(selectedModels, totalAddedQty) {
+  console.log('🔧 Confirming selection of', selectedModels.length, 'models');
+  console.log('📦 Selected models:', selectedModels);
+  console.log(`📊 Total quantity to add: ${totalAddedQty}`);
+  
+  // Calculate current quantity from jig capacity minus empty hooks
+  // (This is more accurate than reading from loaded cases display which may be 0)
+  const actualCurrentQty = currentJigCapacity - currentEmptyHooks;
+  console.log(`📊 Current quantity (capacity ${currentJigCapacity} - empty ${currentEmptyHooks}): ${actualCurrentQty}`);
+  
+  // Calculate new totals
+  const newTotalQuantity = actualCurrentQty + totalAddedQty;
+  const newEmptyHooks = Math.max(0, currentJigCapacity - newTotalQuantity);
+  console.log(`📊 New totals: ${newTotalQuantity} cases, ${newEmptyHooks} empty hooks`);
+  
+  // Check if exceeds capacity
+  if (newTotalQuantity > currentJigCapacity) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Capacity Warning',
+      html: `Adding these models will exceed jig capacity:<br>
+             Current: ${currentQuantity} cases<br>
+             Adding: ${totalAddedQty} cases<br>
+             Total: <b>${newTotalQuantity}</b> cases<br>
+             Capacity: ${currentJigCapacity} cases<br>
+             Excess: <b>${newTotalQuantity - currentJigCapacity}</b> cases`,
+      showCancelButton: true,
+      confirmButtonText: 'Proceed Anyway',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        proceedWithCombination(selectedModels, newTotalQuantity, newEmptyHooks);
+      }
+    });
+  } else {
+    proceedWithCombination(selectedModels, newTotalQuantity, newEmptyHooks);
+  }
+}
+
+// Proceed with combination
+function proceedWithCombination(selectedModels, newTotalQuantity, newEmptyHooks) {
+  console.log(`📈 New totals: Loaded ${newTotalQuantity}/${currentJigCapacity}, Empty hooks: ${newEmptyHooks}`);
+  
+  // Add selected models to combinedModels
+  for (let selected of selectedModels) {
+    combinedModels.push({
+      modelNumber: selected.platingStkNo,
+      lotId: selected.lotId,
+      batchId: selected.batchId,
+      quantity: selected.qty,
+      platingColor: selected.platingColor,
+      polishFinish: selected.polishFinish,
+      jigType: selected.jigType
+    });
+  }
+  
+  // Recalculate totals
+  const totalQuantity = combinedModels.reduce((sum, m) => sum + m.quantity, 0);
+  const emptyHooks = Math.max(0, currentJigCapacity - totalQuantity);
+  
+  // Update modal with combined data
+  updateModalWithCombinedModels(combinedModels, totalQuantity, emptyHooks);
+  
+  // Update previouslyCombinedRows
+  previouslyCombinedRows = new Set(combinedModels.map(m => m.lotId));
+  
+  // Exit Add Model mode
+  exitAddModelMode();
+  
+  // Reopen the modal
+  setTimeout(() => {
+    const jigModal = document.getElementById('jigAddModal');
+    if (jigModal) {
+      jigModal.classList.add('open');
+    }
+  }, 500);
+  
+  // Show success message
+  Swal.fire({
+    icon: 'success',
+    title: 'Models Combined!',
+    html: `Successfully added ${selectedModels.length} model(s)<br>
+           Total Quantity: <b>${newTotalQuantity}</b> cases<br>
+           Empty Hooks: <b>${newEmptyHooks}</b>`,
+    timer: 2000,
+    showConfirmButton: false
+  });
+}
+
+// Update modal with combined models
+function updateModalWithCombinedModels(allModels, newTotalQuantity, newEmptyHooks) {
+  console.log('🔄 Updating modal with', allModels.length, 'models');
+  
+  // Map combinedModels to expected format
+  let mappedModels = allModels.map(m => ({
+    platingStockNo: m.modelNumber,
+    lotId: m.lotId,
+    batchId: m.batchId,
+    qty: m.quantity
+  }));
+  
+  const modal = document.getElementById('jigAddModal');
+  if (!modal) {
+    console.error('❌ Modal not found');
+    return;
+  }
+  
+  // Update loaded cases qty display
+  const loadedCasesQtyDisplay = document.getElementById('loadedCasesQtyDisplay');
+  if (loadedCasesQtyDisplay) {
+    loadedCasesQtyDisplay.textContent = `${newTotalQuantity}/${currentJigCapacity}`;
+  }
+  
+  // Update empty hooks
+  const emptyHooksInput = document.getElementById('emptyHooksInput');
+  if (emptyHooksInput) {
+    emptyHooksInput.value = newEmptyHooks;
+  }
+  
+  // Create/Update model tabs in modal header
+  createModelTabs(mappedModels);
+  
+  // Recalculate tray distribution for all models
+  recalculateTrayDistributionForAllModels(mappedModels);
+  
+  // Store combined lot IDs in modal for backend submission
+  const combinedLotIds = mappedModels.map(m => m.lotId);
+  modal.setAttribute('data-combined-lot-ids', JSON.stringify(combinedLotIds));
+  modal.setAttribute('data-is-multi-model', mappedModels.length > 1 ? 'true' : 'false');
+  
+  console.log('✅ Modal updated with combined models');
+  console.log('📦 Combined lot IDs:', combinedLotIds);
+}
+
+// Create model tabs in modal header
+// FIX 3: Primary model image slot already in HTML - only append additional models (index > 0)
+function createModelTabs(allModels) {
+  console.log('🏷️ Creating model tabs for', allModels.length, 'models');
+  
+  const modalHeader = document.querySelector('.jig-modal-model-images-row');
+  if (!modalHeader) {
+    console.error('❌ Modal header not found');
+    return;
+  }
+  
+  // Remove only previously added dynamic tabs (not the primary button)
+  const existingTabs = modalHeader.querySelectorAll('.model-tab-extra');
+  existingTabs.forEach(tab => tab.remove());
+  
+  // Add tabs for additional models only (skip index 0 = primary, already in HTML)
+  allModels.forEach((model, index) => {
+    if (index === 0) return; // Primary slot already in HTML, skip
+    
+    const tab = document.createElement('div');
+    tab.className = 'model-tab-extra';
+    tab.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #e3f2fd;
+      border: 2px solid #2196F3;
+      border-radius: 8px;
+      margin: 0 5px;
+      font-weight: 600;
+      color: #1976D2;
+    `;
+    
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: bold;
+      color: #dc3545;
+      margin-left: 5px;
+    `;
+    closeBtn.title = 'Remove this model';
+    closeBtn.onclick = function() {
+      removeModelFromSelection(model.lotId);
+    };
+    
+    tab.innerHTML = `
+      <span>📦 ${model.platingStockNo}</span>
+      <span style="background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${model.qty} cases</span>
+    `;
+    tab.appendChild(closeBtn);
+    
+    modalHeader.appendChild(tab);
+  });
+  
+  console.log('✅ Model tabs created');
+}
+
+// Remove model from selection
+function removeModelFromSelection(lotIdToRemove) {
+  console.log('🗑️ Removing model with lot ID:', lotIdToRemove);
+  
+  Swal.fire({
+    icon: 'warning',
+    title: 'Remove Model?',
+    text: 'Are you sure you want to remove this model from the selection?',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, Remove',
+    cancelButtonText: 'Cancel'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Get current combined lot IDs
+      const modal = document.getElementById('jigAddModal');
+      const combinedLotIdsStr = modal.getAttribute('data-combined-lot-ids');
+      const combinedLotIds = combinedLotIdsStr ? JSON.parse(combinedLotIdsStr) : [];
+      
+      // Remove the lot ID
+      const updatedLotIds = combinedLotIds.filter(id => id !== lotIdToRemove);
+      
+      // If only one model left, show warning
+      if (updatedLotIds.length === 1) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Single Model',
+          text: 'You now have only one model selected. Continue with single model jig.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+      
+      // Reload modal data with updated selection
+      // This would require re-fetching data from backend
+      // For now, just close modal and show message
+      modal.classList.remove('open');
+      
+      Swal.fire({
+        icon: 'info',
+        title: 'Model Removed',
+        text: 'Please reopen the modal and add models again.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  });
+}
+
+// Recalculate tray distribution for all models
+function recalculateTrayDistributionForAllModels(allModels) {
+  console.log('🧮 Recalculating tray distribution for', allModels.length, 'models');
+  
+  const delinkTableSection = document.getElementById('delinkTableSection');
+  if (!delinkTableSection) {
+    console.error('❌ Delink table section not found');
+    return;
+  }
+  
+  // Calculate total trays needed
+  const totalQuantity = allModels.reduce((sum, model) => sum + model.qty, 0);
+  const totalTrays = Math.ceil(totalQuantity / currentTrayCapacity);
+  
+  console.log(`📊 Total quantity: ${totalQuantity}, Trays needed: ${totalTrays}, Tray capacity: ${currentTrayCapacity}`);
+  console.log(`📊 Models breakdown:`, allModels.map(m => `${m.platingStockNo}: ${m.qty}`).join(', '));
+  
+  // Update delink count header
+  const delinkTrayCount = document.getElementById('delinkTrayCount');
+  if (delinkTrayCount) {
+    delinkTrayCount.textContent = totalTrays;
+    console.log(`✅ Updated delink tray count to: ${totalTrays}`);
+  } else {
+    console.error('❌ delinkTrayCount element not found');
+  }
+  
+  // Clear existing tray inputs
+  delinkTableSection.innerHTML = '';
+  
+  // Create tray inputs for total quantity
+  for (let i = 0; i < totalTrays; i++) {
+    const trayTab = document.createElement('div');
+    trayTab.className = 'tray-scan-tab model-bg-1';
+    
+    // Calculate quantity for this tray
+    let trayQty;
+    if (i === 0 && totalQuantity % currentTrayCapacity !== 0) {
+      // First tray might be partial (top tray)
+      trayQty = totalQuantity % currentTrayCapacity;
+    } else {
+      // Full tray
+      trayQty = currentTrayCapacity;
+    }
+    
+    trayTab.innerHTML = `
+      <input 
+        type="text" 
+        id="tray-${i}"
+        class="tray-id-input model-bg-1" 
+        placeholder="Scan Tray ${i + 1} Id"
+        data-row-index="${i}"
+        data-tray-qty="${trayQty}"
+      />
+    `;
+    
+    delinkTableSection.appendChild(trayTab);
+  }
+  
+  // Update tray distribution summary
+  updateTrayDistributionSummary(allModels, totalQuantity, totalTrays);
+  
+  console.log('✅ Tray distribution recalculated');
+}
+
+// Update tray distribution summary
+function updateTrayDistributionSummary(allModels, totalQuantity, totalTrays) {
+  const trayDistributionDiv = document.querySelector('.tray-distribution-display');
+  if (!trayDistributionDiv) return;
+  
+  const fullTrays = Math.floor(totalQuantity / currentTrayCapacity);
+  const partialTrayQty = totalQuantity % currentTrayCapacity;
+  
+  let html = `<div style="font-weight: 600; color: #1976D2; margin-bottom: 10px;">`;
+  html += `Current Cycle: ${totalQuantity} cases (${totalTrays} trays)</div>`;
+  
+  // Show distribution per model
+  if (allModels.length > 1) {
+    html += `<div style="font-weight: 600; margin-top: 10px; color: #1565C0;">Model Breakdown:</div>`;
+  }
+  allModels.forEach((model, index) => {
+    const bgColor = index === 0 ? '#e8f5e9' : '#e3f2fd';
+    const borderColor = index === 0 ? '#4CAF50' : '#2196F3';
+    html += `<div style="margin: 5px 0; padding: 5px; background: ${bgColor}; border-left: 3px solid ${borderColor}; border-radius: 4px;">`;
+    html += `📦 ${model.platingStockNo}: <b>${model.qty}</b> cases`;
+    if (index === 0) html += ` <span style="font-size: 11px; color: #4CAF50;">(Primary)</span>`;
+    html += `</div>`;
+  });
+  
+  // Show tray breakdown
+  html += `<div style="margin-top: 10px; border-top: 2px solid #ddd; padding-top: 10px;">`;
+  html += `<div style="font-weight: 600; color: #1565C0; margin-bottom: 5px;">Tray Breakdown:</div>`;
+  if (partialTrayQty > 0) {
+    html += `Top Tray (partial): <b>${partialTrayQty}</b> cases<br>`;
+    for (let i = 1; i <= fullTrays; i++) {
+      html += `Tray ${i + 1} (full): <b>${currentTrayCapacity}</b> cases<br>`;
+    }
+    html += `<div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; font-size: 12px;">`;
+    html += `<b>Total:</b> ${fullTrays} full trays × ${currentTrayCapacity} = ${fullTrays * currentTrayCapacity} cases<br>`;
+    html += `+ 1 partial tray × ${partialTrayQty} = ${partialTrayQty} cases<br>`;
+    html += `<b>Grand Total: ${totalQuantity} cases</b>`;
+    html += `</div>`;
+  } else {
+    for (let i = 0; i < fullTrays; i++) {
+      html += `Tray ${i + 1} (full): <b>${currentTrayCapacity}</b> cases<br>`;
+    }
+    html += `<div style="margin-top: 8px; padding: 8px; background: #d4edda; border-left: 3px solid #28a745; border-radius: 4px; font-size: 12px;">`;
+    html += `<b>Total:</b> ${fullTrays} full trays × ${currentTrayCapacity} = ${totalQuantity} cases`;
+    html += `</div>`;
+  }
+  html += `</div>`;
+  
+  trayDistributionDiv.innerHTML = html;
+}
+
+// Old function - keep for compatibility but redirect to new function
+function handleSelectedRows() {
+  const selectedCheckboxes = document.querySelectorAll('.model-select-checkbox:checked');
+  
+  if (selectedCheckboxes.length === 0) {
+    console.log('No rows selected');
+    return;
+  }
+  
+  console.log(`🔧 Processing ${selectedCheckboxes.length} selected rows`);
+  
+  // Collect selected row data
+  const selectedRows = [];
+  let totalAddedQty = 0;
+  
+  selectedCheckboxes.forEach(checkbox => {
+    const row = checkbox.closest('tr');
+    const lotId = row.getAttribute('data-stock-lot-id');
+    const batchId = row.getAttribute('data-batch-id');
+    
+    const qtyCell = row.cells[8];
+    const qty = qtyCell ? parseInt(qtyCell.textContent.trim()) || 0 : 0;
+    
+    const platingCell = row.cells[2];
+    const platingStockNo = platingCell ? platingCell.textContent.trim() : '';
+    
+    selectedRows.push({
+      lot_id: lotId,
+      batch_id: batchId,
+      quantity: qty,
+      plating_stock_no: platingStockNo
+    });
+    
+    totalAddedQty += qty;
+  });
+  
+  console.log('📦 Selected rows:', selectedRows);
+  console.log(`📊 Total quantity to add: ${totalAddedQty}`);
+  
+  // Calculate new totals
+  const newTotalQuantity = currentQuantity + totalAddedQty;
+  const newEmptyHooks = Math.max(0, currentJigCapacity - newTotalQuantity);
+  
+  console.log(`📈 New totals: Loaded ${newTotalQuantity}/${currentJigCapacity}, Empty hooks: ${newEmptyHooks}`);
+  
+  // Combine models and update modal
+  combineModelsAndUpdateModal(newTotalQuantity, newEmptyHooks, selectedRows);
+  exitAddModelMode();
+}
+
+// Combine models and update modal
+function combineModelsAndUpdateModal(newTotalQty, newEmptyHooks, selectedRows) {
+  console.log('🔄 Combining models and updating modal...');
+  
+  // Calculate how many trays needed for combined quantity
+  const totalTrays = Math.ceil(newTotalQty / currentTrayCapacity);
+  
+  // Update modal with new values
+  const modal = document.getElementById('jigAddModal');
+  if (modal) {
+    // Update loaded cases quantity
+    // Update loaded cases qty display
+    const loadedCasesQtyDisplay = document.getElementById('loadedCasesQtyDisplay');
+    if (loadedCasesQtyDisplay) {
+      loadedCasesQtyDisplay.textContent = `${newTotalQuantity}/${currentJigCapacity}`;
+    }
+    
+    // Update empty hooks
+    const emptyHooksInput = document.getElementById('emptyHooksInput');
+    if (emptyHooksInput) {
+      emptyHooksInput.value = newEmptyHooks;
+    }
+    
+    // Update tray table with combined data
+    updateDelinkTableWithCombinedData(newTotalQty, selectedRows);
+    
+    // Store combined lot IDs in modal
+    const combinedLotIds = [currentLotId, ...selectedRows.map(r => r.lot_id)];
+    modal.setAttribute('data-combined-lot-ids', JSON.stringify(combinedLotIds));
+    
+    // Disable Add Model button if jig is now full
+    const addModelBtn = document.getElementById('addModelBtn');
+    if (addModelBtn) {
+      addModelBtn.disabled = newEmptyHooks <= 0;
+    }
+    
+    // Reopen the modal
+    modal.classList.add('open');
+    
+    Swal.fire({
+      icon: 'success',
+      title: 'Models Combined',
+      html: `
+        <div style="text-align: left;">
+          <p><strong>Added ${selectedRows.length} model(s)</strong></p>
+          <p>Total Quantity: ${newTotalQty}</p>
+          <p>Empty Hooks: ${newEmptyHooks}</p>
+          <p>Total Trays: ${totalTrays}</p>
+        </div>
+      `,
+      timer: 3000,
+      showConfirmButton: false
+    });
+  }
+}
+
+// Update delink table with combined data
+function updateDelinkTableWithCombinedData(totalQty, selectedRows) {
+  console.log('🔄 Updating delink table with combined data...');
+  
+  // Calculate tray distribution
+  const fullTrays = Math.floor(totalQty / currentTrayCapacity);
+  const remainingQty = totalQty % currentTrayCapacity;
+  const totalTrays = fullTrays + (remainingQty > 0 ? 1 : 0);
+  
+  // Update delink table
+  const delinkTable = document.getElementById('trayScanDetails_Jig');
+  if (delinkTable) {
+    let trayHTML = '<div class="tray-scan-tabs">';
+    
+    for (let i = 1; i <= totalTrays; i++) {
+      const isTopTray = i === 1 && remainingQty > 0;
+      const trayQty = isTopTray ? remainingQty : currentTrayCapacity;
+      
+      trayHTML += `
+        <div class="tray-scan-tab model-bg-1">
+          <label>Tray ${i}${isTopTray ? ' (Top)' : ''}</label>
+          <input type="text" class="tray-id-input" placeholder="Scan Tray ${i} ID" 
+                 data-tray-qty="${trayQty}" data-is-top-tray="${isTopTray}">
+          <div class="tray-qty">Qty: ${trayQty}</div>
+        </div>
+      `;
+    }
+    
+    trayHTML += '</div>';
+    delinkTable.innerHTML = trayHTML;
+    
+    console.log(`✅ Updated delink table with ${totalTrays} trays`);
+  }
+}
+
+// Create exit button
+function createExitAddModelButton() {
+  const existingBtn = document.getElementById('exitAddModelBtn');
+  if (existingBtn) existingBtn.remove();
+  
+  const exitBtn = document.createElement('button');
+  exitBtn.id = 'exitAddModelBtn';
+  exitBtn.innerHTML = '❌ Exit Add Model Mode';
+  exitBtn.style.cssText = `
+    position: fixed; top: 80px; right: 20px; z-index: 10000;
+    background: #dc3545; color: white; border: none;
+    padding: 10px 20px; border-radius: 25px; font-weight: 600;
+    cursor: pointer; box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    transition: all 0.3s ease;
+  `;
+  
+  exitBtn.onclick = function() {
+    exitAddModelMode();
+  };
+  
+  document.body.appendChild(exitBtn);
+}
+
+// Exit Add Model Mode
+function exitAddModelMode() {
+  document.body.classList.remove('add-model-mode');
+  
+  // Remove buttons and indicators
+  const exitBtn = document.getElementById('exitAddModelBtn');
+  const summary = document.getElementById('compatibleSummary');
+  const loadingIndicator = document.getElementById('addModelLoadingIndicator');
+  
+  if (exitBtn) exitBtn.remove();
+  if (summary) summary.remove();
+  if (loadingIndicator) loadingIndicator.remove();
+  
+  // Reset all rows to normal state
+  const tableRows = document.querySelectorAll('#order-listing tbody tr');
+  tableRows.forEach(row => {
+    row.style.display = '';
+    row.style.backgroundColor = '';
+    row.style.border = '';
+    row.classList.remove('compatible-row');
+    
+    const checkbox = row.querySelector('.model-select-checkbox');
+    if (checkbox) {
+      checkbox.checked = false;
+      checkbox.disabled = false;
+      checkbox.title = '';
+      checkbox.style.display = 'none';
+    }
+  });
+  
+  // Reopen the jig modal
+  const jigModal = document.getElementById('jigAddModal');
+  if (jigModal) {
+    jigModal.classList.add('open');
+    
+    Swal.fire({
+      icon: 'info',
+      title: 'Returned to Jig Loading',
+      text: 'Your progress is preserved.',
+      timer: 1500,
+      showConfirmButton: false
+    });
+  }
+  
+  console.log('✅ Exited Add Model Mode');
+}
+
+// Add keyboard shortcut
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.body.classList.contains('add-model-mode')) {
+    exitAddModelMode();
+  }
+});
+
+// Add CSS for Add Model mode
+const addModelStyles = document.createElement('style');
+addModelStyles.textContent = `
+  /* Add Model Mode Styles */
+  body.add-model-mode #order-listing tbody tr {
+    transition: all 0.3s ease;
+  }
+  
+  body.add-model-mode #order-listing tbody tr.compatible-row {
+    cursor: pointer;
+  }
+  
+  body.add-model-mode #order-listing tbody tr.compatible-row:hover {
+    background-color: #bbdefb !important;
+    transform: translateX(4px);
+  }
+  
+  .model-select-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin-right: 5px;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(addModelStyles);
+
+// ==================== FIX 1: Row Hold / Release ====================
+// When a row is held, all cells EXCEPT the S.No (first) cell get blur + not-allowed
+// S.No cell stays clear so user can interact with hold toggle
+document.addEventListener('DOMContentLoaded', function() {
+  // Toggle hold state on toggle switch
+  document.querySelectorAll('.hold-toggle-btn').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+      const row = this.closest('tr');
+      if (!row) return;
+      const isChecked = this.checked; // checked = active/unheld, unchecked = held
+      if (!isChecked) {
+        // Row is being HELD
+        row.classList.add('row-on-hold');
+      } else {
+        // Row is being RELEASED
+        row.classList.remove('row-on-hold');
+      }
+    });
+  });
+});
+
+// ==================== FIX 2 & 6: Remark Chat Icon ====================
+// - Send button sends remark
+// - After sending: textarea locked, icon turns green, remark text shown
+// - Persists across refresh via localStorage
+// - Info (i) icon tooltip shows entered remark on hover
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Restore saved remarks from localStorage on page load
+  function restoreRemarks() {
+    document.querySelectorAll('.remark-chat-trigger').forEach(function(trigger) {
+      const lotId = trigger.getAttribute('data-lot-id');
+      const key = 'remark_' + lotId;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        applyRemarkSent(trigger, saved);
+      }
+    });
+  }
+
+  function applyRemarkSent(trigger, remarkText) {
+    // 1. Turn chat icon green
+    const chatImg = trigger.querySelector('.chat-icon-img');
+    if (chatImg) {
+      chatImg.style.filter = 'hue-rotate(100deg) saturate(4) brightness(0.75)';
+      chatImg.style.opacity = '1';
+    }
+    // 2. Show remark text in popup instead of textarea
+    const popup = trigger.querySelector('.remark-chat-popup');
+    if (popup) {
+      const inputArea = popup.querySelector('.remark-input-area');
+      const sentDisplay = popup.querySelector('.remark-sent-display');
+      if (inputArea) inputArea.style.display = 'none';
+      if (sentDisplay) {
+        sentDisplay.style.display = 'block';
+        sentDisplay.textContent = remarkText;
+      }
+    }
+    // 3. Show info icon with the remark in tooltip
+    const lotId = trigger.getAttribute('data-lot-id');
+    const infoTrigger = trigger.closest('td').querySelector(`.remark-info-trigger[data-lot-id="${lotId}"]`);
+    if (infoTrigger) {
+      infoTrigger.style.display = 'inline-block';
+      const tooltip = infoTrigger.querySelector('.remark-info-tooltip');
+      if (tooltip) tooltip.textContent = remarkText;
+    }
+  }
+
+  // Hover show/hide remark tooltip
+  document.querySelectorAll('.remark-chat-trigger').forEach(function(trigger) {
+    trigger.addEventListener('mouseenter', function() {
+      const popup = trigger.querySelector('.remark-chat-popup');
+      if (popup) {
+        popup.style.opacity = '1';
+        popup.style.visibility = 'visible';
+      }
+    });
+    trigger.addEventListener('mouseleave', function(e) {
+      const popup = trigger.querySelector('.remark-chat-popup');
+      if (popup && !popup.contains(e.relatedTarget)) {
+        popup.style.opacity = '0';
+        popup.style.visibility = 'hidden';
+      }
+    });
+    // Keep popup visible while hovering over popup itself
+    const popup = trigger.querySelector('.remark-chat-popup');
+    if (popup) {
+      popup.addEventListener('mouseleave', function(e) {
+        if (!trigger.contains(e.relatedTarget)) {
+          popup.style.opacity = '0';
+          popup.style.visibility = 'hidden';
+        }
+      });
+    }
+
+    // Send button click
+    const sendBtn = trigger.querySelector('.remark-send-btn');
+    const textarea = trigger.querySelector('.remark-textarea');
+    if (sendBtn && textarea) {
+      sendBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const remarkText = textarea.value.trim();
+        if (!remarkText) {
+          textarea.style.borderColor = '#dc3545';
+          textarea.placeholder = 'Please enter a remark first';
+          return;
+        }
+        const lotId = trigger.getAttribute('data-lot-id');
+        const batchId = trigger.getAttribute('data-batch-id');
+
+        // Save to localStorage (FIX: persist across refresh)
+        localStorage.setItem('remark_' + lotId, remarkText);
+
+        // Apply sent state
+        applyRemarkSent(trigger, remarkText);
+
+        // Close popup
+        if (popup) {
+          popup.style.opacity = '0';
+          popup.style.visibility = 'hidden';
+        }
+
+        // Optional: send to backend
+        const csrftoken = document.cookie.split(';').map(c => c.trim())
+          .find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+        if (csrftoken) {
+          fetch('/jig_loading/jig-save-hold-unhold-reason/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({ lot_id: lotId, batch_id: batchId, remark: remarkText })
+          }).catch(() => {}); // Silent fail - localStorage already saved
+        }
+      });
+    }
+  });
+
+  restoreRemarks();
+});
+
+
+
+</script>
+
+
+
+
+{% endblock %}
+{% endblock content %}

@@ -1,0 +1,2390 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <style>
+/* Tablet / large-touch override: force sidebar width to 280px */
+@media (pointer: coarse) and (min-width: 680px) and (max-width: 1400px),
+       (min-width: 760px) and (max-width: 1024px) {
+  html body #sidebar,
+  html body nav.sidebar,
+  html body .sidebar.sidebar-offcanvas,
+  html body .sidebar {
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 280px !important;
+  }
+  
+}
+/* Tablet: when sidebar is minimized (icon-only) keep it narrow and hide titles */
+@media (pointer: coarse) and (min-width: 680px) and (max-width: 1400px),
+       (min-width: 760px) and (max-width: 1024px) {
+  body.sidebar-icon-only #sidebar,
+  body.sidebar-icon-only nav.sidebar,
+  body.sidebar-icon-only .sidebar.sidebar-offcanvas,
+  body.sidebar-icon-only .sidebar {
+    width: 65px !important;
+    min-width: 65px !important;
+    max-width: 65px !important;
+    transition: width 180ms ease-in-out !important;
+    overflow: visible !important;
+  }
+
+  /* hide menu titles to keep compact look on tablet when minimized */
+  body.sidebar-icon-only .sidebar .nav .nav-item .menu-title {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* center icons in minimized sidebar */
+  body.sidebar-icon-only .sidebar .nav .nav-item .menu-icon,
+  body.sidebar-icon-only .sidebar .nav .nav-item i,
+  body.sidebar-icon-only .sidebar .nav .nav-item .fa,
+  body.sidebar-icon-only .sidebar .nav .nav-item .ti {
+    margin-left: 0 !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    width: 100% !important;
+  }
+
+  /* ensure tooltip positions slightly outside the compact sidebar */
+  body.sidebar-icon-only .sidebar .nav .nav-item .menu-icon[data-tooltip]:hover::after,
+  body.sidebar-icon-only .sidebar .nav .nav-item i[data-tooltip]:hover::after,
+  body.sidebar-icon-only .sidebar .nav .nav-item .fa[data-tooltip]:hover::after {
+    left: 84px !important; /* a bit wider than compact width */
+  }
+}
+         /*Global Grid Lines */
+         #order-listing th,
+         #order-listing td {
+         border-right: 1.5px solid #bdbdbd !important;   /* vertical lines: grey */
+         border-bottom: 1.5px solid #111 !important;     /* horizontal lines: black */
+         }
+         @keyframes hourglass-spin {
+         0% { transform: rotate(0deg);}
+         100% { transform: rotate(360deg);}
+         }
+         /* Show sidebar icon tooltips ONLY when minimized and always at the very front */
+         body.sidebar-icon-only .sidebar .nav .nav-item .menu-icon[data-tooltip]:hover::after,
+         body.sidebar-icon-only .sidebar .nav .nav-item i[data-tooltip]:hover::after,
+         body.sidebar-icon-only .sidebar .nav .nav-item .fa[data-tooltip]:hover::after,
+         body.sidebar-icon-only .sidebar .nav .nav-item .ti[data-tooltip]:hover::after {
+         content: attr(data-tooltip);
+         position: fixed !important;      /* Use fixed so it's always on top */
+         left: 60px !important;           /* Adjust as needed for your sidebar width */
+         top: auto;
+         bottom: auto;
+         background: #222;
+         color: #fff;
+         padding: 4px 14px;
+         border-radius: 6px;
+         white-space: nowrap;
+         font-size: 14px;
+         z-index: 9999999 !important;     /* Highest z-index */
+         pointer-events: none;
+         opacity: 0.98;
+         box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+         transform: none !important;
+         }
+         /* Position the tooltip vertically aligned with the icon */
+         body.sidebar-icon-only .sidebar .nav .nav-item .menu-icon[data-tooltip]:hover,
+         body.sidebar-icon-only .sidebar .nav .nav-item i[data-tooltip]:hover,
+         body.sidebar-icon-only .sidebar .nav .nav-item .fa[data-tooltip]:hover,
+         body.sidebar-icon-only .sidebar .nav .nav-item .ti[data-tooltip]:hover {
+         /* Custom property to help JS position the tooltip if needed */
+         }
+         /* Sidebar menu icons: always black by default */
+         .sidebar .nav .nav-item .menu-icon,
+         .sidebar .nav .nav-item i,
+         .sidebar .nav .nav-item .fa,
+         .sidebar .nav .nav-item .ti {
+         color: #222 !important; /* Black */
+         transition: color 0.2s;
+         }
+         /* Active menu: icon and text white, bg teal */
+         .sidebar .nav .nav-item.active > .nav-link .menu-icon,
+         .sidebar .nav .nav-item.active > .nav-link i,
+         .sidebar .nav .nav-item.active > .nav-link .fa,
+         .sidebar .nav .nav-item.active > .nav-link .ti,
+         .sidebar .nav .nav-item.active > .nav-link .menu-title {
+         color: #fff !important;
+         background: #028084 !important;
+         border-radius: 8px;
+         }
+         /* Also for active sub-menu */
+         .sidebar .nav .sub-menu .nav-link.active .menu-icon,
+         .sidebar .nav .sub-menu .nav-link.active i,
+         .sidebar .nav .sub-menu .nav-link.active .fa,
+         .sidebar .nav .sub-menu .nav-link.active .ti {
+         color: #fff !important;
+         }
+         @media (min-width: 1200px) and (pointer: fine) {
+         /* Only laptops/desktops with mouse/trackpad */
+         .navbar .navbar-menu-wrapper .ti-settings,
+         .navbar .navbar-menu-wrapper .ti-eye,
+         .navbar .navbar-menu-wrapper .ti-bell,
+         .navbar .navbar-menu-wrapper .ti-user,
+         .navbar .navbar-menu-wrapper .ti-file,
+         .navbar .navbar-menu-wrapper .fa,
+         .navbar .navbar-menu-wrapper .icon-menu {
+         font-size: 16px !important;
+         min-width: 10px;
+         min-height: 20px;
+         line-height: 1;
+         vertical-align: middle;
+         }
+         }
+         @media only screen and (max-width: 900px)  {
+         .sidebar .nav .nav-item .nav-link .menu-title {
+         color: inherit;
+         display: inline-block;
+         font-size: 16px !important;
+         line-height: 1;
+         vertical-align: middle;
+         font-weight: 700;
+         }
+         }
+         .sidebar .nav .nav-item .nav-link .menu-title {
+         color: inherit;
+         display: inline-block;
+         font-size: 14px;
+         line-height: 1;
+         vertical-align: middle;
+         font-weight: 700;
+         }
+         /* Sidebar scroll fix: always allow vertical scroll, no cropping at bottom */
+         .sidebar {
+         overflow-y: auto !important;
+         overflow-x: hidden !important;
+         max-height: calc(100vh - 32px); /* 32px = footer height */
+         padding-bottom: 40px; /* Space for footer */
+         z-index: 100 !important;
+         position: relative;
+         flex-wrap: nowrap;
+         flex-direction: column;
+         margin-bottom: 110px !important;
+         }
+         /* Force sidebar menu icons/titles to display in a single vertical column, never wrap */
+         .sidebar .nav {
+         flex-direction: column !important;
+         flex-wrap: nowrap !important;
+         width: 100% !important;
+         }
+         .sidebar .nav .nav-item {
+         width: 100% !important;
+         display: block !important;
+         }
+         .sidebar .nav .nav-item .nav-link {
+         display: flex !important;
+         align-items: center !important;
+         flex-wrap: nowrap !important;
+         width: 100% !important;
+         min-width: 0 !important;
+         max-width: 100% !important;
+         white-space: normal !important;
+         overflow: hidden !important;
+         word-break: break-word !important;
+         }
+         .sidebar .nav .nav-item .menu-title {
+         flex: 1 1 auto !important;
+         min-width: 0 !important;
+         max-width: 100% !important;
+         overflow: hidden !important;
+         text-overflow: ellipsis !important;
+         white-space: normal !important;
+         word-break: break-word !important;
+         }
+         body.sidebar-icon-only .sidebar {
+         background: #028084 !important;
+         }
+         body.sidebar-icon-only .sidebar .nav .nav-item .menu-icon,
+         body.sidebar-icon-only .sidebar .nav .nav-item i,
+         body.sidebar-icon-only .sidebar .nav .nav-item .fa,
+         body.sidebar-icon-only .sidebar .nav .nav-item .ti {
+         color: #fff !important;
+         margin-left: 12px !important; /* Move icons 8px to the right */
+         }
+         /* Remove sub-menu dot icon */
+         /* Style for sub-menu dot icon: grey and move a little down */
+         /* .sidebar .nav .sub-menu .nav-link:before {
+         content: "•";
+         color: #bbb;
+         display: inline-block;
+         margin-right: 7px;
+         font-size: 15px;
+         vertical-align: middle;
+         position: relative;
+         top: 2px;
+         } */ 
+         .navbar-brand-wrapper {
+         background: #fff !important; /* or your header bg color */
+         z-index: 120 !important;
+         position: relative;
+         }
+         /* Start of global font handling for tablet device */
+         @media (min-width: 800px) and (max-width: 1300px) and (min-height: 600px) and (max-height: 900px) and (orientation: landscape) {
+         html, body {
+         font-size: 20px !important;
+         }
+         *, *::before, *::after {
+         font-size: 20px !important;
+         }
+         input, select, textarea, button {
+         font-size: 20px !important;
+         }
+         th, td {
+         font-size: 20px !important;
+         }
+         }
+         /* GLOBAL font-size override for tablets (landscape) */
+         @media (min-width: 800px) and (max-width: 1300px) and (min-height: 600px) and (max-height: 900px) and (orientation: landscape) {
+         html, body, *, *::before, *::after,
+         #order-listing th, #order-listing td {
+         font-size: 20px !important;
+         }
+         }
+         @media (min-width: 800px) and (max-width: 1300px) and (min-height: 600px) and (max-height: 900px) and (orientation: landscape) {
+         #order-listing th,
+         #order-listing td {
+         font-size: 20px !important;
+         }
+         }
+         /* End of global font handling for tablet device */
+         .pagination-wrapper {
+         position: relative; /* Ensure it stays in the flow of the document */
+         background: #f5f7ff; /* Optional: Background color */
+         z-index: 10; /* Ensure it stays above other elements */
+         display: flex;
+         justify-content: center;
+         padding: 10px 0; /* Add padding for better spacing */
+         }
+         .navbar-brand img[src*="t_t.png"] {
+         margin-left: 20px !important; /* Move the logo slightly to the right */
+         }
+         .navbar-brand img[src*="flagGrp.png"] {
+         margin-top: 0px !important; /* Adjust the value to move it down */
+         }
+         /* Ensure row highlight is visible for sticky S.No and Date/Time columns */
+         tr.dp-row-action-highlight > td:nth-child(1),
+         tr.dp-row-action-highlight > td:nth-child(2) {
+         background: #fff5bd !important;   /* Match your highlight color */
+         z-index: 50 !important;
+         position: sticky;
+         left: 0; /* or left: 80px for 2nd col if needed */
+         }
+         tr.dp-row-action-highlight > td:nth-child(2) {
+         left: 80px; /* match your sticky left for 2nd column */
+         }
+         tr.dp-row-action-highlight > td:nth-child(3) {
+         background: #fff5bd !important;
+         z-index: 50 !important;
+         position: sticky;
+         left: 160px; /* adjust as per your table's sticky layout */
+         }
+         /* Sidebar minimized: icons white, bg teal */
+         body.sidebar-icon-only .sidebar .nav .nav-item .menu-icon,
+         body.sidebar-icon-only .sidebar .nav .nav-item i,
+         body.sidebar-icon-only .sidebar .nav .nav-item .fa,
+         body.sidebar-icon-only .sidebar .nav .nav-item .ti {
+         color: #fff !important;
+         }
+         /* Make all Day Planning sub-menu links black except the active one */
+         #ui-basic .sub-menu .nav-link {
+         color: #000 !important;
+         font-weight: 400 !important;
+         }
+         #ui-basic .sub-menu .nav-link.active {
+         color: #fff !important;
+         font-weight: 700 !important;
+         background: #028084 !important;
+         border-radius: 8px;
+         }
+         .navbar-nav .nav-item {
+         margin-right: -8px; /* Adjust spacing between icons */
+         }
+         .navbar-nav .nav-item:last-child {
+         margin-right: 0; /* Remove margin for the last icon */
+         }
+         .ti-user, .ti-settings, .ti-bell, .ti-file {
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         line-height: 1;
+         }
+         /* Sidebar menu: allow text to wrap and prevent cropping */
+         .sidebar .nav .menu-title,
+         .sidebar .nav .nav-link {
+         white-space: normal !important;
+         overflow: visible !important;
+         text-overflow: unset !important;
+         word-break: break-word !important;
+         line-height: 1.3 !important;
+         height: auto !important;
+         min-width: 0 !important;
+         max-width: 100% !important;
+         }
+         .sidebar .nav .nav-item:not(.active) > .nav-link,
+         .sidebar .nav .menu-title,
+         .sidebar .nav .sub-menu .nav-link {
+         color: #dafffe !important;
+         }
+         /* Move search bar to the right side of the navbar */
+         .navbar-menu-wrapper {
+         display: flex;
+         justify-content: flex-end;
+         align-items: center;
+         width: 100%;
+         }
+         .navbar-nav.mr-lg-2 {
+         margin-left: auto !important;
+         margin-right: 0 !important;
+         display: flex;
+         align-items: center;
+         }
+         @media (max-width: 991.98px) {
+         .navbar-nav.mr-lg-2 {
+         width: 100%;
+         justify-content: flex-end;
+         margin-left: 0 !important;
+         }
+         .navbar-menu-wrapper {
+         flex-direction: column;
+         align-items: flex-end;
+         }
+         }
+         .sidebar .nav .nav-link:hover,
+         .sidebar .nav .menu-title:hover,
+         .sidebar .nav .sub-menu .nav-link:hover {
+         color: #fff !important;
+         }
+         .sidebar .nav .nav-link,
+         .sidebar .nav .menu-title,
+         .sidebar .nav .sub-menu .nav-link {
+         color: #000 !important;
+         }
+         /* Make active sub-menu links white with teal background with cropping at left */
+         .sidebar .nav .sub-menu .nav-link.active {
+         color: #fff !important;
+         font-weight: 700 !important;
+         background: #028084 !important;
+         border-radius: 8px !important;
+         box-shadow: 0 2px 8px rgba(2, 128, 132, 0.3) !important;
+         padding-left: 10px !important; /* or more, as needed */
+         padding-right: 10px !important;
+         left: 5px; /* adjust as needed */
+         z-index: 1;
+         }
+         /* Override any existing white text styling for inactive submenus */
+         .sidebar .nav .sub-menu .nav-link:not(.active) {
+         color: #000 !important;
+         background: transparent !important;
+         }
+         footer.footer span,
+         footer.footer {
+         font-weight: 400 !important; /* Normal weight */
+         }
+         /* Fixed footer at the bottom of the viewport */
+         footer.footer {
+         position: fixed;
+         left: 0;
+         bottom: 0;
+         width: 100%;
+         z-index: 100;
+         background: #f5f7ff;
+         box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.05);
+         height: 32px;
+         line-height: 32px;
+         font-size: 13px;
+         padding: 0 10px;
+         text-align: center; /* Center the copyright */
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         }
+         .barcode-icon {
+         height: 36px;
+         width: 36px;
+         max-width: 100%;
+         object-fit: contain;
+         display: inline-block;
+         vertical-align: middle;
+         cursor: pointer;
+         }
+         @media (max-width: 576px) {
+         .barcode-icon {
+         height: 35px;
+         width: 35px;
+         }
+         }
+         .barcode-modal {
+         display: none;
+         position: fixed;
+         z-index: 1050;
+         right: 0;
+         top: 0;
+         width: 100vw;
+         height: 100vh;
+         background: rgba(0, 0, 0, 0.3);
+         align-items: flex-start;
+         justify-content: flex-end;
+         }
+         .barcode-modal-content {
+         background: #fff;
+         width: 90vw;
+         max-width: 500px;
+         height: auto;
+         scrollbar-width: none;
+         -ms-overflow-style: none;
+         /* margin: -1px 10px 0 20px; */
+         /* padding: 24px 18px; */
+         border-radius: 16px;
+         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+         position: relative;
+         animation: slideInRight 0.3s;
+         padding-top: 24px !important;
+         margin-top: 12px !important;
+         }
+         .barcode-modal-content::-webkit-scrollbar {
+         display: none; /* Chrome, Safari, Opera */
+         }
+         @media (min-width: 576px) {
+         .barcode-modal-close {
+         top: 18px;
+         left: 40px;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-close {
+         left: 30px;
+         font-size: 1.3rem;
+         top: 10px;
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-modal-close {
+         left: 32px;
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-modal-content {
+         border-radius: 30px !important;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-content {
+         border-radius: 30px !important;
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-modal-content {
+         margin: 32px auto 0 auto !important; /* Center align and add space at top for tablet */
+         width: 70vw;
+         max-width: 80vw;
+         max-height: 98vh; /* Increased height for tablet */
+         margin: 32px auto 0 auto !important;
+         left: 0;
+         right: 0;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-content {
+         margin: 24px auto 0 auto !important; /* Center align and add space at top for mobile */
+         left: 0;
+         width: 100vw;
+         max-width: 100vw;
+         max-height: 100vh; /* Increased height for mobile */
+         margin: 24px auto 0 auto !important;
+         left: 0;
+         right: 0;
+         }
+         }
+         /* Optional spacing between form rows */
+         .barcode-modal-content table td,
+         .barcode-modal-content table th {
+         padding: 8px 10px; /* Give cells some space */
+         vertical-align: middle;
+         }
+         .barcode-modal-content input.form-control {
+         height: 34px; /* Reduce input box height */
+         font-size: 14px;
+         padding: 4px 8px;
+         }
+         @media (max-width: 576px) {
+         .barcode-modal-content {
+         width: 95vw;
+         margin: 30px auto 0 auto;
+         padding: 16px 12px;
+         }
+         .barcode-modal-content input.form-control {
+         height: 30px;
+         font-size: 13px;
+         }
+         }
+         .barcode-modal-close {
+         position: absolute;
+         top: -7px;
+         left: 18px;
+         font-size: 1.5rem;
+         color: #888;
+         cursor: pointer;
+         z-index: 2;
+         }
+         /* Move close icon further right in tablet */
+         @media (max-width: 991.98px) {
+         .barcode-modal .col-2 {
+         position: relative;
+         }
+         .barcode-modal-close {
+         left: 40px; /* Increase this value as needed */
+         top: -18px;
+         }
+         }
+         @keyframes slideInRight {
+         from {
+         transform: translateX(100%);
+         }
+         to {
+         transform: translateX(0);
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-modal-content {
+         max-width: 95vw;
+         padding: 14px 8px 8px 8px; /* ✅ Reduced padding */
+         border-radius: 0;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-content {
+         max-width: 100vw;
+         padding: 10px 2vw 10px 2vw; /* ✅ Reduced padding */
+         border-radius: 0;
+         min-height: 120px;
+         }
+         }
+         @keyframes slideInRight {
+         from {
+         transform: translateX(100%);
+         }
+         to {
+         transform: translateX(0);
+         }
+         }
+         /* Responsive fixes */
+         @media (max-width: 991.98px) {
+         .barcode-modal-content {
+         max-width: 90vw;
+         min-width: 0;
+         border-radius: 0;
+         margin-top: 0;
+         padding: 18px 8px 8px 8px;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-content {
+         max-width: 100vw;
+         min-width: 0;
+         min-height: 120px;
+         border-radius: 0;
+         padding: 12px 2vw 12px 2vw;
+         }
+         }
+         .barcode-img-preview {
+         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+         cursor: zoom-in;
+         }
+         .barcode-img-preview:hover {
+         transform: scale(1.7);
+         z-index: 10;
+         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+         position: relative;
+         }
+         @media (max-width: 991.98px) {
+         .barcode-img-preview:hover {
+         transform: scale(1.3);
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-img-preview:hover {
+         transform: scale(1.3);
+         z-index: 10;
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-img-preview {
+         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+         cursor: zoom-in;
+         }
+         .barcode-img-preview.zoomed {
+         transform: scale(1.3);
+         z-index: 10;
+         position: relative;
+         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+         cursor: zoom-out;
+         }
+         }
+         .barcode-img-preview {
+         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+         cursor: zoom-in;
+         }
+         .barcode-img-preview:hover {
+         transform: scale(1.7);
+         z-index: 10;
+         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+         position: relative;
+         }
+         html,
+         body {
+         width: 100vw;
+         height: 100vh;
+         overflow: hidden; /* Allow browser to show scrollbars as needed */
+         }
+         .container-scroller,
+         .page-body-wrapper,
+         .main-panel {
+         min-width: 0;
+         min-height: 0;
+         width: 100%;
+         height: 100%;
+         overflow: auto;
+         }
+         @media (max-width: 575.98px) {
+         .barcode-banner-img {
+         max-width: 90vw;
+         height: 80px;
+         }
+         .barcode-modal-content .row.align-items-center {
+         margin-top: -36px !important; /* Move title and close up more on mobile */
+         }
+         }
+         .module-highlight.last-module {
+         background: #cef7c9;
+         color: #128329;
+         border: 0.5px solid #128329;
+         border-radius: 30px;
+         font-weight: 600;
+         font-size: 1rem;
+         padding: 8px 22px;
+         display: inline-block;
+         text-align: center;
+         letter-spacing: 0.5px;
+         }
+         .module-highlight.next-module {
+         background: #e5bca3;
+         color: #b34500;
+         border: 0.5px solid #b34500;
+         border-radius: 30px;
+         font-weight: 600;
+         font-size: 1rem;
+         padding: 8px 22px;
+         display: inline-block;
+         text-align: center;
+         letter-spacing: 0.5px;
+         }
+         @media (max-width: 991.98px) {
+         .barcode-modal-content .row.align-items-center {
+         margin-top: -18px !important;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-content .row.align-items-center {
+         margin-top: -24px !important;
+         }
+         }
+         .barcode-banner-img-wrapper {
+         width: 100%;
+         margin-bottom: 16px;
+         }
+         .barcode-banner-img {
+         width: 100%;
+         max-width: 600px;
+         height: 150px;
+         object-fit: cover;
+         border-radius: 10px;
+         display: block;
+         margin-left: auto;
+         margin-right: auto;
+         }
+         @media (max-width: 991.98px) {
+         .barcode-banner-img {
+         max-width: 95vw;
+         height: 150px;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-banner-img {
+         max-width: 98vw;
+         height: 90px;
+         }
+         }
+         .form-control {
+         padding: 8px 8px !important; /* Less padding */
+         font-size: 0.85rem !important; /* Smaller text */
+         height: auto !important; /* Let padding control height */
+         line-height: 1.4 !important;
+         border: none !important;
+         box-shadow: none !important;
+         }
+         @media (max-width: 576px) {
+         .barcode-icon {
+         height: 35px;
+         width: 35px;
+         }
+         }
+         .barcode-modal {
+         display: none;
+         position: fixed;
+         z-index: 1050;
+         right: 0;
+         top: 0;
+         width: 100vw;
+         height: 100vh;
+         background: rgba(0, 0, 0, 0.3);
+         align-items: flex-start;
+         justify-content: flex-end;
+         }
+         @media (min-width: 576px) {
+         .barcode-modal-close {
+         top: 18px;
+         left: 40px;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-close {
+         left: 30px;
+         font-size: 1.3rem;
+         top: 10px;
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-modal-close {
+         left: 32px;
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-modal-content {
+         border-radius: 30px !important;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-content {
+         border-radius: 30px !important;
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-modal-content {
+         margin: 32px auto 0 auto !important; /* Center align and add space at top for tablet */
+         width: 70vw;
+         max-width: 80vw;
+         max-height: 98vh; /* Increased height for tablet */
+         margin: 32px auto 0 auto !important;
+         left: 0;
+         right: 0;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-content {
+         margin: 24px auto 0 auto !important; /* Center align and add space at top for mobile */
+         left: 0;
+         width: 100vw;
+         max-width: 100vw;
+         max-height: 100vh; /* Increased height for mobile */
+         margin: 24px auto 0 auto !important;
+         left: 0;
+         right: 0;
+         }
+         }
+         /* Optional spacing between form rows */
+         .barcode-modal-content table td,
+         .barcode-modal-content table th {
+         padding: 8px 10px; /* Give cells some space */
+         vertical-align: middle;
+         }
+         .barcode-modal-content input.form-control {
+         height: 34px; /* Reduce input box height */
+         font-size: 14px;
+         padding: 4px 8px;
+         }
+         @media (max-width: 576px) {
+         .barcode-modal-content {
+         width: 95vw;
+         margin: 30px auto 0 auto;
+         padding: 16px 12px;
+         }
+         .barcode-modal-content input.form-control {
+         height: 30px;
+         font-size: 13px;
+         }
+         }
+         .barcode-modal-close {
+         position: absolute;
+         top: -7px;
+         left: 18px;
+         font-size: 1.5rem;
+         color: #888;
+         cursor: pointer;
+         z-index: 2;
+         }
+         /* Move close icon further right in tablet */
+         @media (max-width: 991.98px) {
+         .barcode-modal .col-2 {
+         position: relative;
+         }
+         .barcode-modal-close {
+         left: 40px; /* Increase this value as needed */
+         top: -18px;
+         }
+         }
+         @keyframes slideInRight {
+         from {
+         transform: translateX(100%);
+         }
+         to {
+         transform: translateX(0);
+         }
+         }
+         @media (max-width: 991.98px) {
+         .barcode-modal-content {
+         max-width: 95vw;
+         padding: 14px 8px 8px 8px; /* ✅ Reduced padding */
+         border-radius: 0;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-content {
+         max-width: 100vw;
+         padding: 10px 2vw 10px 2vw; /* ✅ Reduced padding */
+         border-radius: 0;
+         min-height: 120px;
+         }
+         }
+         @keyframes slideInRight {
+         from {
+         transform: translateX(100%);
+         }
+         to {
+         transform: translateX(0);
+         }
+         }
+         /* Responsive fixes */
+         @media (max-width: 991.98px) {
+         .barcode-modal-content {
+         max-width: 90vw;
+         min-width: 0;
+         border-radius: 0;
+         margin-top: 0;
+         padding: 18px 8px 8px 8px;
+         }
+         }
+         @media (max-width: 575.98px) {
+         .barcode-modal-content {
+         max-width: 100vw;
+         min-width: 0;
+         min-height: 120px;
+         border-radius: 0;
+         padding: 12px 2vw 12px 2vw;
+         }
+         }
+         /* Ensure row highlight is visible for sticky S.No and Date/Time columns */
+         tr.dp-row-action-highlight > td:nth-child(1),
+         tr.dp-row-action-highlight > td:nth-child(2) {
+         background: #fff5bd !important;   /* Match your highlight color */
+         z-index: 50 !important;
+         position: sticky;
+         left: 0; /* or left: 80px for 2nd col if needed */
+         }
+         tr.dp-row-action-highlight > td:nth-child(2) {
+         left: 80px; /* match your sticky left for 2nd column */
+         }
+      </style>
+      <!-- Required meta tags -->
+      <meta charset="utf-8">
+
+      <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+      <title>Titan</title>
+      <!-- plugins:css -->
+      <script nonce="{{ csp_nonce }}" src="{% static 'js/sweetalert2.all.min.js' %}"></script>
+      <link rel="stylesheet" href="{% static 'assets/vendors/feather/feather.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/vendors/ti-icons/css/themify-icons.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/vendors/css/vendor.bundle.base.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/vendors/font-awesome/css/font-awesome.min.css' %}">
+      <!-- endinject -->
+      <!-- Plugin css for this page -->
+      <!-- <link rel="stylesheet" href="{% static 'assets/vendors/datatables.net-bs4/dataTables.bootstrap4.css' %}"> -->
+      <link rel="stylesheet" href="{% static 'assets/vendors/datatables.net-bs5/dataTables.bootstrap5.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/vendors/ti-icons/css/themify-icons.css' %}">
+      <link rel="stylesheet" type="text/css" href="{% static 'assets/js/select.dataTables.min.css' %}">
+      <!-- End plugin css for this page -->
+      <!-- inject:css -->
+      <link rel="stylesheet" href="{% static 'assets/css/vertical-layout-light/style.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/css/titan-style.css' %}">
+      <!-- Add in your base.html <head> if not already present -->
+      <link rel="stylesheet" href="{% static 'assets/css/css-font-awesome.min.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/css/css-materialdesignicons.min.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/css/css-themify-icons.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/css/css-vendor.bundle.base.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/css/feather-feather.css' %}">
+      <!-- DataTables CSS -->
+      <link rel="stylesheet" href="{% static 'assets/css/jquery.dataTables.min.css' %}">
+      <!-- DataTables JS -->
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/jquery.dataTables.min.js' %}"></script>
+      <!-- Color Mapping -->
+      <script src="{% static 'js/colormapping.js' %}" nonce="{{ csp_nonce }}"></script>
+      <!-- endinject -->
+      <link rel="shortcut icon" href="assets/images/favicon.png" />
+      <link rel="stylesheet" href="{% static 'assets/css/bootstrap-icons.min.css' %}">
+      <link rel="stylesheet" href="{% static 'assets/css/bootstrap.min.css' %}">   </head>
+   <body>
+      <!--Global Buffering -->
+      <div id="global-loading-spinner" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(255,255,255,0.55); z-index:200000; align-items:center; justify-content:center;">
+         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;">
+            <img src="{% static 'assets/gif/buffer.gif' %}" alt="Loading..." style="width: 70px; height: 70px;" />
+            <div style="margin-top:12px; color:#028084; font-weight:600; font-size:1.1rem;">Loading...</div>
+         </div>
+      </div>
+      <div class="container-scroller">
+      <!-- partial:partials/_navbar.html -->
+      <nav class="navbar col-lg-12 col-12 p-0 fixed-top d-flex flex-row">
+         <div class="text-center navbar-brand-wrapper d-flex align-items-center justify-content-start">
+            <div class="navbar-brand-wrapper d-flex align-items-center justify-content-start position-relative" style="min-width: 140px; margin-top: 0px;">
+               <div class="d-flex align-items-center" style="margin-left: -35px; margin-top: 18px;">
+                  <a class="navbar-brand brand-logo me-2" href="{% url 'index' %}">
+                  <img src="{% static 'assets/logo/t_t.png' %}" class="me-1" alt="logo" style="height:53px; width:auto; margin-top: -15px; margin-right: -20px;"/>
+                  </a>
+                  <a class="navbar-brand brand-logo me-2" href="{% url 'index' %}">
+                  <img src="{% static 'assets/logo/beta.png' %}" class="me-1" alt="logo" style="height:10px; width:auto;margin-top: 10px"/>
+                  </a>
+               </div>
+            </div>
+            <a class="navbar-brand brand-logo-mini" href="{% url 'index' %}">
+            <img src="{% static 'assets/logo/titan_logo.png' %}" alt="logo mini" style="height:32px; width:auto;"/>
+            </a>
+         </div>
+         <div class="navbar-menu-wrapper d-flex align-items-center justify-content-end">
+            <button class="navbar-toggler navbar-toggler align-self-center" type="button" data-toggle="minimize">
+            <span class="icon-menu"></span>
+            </button>
+            <!-- Search bar moved here -->
+            <!-- <li class="nav-item nav-search d-none d-lg-block" style="margin-left: 10px;">
+               <div class="input-group">
+                 <div class="input-group-prepend hover-cursor" id="navbar-search-icon">
+                   <span class="input-group-text" id="search">
+                     <i class="icon-search"></i>
+                   </span>
+                 </div>
+                 <input type="text" class="form-control" id="navbar-search-input" placeholder="Search now" aria-label="search"
+                   aria-describedby="search">
+               </div>
+               </li> -->
+            <ul class="navbar-nav navbar-nav-right">
+                              <li class="nav-item d-flex align-items-center ms-2">
+                  <a class="nav-link p-0" href="{% url 'reports_module:reports' %}" tabindex="-1" aria-disabled="false" style="background: none; border: none;" data-tooltip="Reports">
+                     <div style="display: flex; flex-direction: column; align-items: center;">
+                        <img src="{% static 'assets/gif/rprt.gif' %}" alt="Reports" title="Reports" style="height: 1.9rem; vertical-align: middle;"> <!-- Reports icon -->
+                        <small style="font-size: 0.7rem; color: #666; margin-top: 0px;">Report</small>
+                     </div>
+                  </a>
+               </li>
+               <li class="nav-item dropdown">
+                  <a
+                     class="nav-link count-indicator dropdown-toggle ms-2"
+                     id="settingsDropdown"
+                     href="#"
+                     data-bs-toggle="dropdown"
+                     aria-expanded="false"
+                     >
+                  <a
+                     class="nav-link count-indicator dropdown-toggle ms-2"
+                     id="settingsDropdown"
+                     href="#"
+                     data-bs-toggle="dropdown"
+                     aria-expanded="false"
+                     style="border-radius: 50%; padding: 7px; display: flex; align-items: center; justify-content: center;"
+                     >
+                  <div style="display: flex; flex-direction: column; align-items: center;">
+                     <img src="{% static 'assets/gif/settings.gif' %}" alt="Settings" style="height: 1.9rem; vertical-align: middle;">
+                     <small style="font-size: 0.7rem; color: #666; margin-top: 2px;">Setitngs</small>
+                  </div>
+                  </a>
+                  </a>
+                  <div
+                     class="dropdown-menu dropdown-menu-right navbar-dropdown"
+                     aria-labelledby="settingsDropdown"
+                     style="min-width: 200px;"
+                     >
+                     {% if is_admin %}
+                     <a class="dropdown-item" href="{% url 'adminportal' %}">
+                     <i class="ti-user text-primary" style="margin-right: 8px;"></i>
+                     User Creation
+                     </a>
+                     {% endif %}
+                     <a class="dropdown-item" href="{% url 'dp_modelmaster' %}">
+                     <i class="ti-package text-primary" style="margin-right: 8px;"></i>
+                     Model Master
+                     </a>
+                  </div>
+                  <a
+                     class="nav-link count-indicator ms-2"
+                     id="viewStatus"
+                     href="#"
+                     style="padding-right: 0.2rem;"
+                     >
+
+                  </a>
+                  <a
+                     class="nav-link count-indicator ms-2"
+                     id="barcodeStatus"
+                     href="#"
+                     >
+                  <div style="display: flex; flex-direction: column; align-items: center;">
+                     <img
+                        src="{% static 'assets/gif/barcode.gif' %}"
+                        alt="Barcode"
+                        class="barcode-icon"
+                        />
+                     <small style="font-size: 0.7rem; color: #666; margin-top: 2px;">Tray Scan</small>
+                  </div>
+                  </a>
+                  <span style="display: inline-block; width: 4px"></span>
+                  <a
+                     class="nav-link count-indicator dropdown-toggle ms-2"
+                     id="notificationDropdown"
+                     href="#"
+                     data-bs-toggle="dropdown"
+                     >
+                  <a
+                     class="nav-link count-indicator dropdown-toggle ms-2"
+                     id="notificationDropdown"
+                     href="#"
+                     data-bs-toggle="dropdown"
+                     aria-expanded="false"
+                     style="border-radius: 50%; padding: 7px; display: flex; align-items: center; justify-content: center;"
+                     >
+                  <i class="ti-bell" style="font-size: 1.3rem; color: #028084;"></i>
+                  <span class="count"></span>
+                  </a>
+                  <span class="count"></span>
+                  </a>
+                  <div
+                     class="dropdown-menu dropdown-menu-right navbar-dropdown preview-list"
+                     aria-labelledby="notificationDropdown"
+                     >
+                     <p class="mb-0 font-weight-normal float-left dropdown-header">
+                        Notifications
+                     </p>
+                  </div>
+               </li>
+
+               <li class="nav-item nav-profile dropdown">
+                  <!-- Find this block in your navbar profile dropdown: -->
+                  <a
+                     class="nav-link count-indicator dropdown-toggle ms-2"
+                     href="#"
+                     data-bs-toggle="dropdown"
+                     id="profileDropdown"
+                     aria-expanded="false"
+                     style="border-radius: 50%; width: 38px; height: 38px; padding: 7px; display: flex; align-items: center; justify-content: center;"
+                     >
+                     <div style="display: flex; flex-direction: column; align-items: center;">
+                        <i class="ti-user" style="font-size: 1.3rem; color: #028084; display: flex; align-items: center; justify-content: center; line-height: 1;"></i>
+                        <span style="font-size: 0.85rem; color: #101010; font-weight: 600; margin-top: 2px; line-height: 1;">
+                        {{ request.user.username }}
+                        </span>
+                     </div>
+                  </a>
+                  <div
+                     class="dropdown-menu dropdown-menu-right navbar-dropdown"
+                     aria-labelledby="profileDropdown"
+                     >
+                     <!-- Swap User -->
+                     <a class="dropdown-item" id="swapUserBtn" style="position: relative;">
+                        <i class="ti-user text-primary"></i> Swap User
+                        <!-- Mini sub option -->
+                        <div id="swapUserSubMenu"
+                           style="display: none; position: absolute; right: 100%; top: 0; min-width: 170px; background: #fff; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.10); z-index: 9999; text-align: center; padding: 5px;">
+                     <a href="#" id="addAccountBtn"
+                        style="display: block; min-width: 100px; background: #fff; text-align: center; padding: 6px 0 14px 0; margin: 0 auto; font-weight: 500; position: relative; top: -6px;"> Add Account</a>
+                     </div>
+                     </a>
+                     <a class="dropdown-item" href="{% url 'logout' %}">
+                     <i class="ti-power-off text-primary"></i>
+                     Logout
+                     </a>
+                  </div>
+               </li>
+               <!-- Place this after the user/profile icon dropdown in your navbar-nav navbar-nav-right list -->
+               <li class="nav-item d-flex align-items-center ms-2">
+                  <a class="navbar-brand brand-logo me-2" href="{% url 'index' %}">
+                  <img src="{% static 'assets/logo/flagGrp.png' %}" class="me-1" alt="logo" style="height:45px; width:auto;margin-top: -30px;"/>
+                  </a>
+                  <a class="nav-link p-0" href="{% url 'index' %}" tabindex="-1" aria-disabled="true" style="background: none; border: none;">
+                  <img
+                     src="{% static 'assets/logo/TitanLogo.png' %}"
+                     alt="Titan Logo"
+                     style="height: 32px; width: auto; display: block;"
+                     />
+                  </a>
+               </li>
+            </ul>
+            <button class="navbar-toggler navbar-toggler-right d-lg-none align-self-center" type="button"
+               data-toggle="offcanvas">
+            <span class="icon-menu"></span>
+            </button>
+         </div>
+      </nav>
+      <!-- partial -->
+      <div class="container-fluid page-body-wrapper" style="overflow: hidden;">
+
+      <!-- Menu Panels -->
+<nav class="sidebar sidebar-offcanvas" id="sidebar">
+   <ul class="nav">
+      <li class="nav-item">
+         <a class="nav-link" href="{% url 'index' %}">
+         <i class="icon-grid menu-icon" data-tooltip="Dashboard"></i>
+         <span class="menu-title">Dashboard</span>
+         </a>
+      </li>
+      {% if is_admin or 'DP Pick Table' in allowed_modules or 'DP Complete Table' in allowed_modules or 'Data Upload' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#ui-basic" aria-expanded="false" aria-controls="ui-basic">
+         <i class="icon-watch menu-icon" data-tooltip="Day Planning"></i>
+         <span class="menu-title">Day Planning</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="ui-basic">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'Data Upload' in allowed_modules %}
+               <li class="nav-item"> <a class="nav-link" href="{% url 'bulk_upload' %}">Data Upload</a></li>
+               {% endif %}
+               {% if is_admin or 'DP Pick Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'dp_pick_table' %}"
+                     >DP Pick Table</a
+                     >
+               </li>
+               {% endif %}
+               {% if is_admin or 'DP Complete Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'dp_completed_table' %}"
+                     >DP Completed Table</a
+                     >
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- Module - Input Screening -->
+      {% if is_admin or 'Input Pick Table' in allowed_modules or 'Input Completed Table' in allowed_modules or 'Input Accept Table' in allowed_modules or 'Input Reject Table' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#ui-advanced" aria-expanded="false" aria-controls="ui-advanced">
+         <i class="ti-bar-chart menu-icon"  data-tooltip="Input Screening"></i>
+         <span class="menu-title">Input Screening</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="ui-advanced">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'Input Pick Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'IS_PickTable' %}">Pick Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'Input Completed Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'IS_Completed_Table' %}">Completed Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'Input Accept Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'IS_AcceptTable' %}">Accept Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'Input Reject Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'IS_RejectTable' %}">Reject Table</a>
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- Brass Qc Menu -->
+      {% if is_admin or 'Brass Qc Pick Table' in allowed_modules or 'Brass Qc Completed Table' in allowed_modules or 'IQF Pick Table' in allowed_modules or 'IQF Completed Table' in allowed_modules or 'IQF Accept Table' in allowed_modules or 'IQF Reject Table' in allowed_modules or 'Brass Audit Pick Table' in allowed_modules or 'Brass Audit Complete Table' in allowed_modules or 'Brass Audit Reject Table' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#editors" aria-expanded="false" aria-controls="editors">
+         <i class="fa fa-industry menu-icon"></i>
+         <span class="menu-title">Brass QC</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="editors">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'Brass Qc Pick Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'BrassPickTableView' %}">Brass Qc Pick Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'Brass Qc Completed Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'BrassCompletedView' %}">Brass Qc Completed Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'IQF Pick Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'iqf_picktable' %}">IQF Pick Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'Brass Audit Pick Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'brass_audit_picktable' %}">Brass Audit Pick Table</a>                
+               </li>
+               {% endif %}
+               {% if is_admin or 'Brass Audit Complete Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'brass_audit_completed' %}">Brass Audit Complete Table</a>                
+               </li>
+               {% endif %}
+               {% if is_admin or 'Brass Audit Reject Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'brass_audit_rejection' %}">Brass Audit Reject Table</a>                
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- Recovery Onboard-->
+      {% if is_admin or 'Recovery Data Upload' in allowed_modules or 'Recovery Pick Table' in allowed_modules or 'Recovery Completed Table' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#recovery-onboard" aria-expanded="false" aria-controls="recovery-onboard">
+         <i class="fa fa-history menu-icon" data-tooltip="Recovery Day Planning"></i>
+         <span class="menu-title">Recovery Onboard</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="recovery-onboard">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'Recovery Data Upload' in allowed_modules %}
+               <li class="nav-item"> <a class="nav-link" href="{% url 'rec_bulk_upload' %}">Recovery Data Upload</a></li>
+               {% endif %}
+               {% if is_admin or 'Recovery Pick Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'rec_dp_pick_table' %}"
+                     >Recovery Pick Table</a
+                     >
+               </li>
+               {% endif %}
+               {% if is_admin or 'Recovery Completed Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'rec_dp_completed_table' %}"
+                     >Recovery Completed Table</a
+                     >
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- Module - R-Input Screening -->
+      {% if is_admin or 'R-Pick Table' in allowed_modules or 'R-Completed Table' in allowed_modules or 'R-Accept Table' in allowed_modules or 'R-Reject Table' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#recovery-IP" aria-expanded="false" aria-controls="recovery-IP">
+         <i class="ti-bar-chart menu-icon"  data-tooltip="Input Screening"></i>
+         <span class="menu-title">R-Input Screening</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="recovery-IP">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'R-Pick Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'rec_IS_PickTable' %}">Pick Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-Completed Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'rec_IS_Completed_Table' %}">Completed Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-Accept Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'rec_IS_AcceptTable' %}">Accept Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-Reject Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'rec_IS_RejectTable' %}">Reject Table</a>
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- R-Brass Qc Menu -->
+      {% if is_admin or 'R-Brass Qc Pick Table' in allowed_modules or 'R-Brass Qc Completed Table' in allowed_modules or 'R-IQF Pick Table' in allowed_modules or 'R-IQF Accept Table' in allowed_modules or 'R-IQF Reject Table' in allowed_modules or 'R-IQF Completed Table' in allowed_modules or 'R-Brass Audit Pick Table' in allowed_modules or 'R-Brass Audit Reject Table' in allowed_modules or 'R-Brass Audit Complete Table' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#recovery-BQ" aria-expanded="false" aria-controls="recovery-BQ">
+         <i class="fa fa-industry menu-icon"></i>
+         <span class="menu-title">R-Brass QC</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="recovery-BQ">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'R-Brass Qc Pick Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'RecoveryBrassPickTableView' %}">R-Brass Qc Pick Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-Brass Qc Completed Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'RecoveryBrassCompletedView' %}">R-Brass Qc Completed Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-IQF Pick Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'recovery_iqf_picktable' %}">R-IQF Pick Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-IQF Accept Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'recovery_iqf_accept_table' %}">R-IQF Accept Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-IQF Reject Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'recovery_iqf_rejection_table' %}">R-IQF Reject Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-IQF Completed Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'recovery_iqf_completed_table' %}">R-IQF Completed Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-Brass Audit Pick Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'recovery_brass_audit_picktable' %}">R-Brass Audit Pick Table</a>                
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-Brass Audit Reject Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'recovery_brass_audit_rejection' %}">R-Brass Audit Reject Table</a>                
+               </li>
+               {% endif %}
+               {% if is_admin or 'R-Brass Audit Complete Table' in allowed_modules %}
+               <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'recovery_brass_audit_completed' %}">R-Brass Audit Complete Table</a>                
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- Jig Loading Menu -->
+      {% if is_admin or 'Jig Pick Table' in allowed_modules or 'Jig Completed Table' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#jig-loading" aria-expanded="false" aria-controls="jig-loading">
+         <i class="ti-package menu-icon"></i>
+         <span class="menu-title">Jig Loading</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="jig-loading">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'Jig Pick Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'JigView' %}">Pick Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'Jig Completed Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'JigCompletedTable' %}">Completed Table</a>
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- In-process Inspection Menu -->
+      {% if is_admin or 'IP Main' in allowed_modules or 'IP Completed' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#inprocessInspectionMenu" aria-expanded="false" aria-controls="inprocessInspectionMenu">
+         <i class="ti-eye menu-icon"></i>
+         <span class="menu-title">Ip Inspection</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="inprocessInspectionMenu">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'IP Main' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'inprocess_inspection_main' %}">IP Main</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'IP Completed' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'inprocess_inspection_complete' %}">IP Completed</a>
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- Jig Unloading Menu -->
+      {% if is_admin or 'JUL Main Table' in allowed_modules or 'JUL Completed' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#jig-unloading-zone1" aria-expanded="false" aria-controls="jig-unloading-zone1">
+         <i class="ti-truck menu-icon"></i>
+         <span class="menu-title">Jig Unloading Zone 1</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="jig-unloading-zone1">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'JUL Main Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'Jig_Unloading_MainTable' %}">JUL Main Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'JUL Completed' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'JigUnloading_Completedtable' %}">JUL Completed</a>
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      {% if is_admin or 'JUL Main Table Zone 2' in allowed_modules or 'JUL Completed Zone 2' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#jig-unloading-zone2" aria-expanded="false" aria-controls="jig-unloading-zone2">
+         <i class="ti-truck menu-icon"></i>
+         <span class="menu-title">Jig Unloading Zone 2</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="jig-unloading-zone2">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'JUL Main Table Zone 2' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'JU_Zone_MainTable' %}">JUL Main Table</a>
+               </li>
+               {% endif %}
+               {% if is_admin or 'JUL Completed Zone 2' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'JU_Zone_Completedtable' %}">JUL Completed</a>
+               </li>
+               {% endif %}
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- In-Nickel Wiping Menu -->
+      {% if is_admin or 'Nickel Main Table' in allowed_modules or 'Nickel Completed Table' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#nickel-inspection" aria-expanded="false" aria-controls="nickel-inspection">
+         <i class="ti-eye menu-icon"></i>
+         <span class="menu-title">Nickel Wiping</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="nickel-inspection">
+            <ul class="nav flex-column sub-menu">
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'Nickel_Inspection' %}">Main Table</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'NI_Completed' %}">Completed Table</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'nq_rejection_table' %}">Rejected Table</a>
+               </li>
+            </ul>
+         </div>
+      </li>
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#nickel-inspection-zone2" aria-expanded="false" aria-controls="nickel-inspection-zone2">
+         <i class="ti-eye menu-icon"></i>
+         <span class="menu-title">Nickel Wiping Zone2</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="nickel-inspection-zone2">
+            <ul class="nav flex-column sub-menu">
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'NQ_Zone_PickTable' %}">Main Table</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'NQ_Zone_Completed' %}">Completed Table</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'nq_zone_rejection_table' %}">Rejected Table</a>
+               </li>
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- Nickel Audit Menu -->
+      {% if is_admin or 'NA Pick Table' in allowed_modules or 'NA Completed' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#nickelAuditMenu" aria-expanded="false" aria-controls="nickelAuditMenu">
+         <i class="ti-medall menu-icon"></i>
+         <span class="menu-title">Nickel Audit</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="nickelAuditMenu">
+            <ul class="nav flex-column sub-menu">
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'NA_Inspection' %}">NA Pick Table</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'NA_Completed' %}">NA Completed</a>
+               </li>
+            </ul>
+         </div>
+      </li>
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#nickelAuditMenuZone2" aria-expanded="false" aria-controls="nickelAuditMenuZone2">
+         <i class="ti-medall menu-icon"></i>
+         <span class="menu-title">Nickel Audit Zone2</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="nickelAuditMenuZone2">
+            <ul class="nav flex-column sub-menu">
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'NA_Zone_Inspection' %}">NA Pick Table</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'NA_Zone_Completed' %}">NA Completed</a>
+               </li>
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- Spider Spindle Menu -->
+      {% if is_admin or 'Spider Pick Table' in allowed_modules %}
+      <li class="nav-item">
+         <a class="nav-link" data-bs-toggle="collapse" href="#spiderSpindleMenu" aria-expanded="false" aria-controls="spiderSpindleMenu">
+         <i class="ti-control-shuffle menu-icon"></i>
+         <span class="menu-title">Spider Spindle</span>
+         <i class="menu-arrow"></i>
+         </a>
+         <div class="collapse" id="spiderSpindleMenu">
+            <ul class="nav flex-column sub-menu">
+               {% if is_admin or 'Spider Pick Table' in allowed_modules %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'spider_pick_table' %}">Spider Pick Table</a>
+               </li>
+               {% endif %}
+               <li class="nav-item">
+                  <a class="nav-link" href="{% url 'SpiderCompletedTableView' %}">Spider Completed Table</a>
+               </li>
+            </ul>
+         </div>
+      </li>
+      {% endif %}
+      <!-- Spider Spindle Zone 2 Menu -->
+      {% if is_admin or 'Spider Pick Table Zone 2' in allowed_modules %}
+         <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="collapse" href="#spiderSpindleMenu" aria-expanded="false" aria-controls="spiderSpindleMenuZone2">
+            <i class="ti-control-shuffle menu-icon"></i>
+            <span class="menu-title">Spider Spindle Zone 2</span>
+            <i class="menu-arrow"></i>
+            </a>
+            <div class="collapse" id="spiderSpindleMenu">
+            <ul class="nav flex-column sub-menu">
+            <li class="nav-item">
+            <a class="nav-link" href="{% url 'zone_spider_pick_table' %}">Spider Pick Table</a>
+            </li>
+            </li>
+            <li class="nav-item">
+            <a class="nav-link" href="{% url 'Zone_SpiderCompletedTableView' %}">Spider Completed Table</a>
+            </li>
+            </ul>
+            </div>
+         </li>
+       {% endif %}
+   </ul>
+</nav>
+  
+      <div class="main-panel" style="margin-top: 13px !important;">
+         {% block page_title %}{% endblock %}
+         {% block content %}{% endblock %}
+         <!-- page-body-wrapper ends -->
+      </div>
+      <!-- container-scroller -->
+      <!-- plugins:js -->
+      <!-- Tray IDentification Form Section via gif barcode -->
+      <div id="barcodeModal" class="barcode-modal">
+         <div class="barcode-modal-content">
+            <div
+               class="row align-items-center mb-3"
+               style="position: relative; margin-top: -10px"
+               >
+               <div class="col-2 d-flex align-items-center">
+                  <span
+                     class="barcode-modal-close"
+                     id="barcodeModalClose"
+                     style="font-size: 1.5rem; cursor: pointer"
+                     >&times;</span
+                     >
+               </div>
+               <div class="col-8 text-center">
+                  <h4
+                     class="mb-0 fw-bold"
+                     style="font-size: 1.25rem; line-height: 1.1"
+                     >
+                     Tray Identification
+                  </h4>
+                  <input type="text" id="trayHiddenInput" style="position:absolute; left:-9999px;" autocomplete="off" />
+               </div>
+               <div class="col-2"></div>
+            </div>
+            <!-- Banner Image -->
+            <div class="barcode-banner-img-wrapper text-center mb-4">
+            </div>
+            <!-- Tray Identification Form -->
+            <form id="barcodeScannerForm" autocomplete="off" style="max-width:420px;margin:auto;padding:0;">
+               <table class="table table-bordered align-middle mb-2" style="font-size:0.93rem;margin-bottom:0;">
+                  <tbody>
+                     <tr>
+                        <th style="width:44%;padding:6px 8px;">Model No</th>
+                        <td style="padding:6px 8px;">
+                           <input type="text" class="form-control" id="modelNo" placeholder="Model Number" required style="padding:4px 8px;height:28px;font-size:0.93rem;" />
+                        </td>
+                     </tr>
+                     <tr>
+                        <th style="padding:6px 8px;">Version</th>
+                        <td style="padding:6px 8px;">
+                           <input type="text" class="form-control" id="version" placeholder="Version" required style="padding:4px 8px;height:28px;font-size:0.93rem;" />
+                        </td>
+                     </tr>
+                     <tr>
+                        <th style="padding:6px 8px;">Polish Finish</th>
+                        <td style="padding:6px 8px;">
+                           <input type="text" class="form-control" id="polishFinish" placeholder="Polish Finish" required style="padding:4px 8px;height:28px;font-size:0.93rem;" />
+                        </td>
+                     </tr>
+                     <tr>
+                        <th style="padding:6px 8px;">Plating Color</th>
+                        <td style="padding:6px 8px;">
+                           <input type="text" class="form-control" id="platingColor" placeholder="Plating Color" required style="padding:4px 8px;height:28px;font-size:0.93rem;" />
+                        </td>
+                     </tr>
+                     <tr>
+                        <th style="padding:6px 8px;">Source</th>
+                        <td style="padding:6px 8px;">
+                           <input type="text" class="form-control" id="source" placeholder="Source" required style="padding:4px 8px;height:28px;font-size:0.93rem;" />
+                        </td>
+                     </tr>
+                     <tr>
+                        <th style="padding:6px 8px;">Type of Input</th>
+                        <td style="padding:6px 8px;">
+                           <input type="text" class="form-control" id="inputType" placeholder="Type of Input" required style="padding:4px 8px;height:28px;font-size:0.93rem;" />
+                        </td>
+                     </tr>
+                     <tr>
+                        <th style="padding:6px 8px;">Last Process Date &amp; Time</th>
+                        <td style="padding:6px 8px;">
+                           <input type="text" class="form-control" id="lastProcessDate" placeholder="Auto Fetch" required style="padding:4px 8px;height:28px;font-size:0.93rem;" />
+                        </td>
+                     </tr>
+                     <tr>
+                        <th style="padding:6px 8px;">Last Process Module</th>
+                        <td style="padding:6px 8px;">
+                           <div class="module-highlight last-module mb-1" id="lastProcessModule" style="padding:5px 12px;font-size:0.93rem;">None</div>
+                        </td>
+                     </tr>
+                     <tr>
+                        <th style="padding:6px 8px;">Next Process Module</th>
+                        <td style="padding:6px 8px;">
+                           <div class="module-highlight next-module mb-1" id="nextProcessModule" style="padding:5px 12px;font-size:0.93rem;">None</div>
+                        </td>
+                     </tr>
+                     <tr>
+                        <th style="padding:6px 8px;">Images</th>
+                        <td style="padding:6px 8px;">
+                           <div class="barcode-image-section text-center" id="modelImagesContainer" style="gap:2px;">
+                              <img src="{% static 'assets/images/dashboard.jpg' %}" alt="Sample 1" class="barcode-img-preview mx-1" style="max-width:60px;max-height:60px;border-radius:6px;" />
+                              <img src="{% static 'assets/images/dashboard.jpg' %}" alt="Sample 2" class="barcode-img-preview mx-1" style="max-width:60px;max-height:60px;border-radius:6px;" />
+                              <img src="{% static 'assets/images/dashboard.jpg' %}" alt="Sample 3" class="barcode-img-preview mx-1" style="max-width:60px;max-height:60px;border-radius:6px;" />
+                           </div>
+                        </td>
+                     </tr>
+                  </tbody>
+               </table>
+            </form>
+            <style>
+               @media (max-width:600px){
+               #barcodeScannerForm{max-width:98vw;}
+               #barcodeScannerForm table{font-size:0.89rem;}
+               #barcodeScannerForm input.form-control{font-size:0.89rem;height:26px;}
+               #barcodeScannerForm th,#barcodeScannerForm td{padding:4px 4px;}
+               .barcode-img-preview{max-width:44px!important;max-height:44px!important;}
+               }
+            </style>
+         </div>
+      </div>
+      <footer class="footer">
+         <span>
+         &copy; 2025 Pinesphere. All rights reserved.
+         </span>
+      </footer>
+      <!-- Script for Tray Identification Form -->
+      <script nonce="{{ csp_nonce }}">
+         // Tablet image zoom toggle
+         document.querySelectorAll(".barcode-img-preview").forEach(function (img) {
+           img.addEventListener("click", function (e) {
+             // Only apply on tablet screens
+             if (window.innerWidth <= 991.98) {
+               e.preventDefault();
+               // Toggle zoomed class
+               this.classList.toggle("zoomed");
+             }
+           });
+         });
+      </script>
+      <script nonce="{{ csp_nonce }}">
+         // ✅ NEW: Create error banner function
+         function showErrorBanner(message) {
+           // Remove any existing error banner
+           const existingError = document.getElementById('barcodeErrorBanner');
+           if (existingError) {
+             existingError.remove();
+           }
+           
+           // Create error banner
+           const errorBanner = document.createElement('div');
+           errorBanner.id = 'barcodeErrorBanner';
+           errorBanner.style.cssText = `
+             background-color: #f8d7da;
+             border: 1px solid #f5c6cb;
+             color: #721c24;
+             padding: 12px 16px;
+             margin-bottom: 16px;
+             border-radius: 6px;
+             font-size: 14px;
+             text-align: center;
+             font-weight: 500;
+             animation: slideDown 0.3s ease-out;
+           `;
+           
+           errorBanner.innerHTML = message;
+           
+           // Add animation CSS if not exists
+           if (!document.getElementById('bannerErrorStyle')) {
+             const style = document.createElement('style');
+             style.id = 'bannerErrorStyle';
+             style.textContent = `
+               @keyframes slideDown {
+                 from { opacity: 0; transform: translateY(-10px); }
+                 to { opacity: 1; transform: translateY(0); }
+               }
+             `;
+             document.head.appendChild(style);
+           }
+           
+           // Insert banner at the top of modal content (after title row)
+           const modalContent = document.querySelector('.barcode-modal-content');
+           const titleRow = modalContent.querySelector('.row.align-items-center');
+           if (titleRow && titleRow.nextElementSibling) {
+             modalContent.insertBefore(errorBanner, titleRow.nextElementSibling);
+           } else {
+             modalContent.insertBefore(errorBanner, modalContent.firstChild);
+           }
+           
+           // Auto remove after 5 seconds
+           setTimeout(() => {
+             if (errorBanner && errorBanner.parentNode) {
+               errorBanner.style.animation = 'slideUp 0.3s ease-out';
+               setTimeout(() => {
+                 if (errorBanner.parentNode) {
+                   errorBanner.remove();
+                 }
+               }, 300);
+             }
+           }, 5000);
+           
+           // ✅ IMPORTANT: Keep focus on hidden input
+           setTimeout(() => {
+             const trayInput = document.getElementById("trayHiddenInput");
+             if (trayInput) {
+               trayInput.focus();
+             }
+           }, 100);
+         }
+         
+         // ✅ NEW: Clear error banner function
+         function clearErrorBanner() {
+           const existingError = document.getElementById('barcodeErrorBanner');
+           if (existingError) {
+             existingError.remove();
+           }
+         }
+         
+         // Tablet image zoom toggle
+         document.querySelectorAll(".barcode-img-preview").forEach(function (img) {
+           img.addEventListener("click", function (e) {
+             // Only apply on tablet screens
+             if (window.innerWidth <= 991.98) {
+               e.preventDefault();
+               // Toggle zoomed class
+               this.classList.toggle("zoomed");
+             }
+           });
+         });
+         
+         // Open modal on barcode click
+         document.getElementById("barcodeStatus").onclick = function (e) {
+           e.preventDefault();
+           document.getElementById("barcodeModal").style.display = "flex";
+           setTimeout(function() {
+             document.getElementById("trayHiddenInput").focus();
+           }, 100);
+         };
+         
+         document.getElementById("barcodeModalClose").onclick = function () {
+           document.getElementById("barcodeModal").style.display = "none";
+           // Clear error banner when closing modal
+           clearErrorBanner();
+         };
+         
+         window.onclick = function (event) {
+           var modal = document.getElementById("barcodeModal");
+           if (event.target === modal) {
+             modal.style.display = "none";
+             // Clear error banner when closing modal
+             clearErrorBanner();
+           }
+         };
+         
+         // ✅ ENHANCED: Always keep focus on the hidden input
+         const trayInput = document.getElementById("trayHiddenInput");
+         
+         // Focus on modal click
+         document.getElementById("barcodeModal").addEventListener("click", function() {
+           setTimeout(() => trayInput.focus(), 10);
+         });
+         
+         // Re-focus when input loses focus
+         trayInput.addEventListener("blur", function() {
+           setTimeout(() => {
+             // Only re-focus if modal is still open
+             const modal = document.getElementById("barcodeModal");
+             if (modal && modal.style.display === "flex") {
+               trayInput.focus();
+             }
+           }, 10);
+         });
+         
+         // Clear error banner when user starts typing again
+         trayInput.addEventListener("input", function() {
+           if (this.value.length === 1) { // On first character typed
+             clearErrorBanner();
+           }
+         });
+         
+         // ✅ UPDATED: Debounce logic with banner error
+         let debounceTimer = null;
+         trayInput.addEventListener("input", function() {
+           if (debounceTimer) clearTimeout(debounceTimer);
+           debounceTimer = setTimeout(function() {
+             const trayId = trayInput.value.trim();
+             if (trayId !== "") {
+               // Call BaseAPIView with trayId as barcodeInput
+               fetch(`/base/?barcodeInput=${encodeURIComponent(trayId)}`, {
+                 method: "GET",
+                 headers: {
+                   "Accept": "application/json"
+                 },
+                 credentials: "same-origin"
+               })
+               .then(response => response.json())
+               .then(data => {
+                 // Update the modal fields with the fetched data
+                 if (data.tray_details) {
+                   // Clear any existing error banner on success
+                   clearErrorBanner();
+                   
+                   document.getElementById("modelNo").value = data.model_master_details?.model_stock_no || "";
+                   document.getElementById("version").value = data.model_master_details?.version || "";
+                   document.getElementById("polishFinish").value = data.model_master_details?.polish_finish || "";
+                   document.getElementById("platingColor").value = data.model_master_details?.plating_color || "";
+                   document.getElementById("source").value = data.model_master_details?.vendor_internal || "";
+                   document.getElementById("inputType").value = data.total_stock_details?.total_stock || "";
+                   document.getElementById("lastProcessDate").value = data.total_stock_details?.last_process_date_time || "";   
+                   document.getElementById("lastProcessModule").innerText = data.total_stock_details?.last_process_module || "";
+                   document.getElementById("nextProcessModule").innerText = data.total_stock_details?.next_process_module || "";
+                   
+                   // Update image section with model images
+                   const imageSection = document.querySelector('.barcode-image-section');
+                   imageSection.innerHTML = ''; // Clear previous images
+         
+                   const images = data.model_master_details?.model_images || [];
+                   images.forEach(url => {
+                     const img = document.createElement('img');
+                     img.src = url;
+                     img.alt = "Model Image";
+                     img.className = "barcode-img-preview mx-2";
+                     img.style.maxWidth = "80px";
+                     img.style.maxHeight = "80px";
+                     img.style.borderRadius = "8px";
+                     imageSection.appendChild(img);
+                   });
+                   
+                 } else {
+                   // ✅ UPDATED: Clear fields and show banner error
+                   document.getElementById("modelNo").value = "";
+                   document.getElementById("version").value = "";
+                   document.getElementById("polishFinish").value = "";
+                   document.getElementById("platingColor").value = "";
+                   document.getElementById("source").value = "";
+                   document.getElementById("inputType").value = "";
+                   document.getElementById("lastProcessDate").value = "";
+                   document.getElementById("lastProcessModule").innerText = "";
+                   document.getElementById("nextProcessModule").innerText = "";
+                   
+                   // Clear images
+                   const imageSection = document.querySelector('.barcode-image-section');
+                   imageSection.innerHTML = '';
+         
+                   // ✅ REPLACED: alert() with banner error (like your image)
+                   const errorMessage = `Tray ID '${trayId}' not found in table.`;
+                   showErrorBanner(errorMessage);
+                 }
+                 
+                 // ✅ IMPORTANT: Clear input and keep focus
+                 trayInput.value = ""; // Clear input after processing
+                 setTimeout(() => trayInput.focus(), 100); // Keep focus on hidden input
+                 
+               })
+               .catch(err => {
+                 // ✅ REPLACED: alert() with banner error for network errors
+                 showErrorBanner("Error fetching tray details");
+                 trayInput.value = "";
+                 setTimeout(() => trayInput.focus(), 100);
+               });
+             }
+           }, 500); // 500ms after user stops typing
+         });
+      </script>
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/vendors/js/vendor.bundle.base.js' %}"></script>
+      <!-- endinject -->
+      <!-- Plugin js for this page -->
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/vendors/chart.js/chart.umd.js' %}"></script>
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/vendors/datatables.net/jquery.dataTables.js' %}"></script>
+      <!-- <script nonce="{{ csp_nonce }}" src="{% static 'assets/vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script> -->
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/vendors/datatables.net-bs5/dataTables.bootstrap5.js' %}"></script>
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/dataTables.select.min.js' %}"></script>
+      <!-- End plugin js for this page -->
+      <!-- inject:js -->
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/off-canvas.js' %}"></script>
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/hoverable-collapse.js' %}"></script>
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/template.js' %}"></script>
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/settings.js' %}"></script>
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/todolist.js' %}"></script>
+      <!-- endinject -->
+      <!-- Custom js for this page-->
+      
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/jquery.cookie.js' %}"></script>
+      <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/dashboard.js' %}"></script>
+      <!-- <script nonce="{{ csp_nonce }}" src="{% static 'assets/js/Chart.roundedBarCharts.js' %}"></script> -->
+      <!-- End custom js for this page-->
+      <!-- Modal for Add Account (reuse your previous modal) -->
+      <div class="modal fade" id="swapUserModal" tabindex="-1" role="dialog" aria-labelledby="swapUserModalLabel" aria-hidden="true" style="display:none; background:rgba(0,0,0,0.35); position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:1050;">
+         <div class="modal-dialog" role="document" style="margin-top:10%;">
+            <div class="modal-content" style="border-radius:10px;">
+               <div class="modal-header">
+                  <h5 class="modal-title" id="swapUserModalLabel">Add New User</h5>
+                  <button type="button" class="close" id="closeSwapUserModal" aria-label="Close" style="border:none; background:none; font-size:1.5rem;">
+                  <span aria-hidden="true">&times;</span>
+                  </button>
+               </div>
+               <div class="modal-body">
+                  <input type="text" class="form-control mb-2" placeholder="Enter new user ID or name">
+                  <button class="btn btn-primary w-100">Swap</button>
+               </div>
+            </div>
+         </div>
+      </div>
+      <!-- Script to handle Add User -->
+      <script nonce="{{ csp_nonce }}">
+         // Show/hide mini sub option on hover/click
+         const swapUserBtn = document.getElementById('swapUserBtn');
+         const swapUserSubMenu = document.getElementById('swapUserSubMenu');
+         swapUserBtn.onmouseenter = function() {
+           swapUserSubMenu.style.display = 'block';
+         };
+         swapUserBtn.onmouseleave = function() {
+           swapUserSubMenu.style.display = 'none';
+         };
+         // Show modal when "Add Account" is clicked
+         document.getElementById('addAccountBtn').onclick = function(e) {
+           e.preventDefault();
+           document.getElementById('swapUserModal').style.display = 'block';
+           swapUserSubMenu.style.display = 'none';
+         };
+         // Hide modal
+         document.getElementById('closeSwapUserModal').onclick = function() {
+           document.getElementById('swapUserModal').style.display = 'none';
+         };
+         // Hide modal when clicking outside modal-content
+         document.getElementById('swapUserModal').onclick = function(e) {
+           if (e.target === this) this.style.display = 'none';
+         };
+      </script>
+      <!-- /* Highlight active sidebar link based on current URL */ -->
+      <script nonce="{{ csp_nonce }}">
+         document.addEventListener("DOMContentLoaded", function() {
+           // Highlight sidebar nav-link matching current URL
+           var currentUrl = window.location.pathname;
+           document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
+             if (link.href && link.href.includes(currentUrl)) {
+               link.classList.add('active');
+               // Also expand parent menu if it's a submenu
+               var parentCollapse = link.closest('.collapse');
+               if (parentCollapse) {
+                 parentCollapse.classList.add('show');
+                 var parentNav = parentCollapse.previousElementSibling;
+                 if (parentNav && parentNav.classList.contains('nav-link')) {
+                   parentNav.classList.add('active');
+                 }
+               }
+             }
+           });
+         });
+      </script>
+      <!-- /*  Expand sidebar when a menu icon is clicked in minimized mode */ -->
+      <script nonce="{{ csp_nonce }}">
+         document.addEventListener("DOMContentLoaded", function() {
+           // Highlight sidebar nav-link matching current URL
+           var currentUrl = window.location.pathname;
+           document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
+             if (link.href && link.href.includes(currentUrl)) {
+               link.classList.add('active');
+               // Also expand parent menu if it's a submenu
+               var parentCollapse = link.closest('.collapse');
+               if (parentCollapse) {
+                 parentCollapse.classList.add('show');
+                 var parentNav = parentCollapse.previousElementSibling;
+                 if (parentNav && parentNav.classList.contains('nav-link')) {
+                   parentNav.classList.add('active');
+                 }
+               }
+             }
+           });
+         
+           // Expand sidebar when a menu icon is clicked in minimized mode
+           document.querySelectorAll('.sidebar .nav-link[data-bs-toggle="collapse"]').forEach(function(menuLink) {
+             menuLink.addEventListener('click', function() {
+               var body = document.body;
+               if (body.classList.contains('sidebar-icon-only')) {
+                 body.classList.remove('sidebar-icon-only');
+               }
+             });
+           });
+         });
+      </script>
+      <!-- script for custom tooltips on navbar icons -->
+      <script nonce="{{ csp_nonce }}">
+         // Custom tooltip implementation for navbar icons with proper z-index
+         document.addEventListener("DOMContentLoaded", function() {
+           // Define tooltip data
+           const tooltipData = [
+             { selector: '#settingsDropdown i.ti-settings', text: 'Settings - User Creation & Model Master' },
+             { selector: '#reportStatus i.ti-eye', text: 'Visual Aid - View Reports & Analytics' },
+             { selector: '.barcode-icon', text: 'Tray Identification - Scan Barcode' },
+             { selector: '#notificationDropdown i.ti-bell', text: 'Notifications - System Alerts' },
+             { selector: '#profileDropdown i.ti-user', text: 'User Profile - Account Settings' },
+             { selector: '.nav-item i.ti-file', text: 'Documents - File Management' }
+           ];
+         
+           // Create tooltip elements and add event listeners
+           tooltipData.forEach(function(item) {
+             const element = document.querySelector(item.selector);
+             if (element) {
+               // Create tooltip element
+               const tooltip = document.createElement('div');
+               tooltip.className = 'custom-navbar-tooltip';
+               tooltip.textContent = item.text;
+               tooltip.style.cssText = `
+                 position: fixed !important;
+                 background: #333 !important;
+                 color: white !important;
+                 padding: 8px 12px !important;
+                 border-radius: 6px !important;
+                 font-size: 12px !important;
+                 white-space: nowrap !important;
+                 z-index: 99999 !important;
+                 opacity: 0 !important;
+                 visibility: hidden !important;
+                 transition: opacity 0.3s ease, visibility 0.3s ease !important;
+                 pointer-events: none !important;
+                 box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+                 max-width: 250px !important;
+                 text-align: center !important;
+                 font-family: Arial, sans-serif !important;
+                 font-weight: 500 !important;
+                 letter-spacing: 0.3px !important;
+               `;
+               
+               // Add arrow
+               const arrow = document.createElement('div');
+               arrow.className = 'tooltip-arrow';
+               arrow.style.cssText = `
+                 position: absolute !important;
+                 top: -4px !important;
+                 left: 50% !important;
+                 transform: translateX(-50%) !important;
+                 width: 0 !important;
+                 height: 0 !important;
+                 border-left: 4px solid transparent !important;
+                 border-right: 4px solid transparent !important;
+                 border-bottom: 4px solid #333 !important;
+                 z-index: 99999 !important;
+               `;
+               tooltip.appendChild(arrow);
+               
+               // Append tooltip to body (not parent) to avoid z-index issues
+               document.body.appendChild(tooltip);
+               
+               // Add hover events with proper positioning
+               element.addEventListener('mouseenter', function() {
+                 const rect = element.getBoundingClientRect();
+                 const tooltipRect = tooltip.getBoundingClientRect();
+                 
+                 // Position tooltip below the icon
+                 const left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                 const top = rect.bottom + 8;
+                 
+                 // Ensure tooltip stays within viewport
+                 const adjustedLeft = Math.max(10, Math.min(left, window.innerWidth - tooltipRect.width - 10));
+                 
+                 tooltip.style.left = adjustedLeft + 'px';
+                 tooltip.style.top = top + 'px';
+                 tooltip.style.opacity = '1';
+                 tooltip.style.visibility = 'visible';
+               });
+               
+               element.addEventListener('mouseleave', function() {
+                 tooltip.style.opacity = '0';
+                 tooltip.style.visibility = 'hidden';
+               });
+             }
+           });
+         });
+      </script>
+      <!-- Script for active menu highlighting with proper collapse behavior -->
+      <script nonce="{{ csp_nonce }}">
+         // Single comprehensive script for active menu highlighting with proper collapse behavior
+         document.addEventListener("DOMContentLoaded", function() {
+           var currentUrl = window.location.pathname;
+           console.log('Current URL:', currentUrl); // Debug log
+           
+           // Define URL patterns for better matching
+           const menuPatterns = [
+             { pattern: '/dp_pick_table', element: 'a[href*="dp_pick_table"]', parentId: 'ui-basic' },
+             { pattern: '/dp_completed_table', element: 'a[href*="dp_completed_table"]', parentId: 'ui-basic' },
+             { pattern: '/bulk_upload', element: 'a[href*="bulk_upload"]', parentId: 'ui-basic' },
+             { pattern: '/rec_bulk_upload', element: 'a[href*="rec_bulk_upload"]', parentId: 'recovery-onboard' },
+             { pattern: '/rec_dp_pick_table', element: 'a[href*="rec_dp_pick_table"]', parentId: 'recovery-onboard' },
+             { pattern: '/rec_completed_table', element: 'a[href*="rec_completed_table"]', parentId: 'recovery-onboard' },
+             { pattern: '/IS_PickTable', element: 'a[href*="IS_PickTable"]', parentId: 'ui-advanced' },
+             { pattern: '/IS_Completed_Table', element: 'a[href*="IS_Completed_Table"]', parentId: 'ui-advanced' },
+             { pattern: '/IS_AcceptTable', element: 'a[href*="IS_AcceptTable"]', parentId: 'ui-advanced' },
+             { pattern: '/IS_RejectTable', element: 'a[href*="IS_RejectTable"]', parentId: 'ui-advanced' },
+             { pattern: '/BrassPickTableView', element: 'a[href*="BrassPickTableView"]', parentId: 'editors' },
+             { pattern: '/BrassCompletedView', element: 'a[href*="BrassCompletedView"]', parentId: 'editors' },
+             { pattern: '/iqf_picktable', element: 'a[href*="iqf_picktable"]', parentId: 'editors' },
+             { pattern: '/iqf_completed_table', element: 'a[href*="iqf_completed_table"]', parentId: 'editors' },
+             { pattern: '/iqf_rejection_table', element: 'a[href*="iqf_rejection_table"]', parentId: 'editors' }
+           ];
+           
+           // First, collapse ALL menus and remove ALL active classes
+           document.querySelectorAll('.sidebar .collapse').forEach(function(collapse) {
+             collapse.classList.remove('show');
+           });
+           
+           document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
+             link.classList.remove('active');
+             link.setAttribute('aria-expanded', 'false');
+             // Reset any inline styles
+             link.style.cssText = '';
+           });
+           
+           let activeMenuFound = false;
+           let activeParentId = null;
+           
+           // Find the current active menu item
+           document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
+             const linkHref = link.getAttribute('href');
+             
+             // Skip if already found active menu
+             if (activeMenuFound) return;
+             
+             // Check for exact URL match or pattern match
+             const isCurrentPage = linkHref && (
+               linkHref === currentUrl || 
+               currentUrl.includes(linkHref.replace(/^\/+|\/+$/g, '')) ||
+               menuPatterns.some(pattern => {
+                 const isMatch = currentUrl.includes(pattern.pattern) && link.matches(pattern.element);
+                 if (isMatch) {
+                   activeParentId = pattern.parentId;
+                 }
+                 return isMatch;
+               })
+             );
+             
+             if (isCurrentPage) {
+               activeMenuFound = true;
+               console.log('Active menu found:', linkHref); // Debug log
+               
+               // Add active class to the matched link
+               link.classList.add('active');
+               
+               // Handle parent menu expansion for submenus
+               var parentCollapse = link.closest('.collapse');
+               if (parentCollapse) {
+                 // Show only this parent menu
+                 parentCollapse.classList.add('show');
+                 var parentNav = parentCollapse.previousElementSibling;
+                 if (parentNav && parentNav.classList.contains('nav-link')) {
+                   parentNav.classList.add('active');
+                   parentNav.setAttribute('aria-expanded', 'true');
+                 }
+                 console.log('Parent menu expanded:', parentCollapse.id); // Debug log
+               } else if (activeParentId) {
+                 // Handle specific parent menu by ID
+                 const specificParent = document.querySelector('#' + activeParentId);
+                 if (specificParent) {
+                   specificParent.classList.add('show');
+                   const specificParentNav = specificParent.previousElementSibling;
+                   if (specificParentNav && specificParentNav.classList.contains('nav-link')) {
+                     specificParentNav.classList.add('active');
+                     specificParentNav.setAttribute('aria-expanded', 'true');
+                   }
+                 }
+               }
+               
+               // Special styling for submenu items
+               if (link.closest('.sub-menu')) {
+                 link.style.cssText = `
+                   color: #fff !important;
+                   font-weight: 700 !important;
+                   background: #028084 !important;
+                   border-radius: 8px !important;
+                   box-shadow: 0 2px 8px rgba(2, 128, 132, 0.3) !important;
+                   transform: translateX(2px) !important;
+                 `;
+               }
+             }
+           });
+           
+           // If no specific submenu found, check for main menu items
+           if (!activeMenuFound) {
+             document.querySelectorAll('.sidebar .nav-link:not(.sub-menu .nav-link)').forEach(function(link) {
+               const linkHref = link.getAttribute('href');
+               if (linkHref && currentUrl.includes(linkHref.replace(/^\/+|\/+$/g, ''))) {
+                 link.classList.add('active');
+                 activeMenuFound = true;
+               }
+             });
+           }
+           
+           console.log('Active menu setup complete. Found:', activeMenuFound); // Debug log
+         });
+      </script>
+      <!-- Script for Tray Identification Form -->
+      <script nonce="{{ csp_nonce }}">
+         // Tablet image zoom toggle
+         document.querySelectorAll(".barcode-img-preview").forEach(function (img) {
+           img.addEventListener("click", function (e) {
+             // Only apply on tablet screens
+             if (window.innerWidth <= 991.98) {
+               e.preventDefault();
+               // Toggle zoomed class
+               this.classList.toggle("zoomed");
+             }
+           });
+         });
+      </script>
+      <!-- Duplicate tray identification script removed to fix 'trayInput' redeclaration error -->
+      <!--  Show the global loading spinner -->
+      <script nonce="{{ csp_nonce }}">
+         // Show the global loading spinner
+         function showGlobalSpinner() {
+           const spinner = document.getElementById('global-loading-spinner');
+           if (spinner) spinner.style.display = 'flex';
+         }
+         // Hide the global loading spinner
+         function hideGlobalSpinner() {
+           const spinner = document.getElementById('global-loading-spinner');
+           if (spinner) spinner.style.display = 'none';
+         }
+         
+         // Optional: Show spinner automatically for all fetch/ajax calls
+         (function() {
+           // Patch fetch to show spinner automatically
+           if (window.fetch) {
+             const origFetch = window.fetch;
+             window.fetch = function() {
+               showGlobalSpinner();
+               return origFetch.apply(this, arguments)
+                 .finally(hideGlobalSpinner);
+             };
+           }
+           // Patch jQuery ajax if used
+           if (window.jQuery) {
+             $(document).ajaxStart(showGlobalSpinner).ajaxStop(hideGlobalSpinner);
+           }
+         })();
+      </script>
+      <!-- // Show spinner on any internal link click or form submit (full page navigation) -->
+      <script nonce="{{ csp_nonce }}">
+         document.addEventListener("DOMContentLoaded", function() {
+           // For all <a> tags that are not external and not with target="_blank"
+           document.body.addEventListener("click", function(e) {
+             let el = e.target;
+             // Traverse up to <a>
+             while (el && el.tagName !== "A" && el !== document.body) el = el.parentElement;
+             if (
+               el && el.tagName === "A" &&
+               el.href &&
+               el.origin === window.location.origin &&
+               !el.hasAttribute("target") &&
+               !el.hasAttribute("download") &&
+               !el.getAttribute("href").startsWith("#") &&
+               !el.getAttribute("href").startsWith("javascript:")
+             ) {
+               showGlobalSpinner();
+             }
+           }, true);
+         
+           // For all <form> submits
+           document.body.addEventListener("submit", function(e) {
+             showGlobalSpinner();
+           }, true);
+         
+           // Optional: Hide spinner if navigation is cancelled (e.g., back button)
+           window.addEventListener("pageshow", function() {
+             hideGlobalSpinner();
+           });
+         });
+      </script>
+      <!-- // Show spinner on browser refresh or navigation away -->
+      <script nonce="{{ csp_nonce }}">
+         window.addEventListener("beforeunload", function (e) {
+           showGlobalSpinner();
+         });
+      </script>
+      <script nonce="{{ csp_nonce }}">
+         // Show spinner on page load (before DOM ready)
+         document.getElementById('global-loading-spinner').style.display = 'flex';
+         
+         // Hide spinner when DOM is ready
+         document.addEventListener('DOMContentLoaded', function() {
+           setTimeout(function() {
+             document.getElementById('global-loading-spinner').style.display = 'none';
+           }, 200); // slight delay for smoothness
+         });
+         
+         // Show spinner on any fetch/ajax call (already handled in your code)
+         // Show spinner on internal link click or form submit (already handled in your code)
+         // Show spinner on beforeunload (already handled in your code)
+         // Hide spinner on pageshow (already handled in your code)
+      </script>
+   </body>
+</html>

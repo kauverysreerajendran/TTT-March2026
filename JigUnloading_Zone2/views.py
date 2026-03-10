@@ -5,6 +5,7 @@ from django.views.decorators.http import require_http_methods
 from modelmasterapp.models import *
 from django.db.models import OuterRef, Subquery, Exists, F, TextField
 from django.db.models.functions import Cast
+from django.db.models.fields.json import KeyTextTransform
 from django.core.paginator import Paginator
 import math
 import json
@@ -731,7 +732,7 @@ class JU_Zone_MainTable(TemplateView):
         ).values('polish_finish__polish_finish')[:1]
         
         jig_unload = JigCompleted.objects.select_related('bath_numbers').annotate(
-            plating_color_cast=Cast('draft_data__plating_color', TextField()),
+            plating_color_cast=KeyTextTransform('plating_color', 'draft_data'),
             polish_finish_name=Subquery(polish_finish_subquery)
         ).filter(
             plating_color_cast__in=plating_patterns
@@ -740,7 +741,7 @@ class JU_Zone_MainTable(TemplateView):
         # ENHANCED FILTER: Also get jigs where plating_color is not in draft_data 
         # but can be determined from TotalStockModel or RecoveryStockModel
         jigs_without_plating_in_draft = JigCompleted.objects.select_related('bath_numbers').annotate(
-            plating_color_cast=Cast('draft_data__plating_color', TextField()),
+            plating_color_cast=KeyTextTransform('plating_color', 'draft_data'),
             polish_finish_name=Subquery(polish_finish_subquery)
         ).filter(
             plating_color_cast__isnull=True  # draft_data has no plating_color
@@ -1293,8 +1294,8 @@ def JU_Zone_get_model_details(request):
         # Get plating color information
         plating_color = None
         plating_color_name = None
-        tray_id_color = "#dc3545"  # Default red
-        tray_id_prefix = "NR" if tray_type == "Normal" else "JR"
+        tray_id_color = "#006400"  # Default dark green (Zone 2 handles non-IPS colors)
+        tray_id_prefix = "ND" if tray_type == "Normal" else "JD"
         
         print(f"[DEBUG] Zone 2 JU_Zone_get_model_details - model_number: {model_number}, lot_id: {lot_id}")
         print(f"[DEBUG] Zone 2 - model_master_creation found: {model_master_creation is not None}")
@@ -2636,12 +2637,12 @@ def JU_Zone_validate_tray_id_dynamic(request):
                         zone_msg = "Non-IPS Normal trays should use ND- or NL-"
                         print(f"[DEBUG] JU_Zone Non-IPS derived tray_type Normal - only 'ND-'/'NL-' allowed")
                     else:
-                        valid_prefixes = ['ND-', 'JD-']
+                        valid_prefixes = ['ND-', 'JD-', 'NL-', 'JL-']
                         zone_msg = "Non-IPS colors use Zone 2 (Dark/Light Green trays)"
-                        print(f"[DEBUG] JU_Zone Non-IPS derived tray_type '{determined_tray_type}' not recognized - allowing all prefixes")
+                        print(f"[DEBUG] JU_Zone Non-IPS derived tray_type '{determined_tray_type}' not recognized - allowing all non-IPS prefixes")
                 else:
-                    # If tray_type unknown, remain permissive
-                    valid_prefixes = ['ND-', 'JD-']
+                    # If tray_type unknown, remain permissive (allow all non-IPS prefixes)
+                    valid_prefixes = ['ND-', 'JD-', 'NL-', 'JL-']
                     zone_msg = "Non-IPS colors use Zone 2 (Dark/Light Green trays)"
 
             has_valid_prefix = any(tray_id.startswith(prefix) for prefix in valid_prefixes)

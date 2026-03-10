@@ -1209,18 +1209,84 @@
     white-space: nowrap;
   }
 
+  /* FIX 1a: Hold row blur - only non-S.No cells get blur + not-allowed cursor */
   .blurred-heading,
   .blurred-cell {
     filter: blur(2px) grayscale(0.7) opacity(0.6);
     pointer-events: none !important;
     user-select: none;
-    cursor: not-allowed;
+    cursor: not-allowed !important;
     background: #f5f5f5 !important;
+  }
+
+  /* FIX 1b: Hold row - applied to tr, but td:first-child (S.No) must be exempt */
+  tr.row-on-hold td {
+    filter: blur(2px) grayscale(0.7) opacity(0.6);
+    pointer-events: none !important;
+    user-select: none;
+    cursor: not-allowed !important;
+    background: #f5f5f5 !important;
+  }
+  /* S.No cell (first td) is NOT blurred and cursor is normal */
+  tr.row-on-hold td:first-child {
+    filter: none !important;
+    pointer-events: auto !important;
+    user-select: auto !important;
+    cursor: default !important;
+    background: inherit !important;
+  }
+
+  /* FIX 1c: S.No number must not be cropped - ensure min-width and no overflow hidden on sno-value */
+  .sno-value {
+    display: inline-block;
+    min-width: 18px;
+    text-align: right;
+    white-space: nowrap;
+    overflow: visible;
   }
   /* Show remark tooltip above the trigger instead of below */
   .remark-tooltip {
     top: auto !important;
     bottom: 110% !important;
+  }
+
+  /* FIX 2: Chat icon green fill after remark sent */
+  .chat-icon-sent {
+    filter: none !important;
+    opacity: 1 !important;
+  }
+  .chat-icon-sent img {
+    filter: hue-rotate(90deg) saturate(3) brightness(0.85) !important;
+    opacity: 1 !important;
+  }
+
+  /* FIX 6: Info icon tooltip styling */
+  .remark-info-tooltip {
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    max-width: 220px;
+    white-space: normal;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .remark-info-trigger:hover .remark-info-tooltip {
+    opacity: 1;
+  }
+  .remark-info-trigger {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
   }
   #trayScanDetails.table-grid {
     display: grid !important;
@@ -2146,66 +2212,65 @@ tr.row-inactive td:first-child {
               </td>
               <!-- Remarks -->
               <td>
-                <a
-                  href="#"
-                  title="Add Audio Remark"
-                  class="remark-tooltip-trigger"
-                  data-remark-kind="audio"
-                  style="
-                    display: inline-flex;
-                    align-items: center;
-                    height: 28px;
-                    margin-left: 0;
-                    position: relative;
-                    cursor: pointer;
-                  "
-                >
-                  <img
-                    src="{% static 'assets/icons/rec.png' %}"
-                    alt="VoiceRec"
-                    style="width: 20px; height: 20px"
-                  />
-                  <div
-                    class="remark-tooltip"
+
+                <!-- FIX 2 & 6: Chat remark icon with working send, lock after send, persist via localStorage, info shows remark -->
+                <span style="display:inline-flex; align-items:center; gap:5px;">
+                  <!-- Audio remark -->
+                  <a
+                    href="#"
+                    title="Add Audio Remark"
+                    class="remark-tooltip-trigger"
+                    data-remark-kind="audio"
                     style="
-                      position: absolute;
-                      top: 110%;
-                      left: 50%;
-                      transform: translateX(-50%);
-                      width: 265px;
-                      background: #fff;
-                      border: 1px solid #ccc;
-                      border-radius: 6px;
-                      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                      opacity: 0;
-                      visibility: hidden;
-                      transition: opacity 0.3s ease, visibility 0.3s ease;
-                      padding: 10px;
-                      z-index: 1000;
+                      display: inline-flex;
+                      align-items: center;
+                      height: 28px;
+                      margin-left: 0;
+                      position: relative;
+                      cursor: pointer;
                     "
                   >
-                    <div style="display: flex; align-items: center; gap: 10px">
-                      <button
-                        type="button"
-                        style="
-                          background: #28a745;
-                          color: #fff;
-                          border: none;
-                          border-radius: 50%;
-                          width: 40px;
-                          height: 40px;
-                          font-size: 20px;
-                          display: flex;
-                          align-items: center;
-                          justify-content: center;
-                        "
-                      >
-                        <i class="fa fa-microphone"></i>
-                      </button>
-                      <span style="font-size: 14px; color: #333"
-                        >Hold to record audio</span
-                      >
-                      <div style="text-align: right; margin-top: 10px">
+                    <img
+                      src="{% static 'assets/icons/rec.png' %}"
+                      alt="VoiceRec"
+                      style="width: 20px; height: 20px"
+                    />
+                    <!-- Chat tooltip popup -->
+                    <div
+                      class="remark-tooltip remark-chat-popup"
+                      style="
+                        position: absolute;
+                        bottom: 110%;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        width: 270px;
+                        background: #fff;
+                        border: 1px solid #ccc;
+                        border-radius: 6px;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                        opacity: 0;
+                        visibility: hidden;
+                        transition: opacity 0.3s ease, visibility 0.3s ease;
+                        padding: 15px;
+                        z-index: 1000;
+                      "
+                    >
+                      <div class="remark-sent-display" style="display:none; font-size:13px; color:#333; word-break:break-word;"></div>
+                      <div class="remark-input-area" style="display:flex; align-items:flex-start; gap:6px;">
+                        <textarea
+                          placeholder="Type your remark..."
+                          class="remark-textarea"
+                          style="
+                            flex: 1;
+                            height: 40px;
+                            resize: vertical;
+                            border: 1px solid #ccc;
+                            padding: 5px;
+                            border-radius: 4px;
+                            font-family: Arial, sans-serif;
+                            font-size: 14px;
+                          "
+                        ></textarea>
                         <button
                           type="button"
                           class="remark-send-btn"
@@ -2218,14 +2283,21 @@ tr.row-inactive td:first-child {
                             border-radius: 4px;
                             cursor: pointer;
                             font-size: 14px;
+                            align-self: flex-end;
                           "
                         >
                           <i class="fa fa-send"></i>
                         </button>
                       </div>
                     </div>
-                  </div>
-                </a>
+                  </a>
+                  <!-- FIX 6: Info icon showing entered remark on hover -->
+                  <span class="remark-info-trigger" data-lot-id="{{ data.stock_lot_id }}" style="display:none;">
+                    <img src="{% static 'assets/icons/view2.png' %}" alt="Remark Info" style="width:14px;height:14px; opacity:0.8;">
+                    <span class="remark-info-tooltip"></span>
+                  </span>
+                </span>
+                <!-- Text remark -->
                 <a
                   href="#"
                   title="Add Remark"
@@ -2299,6 +2371,7 @@ tr.row-inactive td:first-child {
                     </div>
                   </div>
                 </a>
+
               </td>
             </tr>
             {% endfor %}
@@ -2785,7 +2858,7 @@ document.addEventListener('DOMContentLoaded', function () {
       </div>
     </div>
 
-    <!-- Model Images Row (placed directly below action buttons, as requested) -->
+    <!-- FIX 3: Model Images Row - single image slot only (removed duplicate) -->
     <div
       class="jig-modal-model-images-row"
       style="
@@ -2793,9 +2866,10 @@ document.addEventListener('DOMContentLoaded', function () {
         gap: 8px;
         align-items: center;
         margin: 10px 0 16px 0;
+        padding: 0 24px;
       "
     >
-      <!-- Model Images (Dynamic from backend) -->
+      <!-- Primary model image badge -->
       <button
         type="button"
         class="btn-action transparent model-images"
@@ -2819,6 +2893,7 @@ document.addEventListener('DOMContentLoaded', function () {
           style="font-weight: 600; color: #028084"
         ></span>
       </button>
+      <!-- Additional model tabs will be appended here by JS when Add Model is used -->
     </div>
 
     <!-- Jig Loading - Form Fields Grid -->
@@ -3529,17 +3604,6 @@ function recalcLoadedCasesQty() {
     }
   }
   
-  // Update empty hooks display
-  const emptyHooksElement = document.getElementById("emptyHooksInput");
-  const jigCapacity = parseInt(jigCapacityElem.value || "0");
-  const emptyHooks = Math.max(0, jigCapacity - total);
-  if (emptyHooksElement) {
-    emptyHooksElement.value = emptyHooks;
-  }
-  
-  // Update global validation flag for Submit button
-  window.backendOverallValid = (total >= jigCapacity);
-  
   // Update display: loaded / jig_capacity, cap at jig_capacity
   const denominator = jigCapacityElem.value;
   const displayTotal = Math.min(total, parseInt(denominator));
@@ -3864,30 +3928,91 @@ function renderModalContent(data) {
     brokenHooksInput.hasListener = true; // Prevent duplicate listeners
     brokenHooksInput.addEventListener("input", function() {
       const brokenHooks = parseInt(this.value || 0);
-      // --- FIX: Do not clear Jig ID when updating modal content ---
+      // FIX 4: Preserve Jig ID AND preserve delink tray section (do NOT clear it)
       const currentJigId = document.getElementById("jigIdInput")?.value || "";
+      
+      // Snapshot current tray IDs before re-render so we can restore them
+      const currentTrayValues = {};
+      document.querySelectorAll('#delinkTableSection .tray-id-input').forEach(inp => {
+        const rowIdx = inp.getAttribute('data-row-index');
+        if (rowIdx !== null) currentTrayValues[rowIdx] = inp.value;
+      });
+
       fetch(`/jig_loading/jig-add-modal-data/?batch_id=${window.currentModalContext.batchId}&lot_id=${window.currentModalContext.lotId}&jig_qr_id=${window.currentModalContext.jigQrId}&broken_hooks=${brokenHooks}`)
         .then(resp => resp.json())
         .then(data => {
-          renderModalContent(data);
-          // Restore Jig ID after modal content is re-rendered
+          // Re-render modal content fields (Nickel Bath, Tray Type, capacities etc.)
+          // but do NOT touch the delink table section
+          renderModalContentFieldsOnly(data);
+
+          // Restore Jig ID
           if (currentJigId) {
             const jigIdInput = document.getElementById("jigIdInput");
-            if (jigIdInput) {
-              jigIdInput.value = currentJigId;
-            }
+            if (jigIdInput) jigIdInput.value = currentJigId;
           }
-          // Re-render half-filled tray section with updated data
+
+          // FIX 4: Update delink table from backend but preserve already-entered tray IDs
+          const delinkTable = data.delink_table || [];
+          renderDelinkTableFromData(delinkTable);
+          // Restore previously entered tray values
+          Object.keys(currentTrayValues).forEach(rowIdx => {
+            const inp = document.querySelector(`#delinkTableSection .tray-id-input[data-row-index="${rowIdx}"]`);
+            if (inp && currentTrayValues[rowIdx]) {
+              inp.value = currentTrayValues[rowIdx];
+            }
+          });
+
+          // FIX 4: Decrease last tray ID qty by brokenHooks (only visual - backend handles validation)
+          // The backend delink_table already returns updated tray quantities when broken_hooks is passed
+          // So the re-rendered delink table already reflects the decreased last tray qty
+
+          // Re-render half-filled tray section with updated broken hooks data
           renderHalfFilledTraySection(data.tray_distribution || {}, data.broken_buildup_hooks || 0, data.half_filled_tray_cases || 0);
-          // Re-render delink table with updated data
-          renderDelinkTableFromData(data.delink_table || []);
+          
+          recalcLoadedCasesQty();
         });
     });
   }
 }
 
 
-  // Function to render half-filled tray section
+// FIX 4: Helper - update only form fields (not delink table) when broken hooks changes
+function renderModalContentFieldsOnly(data) {
+  window.backendCanSave = data.can_save === true;
+  window.backendOverallValid = data.modal_validation?.overall_valid === true;
+  window.currentModalValidation = data.modal_validation || {};
+
+  const fields = {
+    'nickelBathTypeInput': data.nickel_bath_type || '',
+    'trayTypeInput': data.tray_type || 'Normal',
+    'brokenBuildupHooksInput': data.broken_buildup_hooks || 0,
+    'emptyHooksInput': data.empty_hooks || 0,
+    'jigCapacityInput': data.jig_capacity || 0,
+  };
+  Object.entries(fields).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  });
+
+  const loadedCaseQtyElem = document.getElementById('loadedCasesQtyDisplay');
+  const lotQtyElem = document.getElementById('lotQtyHidden');
+  if (loadedCaseQtyElem && lotQtyElem) {
+    const effectiveCapacity = data.effective_jig_capacity || data.jig_capacity || 0;
+    lotQtyElem.value = effectiveCapacity;
+    // Don't reset the display count here - recalcLoadedCasesQty will handle it
+  }
+
+  const excessMessageElem = document.getElementById('excessMessage');
+  if (excessMessageElem) excessMessageElem.textContent = data.excess_message || '';
+
+  document.getElementById('modalNoOfCycle').textContent = data.no_of_cycle || 1;
+
+  applyValidationRules(data.modal_validation || {});
+  document.getElementById('addModelBtn').disabled = !data.add_model_enabled;
+  updateSubmitButtonState();
+}
+
+
 
 function renderDelinkTableFromData(delinkTable) {
   const delinkTableSection = document.getElementById('delinkTableSection');
@@ -3929,28 +4054,7 @@ function renderDelinkTableFromData(delinkTable) {
   });
   
   // Setup scanning listeners for new inputs
-  if (typeof setupTrayScanningListeners === 'function') {
-    setupTrayScanningListeners();
-  } else {
-    console.warn('⚠️ setupTrayScanningListeners not available, setting up manually');
-    // Fallback: setup listeners manually
-    const trayInputs = delinkTableSection.querySelectorAll('.tray-id-input:not([readonly])');
-    trayInputs.forEach((input) => {
-      input.addEventListener('input', function () {
-        if (this.value.trim() === '') {
-          this.style.borderColor = '';
-          this.style.backgroundColor = '';
-          return;
-        }
-        if (this.value.length <= 9) {
-          validateAndMoveToNext(this);
-        }
-      });
-      input.addEventListener('focus', function () {
-        this.select();
-      });
-    });
-  }
+  setupTrayScanningListeners();
 }
 
 function renderHalfFilledTraySection(trayDistribution, brokenHooks = 0, halfFilledTrayCases = 0) {
@@ -4243,22 +4347,7 @@ function validateAndMoveToNext(input) {
   const trayId = input.value.trim();
   const rowIndex = parseInt(input.dataset.rowIndex);
   const batchId = input.getAttribute("data-batch-id") || "";
-  let lotId = input.getAttribute("data-lot-id") || "";
-  
-  // Check if we're in multi-model mode - get combined lot IDs from modal
-  const modal = document.getElementById('jigAddModal');
-  const isMultiModel = modal && modal.getAttribute('data-is-multi-model') === 'true';
-  const combinedLotIdsStr = modal ? modal.getAttribute('data-combined-lot-ids') : null;
-  
-  let lotIdsToValidate = [lotId];
-  if (isMultiModel && combinedLotIdsStr) {
-    try {
-      lotIdsToValidate = JSON.parse(combinedLotIdsStr);
-      console.log('🔍 Multi-model validation mode: checking against lot IDs:', lotIdsToValidate);
-    } catch (e) {
-      console.error('❌ Failed to parse combined lot IDs:', e);
-    }
-  }
+  const lotId = input.getAttribute("data-lot-id") || "";
 
   // Helper: recalculate loaded cases qty from all valid tray inputs [Loaded Case Qty Filed]
   recalcLoadedCasesQty();
@@ -4314,22 +4403,12 @@ function validateAndMoveToNext(input) {
       recalcLoadedCasesQty();
       return;
     }
-    
-    // Build validation URL with all lot IDs for multi-model scenarios
-    let validationUrl = `/jig_loading/validate-tray-id/?tray_id=${encodeURIComponent(trayId)}`;
-    
-    if (isMultiModel && lotIdsToValidate.length > 1) {
-      // Multi-model: send all lot IDs as comma-separated string
-      const lotIdsStr = lotIdsToValidate.join(',');
-      validationUrl += `&batch_id=${encodeURIComponent(batchId)}&lot_ids=${encodeURIComponent(lotIdsStr)}`;
-      console.log(`🔍 Validating tray ${trayId} against multiple lots:`, lotIdsToValidate);
-    } else {
-      // Single model: send single lot_id and batch_id
-      validationUrl += `&batch_id=${encodeURIComponent(batchId)}&lot_id=${encodeURIComponent(lotId)}`;
-    }
-    
     // Instant backend validation
-    fetch(validationUrl)
+    fetch(
+      `/jig_loading/validate-tray-id/?tray_id=${encodeURIComponent(
+        trayId
+      )}&batch_id=${encodeURIComponent(batchId)}&lot_id=${encodeURIComponent(lotId)}`
+    )
       .then((resp) => resp.json())
       .then((data) => {
         if (data.valid) {
@@ -4819,11 +4898,7 @@ if (submitJigBtn) {
 
       if (result.success) {
         showSuccess("Jig submitted successfully", function() {
-          // Close the modal after success
-          const modal = document.getElementById("jigAddModal");
-          if (modal) {
-            modal.classList.remove("open");
-          }
+          window.location.reload();
         });
       } else {
         if (window.Swal) {
@@ -5038,21 +5113,11 @@ document.addEventListener('DOMContentLoaded', function() {
       const lotId = window.currentModalContext.lotId;
       const platingStockNo = document.getElementById('modalPlatingStockNo')?.textContent || '';
       
-      // Get lot qty from modal input (this is the actual quantity of the primary model)
-      const lotQtyInput = document.getElementById('reallotQty');
-      const primaryModelQty = lotQtyInput ? parseInt(lotQtyInput.value) || 0 : 0;
-      
       // Get current quantity and empty hooks from modal inputs
       const loadedCasesDisplay = document.getElementById('loadedCasesQtyDisplay')?.textContent || '0/0';
-      const loadedCasesQty = parseInt(loadedCasesDisplay.split('/')[0]) || primaryModelQty; // Use lot qty if loaded cases is 0
+      const loadedCasesQty = parseInt(loadedCasesDisplay.split('/')[0]) || 0;
       const emptyHooks = parseInt(document.getElementById('emptyHooksInput')?.value) || 0;
       const jigCapacity = parseInt(document.getElementById('jigCapacityInput')?.value) || 0;
-      
-      console.log('📦 Primary model quantity:', {
-        fromLotQty: primaryModelQty,
-        fromLoadedCases: parseInt(loadedCasesDisplay.split('/')[0]) || 0,
-        usingQty: loadedCasesQty
-      });
       
       // Get tray type and capacity
       const trayTypeElement = document.getElementById('trayTypeInput');
@@ -5527,28 +5592,19 @@ function updateSelectionSummaryAndButton() {
             const polishingStockNo = polishingStockNoCell ? polishingStockNoCell.textContent.trim() : '';
             const qty = parseInt(qtyInput.value) || 0;
             
-            // Get lot ID and batch ID from data attributes
-            const lotId = row.getAttribute('data-stock-lot-id') || '';
-            const batchId = row.getAttribute('data-batch-id') || '';
+            // Get lot ID and batch ID from hidden cells or data attributes
+            const lotIdCell = row.cells[1]; // Assuming lot ID is in 2nd column
+            const batchIdCell = row.cells[0]; // Assuming batch ID is in 1st column (hidden)
             
-            // Get additional details from row
-            const platingColorCell = row.querySelector('td:nth-child(6)');
-            const polishFinishCell = row.querySelector('td:nth-child(7)');
-            const jigTypeCell = row.querySelector('td:nth-child(10)');
-            
-            const platingColor = platingColorCell ? platingColorCell.textContent.trim() : '';
-            const polishFinish = polishFinishCell ? polishFinishCell.textContent.trim() : '';
-            const jigType = jigTypeCell ? jigTypeCell.textContent.trim() : 'Jig';
+            const lotId = lotIdCell ? lotIdCell.textContent.trim() : '';
+            const batchId = batchIdCell ? batchIdCell.textContent.trim() : '';
             
             selectedModelsData.push({
               platingStockNo: platingStockNo,
               polishingStockNo: polishingStockNo,
               lotId: lotId,
               batchId: batchId,
-              qty: qty,
-              platingColor: platingColor,
-              polishFinish: polishFinish,
-              jigType: jigType
+              qty: qty
             });
             
             totalQty += qty;
@@ -5635,29 +5691,23 @@ function confirmModelSelection(selectedModels, totalAddedQty) {
 // Proceed with combination
 function proceedWithCombination(selectedModels, newTotalQuantity, newEmptyHooks) {
   console.log(`📈 New totals: Loaded ${newTotalQuantity}/${currentJigCapacity}, Empty hooks: ${newEmptyHooks}`);
-  console.log('📦 Combined models before adding:', combinedModels);
-  console.log('📦 Selected models to add:', selectedModels);
   
-  // Add selected models to combinedModels (primary model is already in the array)
+  // Add selected models to combinedModels
   for (let selected of selectedModels) {
     combinedModels.push({
-      modelNumber: selected.platingStockNo,
+      modelNumber: selected.platingStkNo,
       lotId: selected.lotId,
       batchId: selected.batchId,
       quantity: selected.qty,
-      platingColor: selected.platingColor || currentPlatingColor,
-      polishFinish: selected.polishFinish || currentPolishFinish,
-      jigType: selected.jigType || currentJigType
+      platingColor: selected.platingColor,
+      polishFinish: selected.polishFinish,
+      jigType: selected.jigType
     });
   }
   
-  console.log('📦 Combined models after adding:', combinedModels);
-  
-  // Recalculate totals from all combined models
+  // Recalculate totals
   const totalQuantity = combinedModels.reduce((sum, m) => sum + m.quantity, 0);
   const emptyHooks = Math.max(0, currentJigCapacity - totalQuantity);
-  
-  console.log(`🧮 Calculated totals: ${totalQuantity} cases, ${emptyHooks} empty hooks`);
   
   // Update modal with combined data
   updateModalWithCombinedModels(combinedModels, totalQuantity, emptyHooks);
@@ -5665,27 +5715,32 @@ function proceedWithCombination(selectedModels, newTotalQuantity, newEmptyHooks)
   // Update previouslyCombinedRows
   previouslyCombinedRows = new Set(combinedModels.map(m => m.lotId));
   
-  // Exit Add Model mode (this will reopen the modal)
+  // Exit Add Model mode
   exitAddModelMode();
   
-  // Show success message after a brief delay
+  // Reopen the modal
   setTimeout(() => {
-    Swal.fire({
-      icon: 'success',
-      title: 'Models Combined!',
-      html: `Successfully added ${selectedModels.length} model(s)<br>
-             Total Quantity: <b>${totalQuantity}</b> cases<br>
-             Empty Hooks: <b>${emptyHooks}</b>`,
-      timer: 2000,
-      showConfirmButton: false
-    });
-  }, 300);
+    const jigModal = document.getElementById('jigAddModal');
+    if (jigModal) {
+      jigModal.classList.add('open');
+    }
+  }, 500);
+  
+  // Show success message
+  Swal.fire({
+    icon: 'success',
+    title: 'Models Combined!',
+    html: `Successfully added ${selectedModels.length} model(s)<br>
+           Total Quantity: <b>${newTotalQuantity}</b> cases<br>
+           Empty Hooks: <b>${newEmptyHooks}</b>`,
+    timer: 2000,
+    showConfirmButton: false
+  });
 }
 
 // Update modal with combined models
 function updateModalWithCombinedModels(allModels, newTotalQuantity, newEmptyHooks) {
   console.log('🔄 Updating modal with', allModels.length, 'models');
-  console.log('📊 Total quantity:', newTotalQuantity, 'Empty hooks:', newEmptyHooks);
   
   // Map combinedModels to expected format
   let mappedModels = allModels.map(m => ({
@@ -5694,8 +5749,6 @@ function updateModalWithCombinedModels(allModels, newTotalQuantity, newEmptyHook
     batchId: m.batchId,
     qty: m.quantity
   }));
-  
-  console.log('🗺️ Mapped models:', mappedModels);
   
   const modal = document.getElementById('jigAddModal');
   if (!modal) {
@@ -5707,7 +5760,6 @@ function updateModalWithCombinedModels(allModels, newTotalQuantity, newEmptyHook
   const loadedCasesQtyDisplay = document.getElementById('loadedCasesQtyDisplay');
   if (loadedCasesQtyDisplay) {
     loadedCasesQtyDisplay.textContent = `${newTotalQuantity}/${currentJigCapacity}`;
-    console.log('✅ Updated loaded cases qty display:', newTotalQuantity);
   }
   
   // Update empty hooks
@@ -5732,6 +5784,7 @@ function updateModalWithCombinedModels(allModels, newTotalQuantity, newEmptyHook
 }
 
 // Create model tabs in modal header
+// FIX 3: Primary model image slot already in HTML - only append additional models (index > 0)
 function createModelTabs(allModels) {
   console.log('🏷️ Creating model tabs for', allModels.length, 'models');
   
@@ -5741,85 +5794,53 @@ function createModelTabs(allModels) {
     return;
   }
   
-  // Clear existing tabs (except primary model image)
-  const existingTabs = modalHeader.querySelectorAll('.model-tab:not(.primary-model)');
+  // Remove only previously added dynamic tabs (not the primary button)
+  const existingTabs = modalHeader.querySelectorAll('.model-tab-extra');
   existingTabs.forEach(tab => tab.remove());
   
-  // Add tabs for all models
+  // Add tabs for additional models only (skip index 0 = primary, already in HTML)
   allModels.forEach((model, index) => {
-    let tab;
+    if (index === 0) return; // Primary slot already in HTML, skip
     
-    if (index === 0) {
-      // Primary model - find existing or create
-      tab = modalHeader.querySelector('.model-tab.primary-model');
-      if (!tab) {
-        tab = document.createElement('div');
-        tab.className = 'model-tab primary-model';
-        tab.style.cssText = `
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          background: #e8f5e9;
-          border: 2px solid #4CAF50;
-          border-radius: 8px;
-          margin: 0 5px;
-          font-weight: 600;
-          color: #2E7D32;
-        `;
-        modalHeader.appendChild(tab);
-      }
-      
-      // Update primary model tab content
-      tab.innerHTML = `
-        <span>📦 ${model.platingStockNo}</span>
-        <span style="background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${model.qty} cases</span>
-        <span style="font-size: 11px; color: #4CAF50; margin-left: 5px;">(Primary)</span>
-      `;
-    } else {
-      // Additional models - create new tabs
-      tab = document.createElement('div');
-      tab.className = 'model-tab';
-      tab.style.cssText = `
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        background: #e3f2fd;
-        border: 2px solid #2196F3;
-        border-radius: 8px;
-        margin: 0 5px;
-        font-weight: 600;
-        color: #1976D2;
-      `;
-      
-      // Add close button for additional models
-      const closeBtn = document.createElement('span');
-      closeBtn.innerHTML = '×';
-      closeBtn.style.cssText = `
-        cursor: pointer;
-        font-size: 20px;
-        font-weight: bold;
-        color: #dc3545;
-        margin-left: 5px;
-      `;
-      closeBtn.title = 'Remove this model';
-      closeBtn.onclick = function() {
-        removeModelFromSelection(model.lotId);
-      };
-      
-      tab.innerHTML = `
-        <span>📦 ${model.platingStockNo}</span>
-        <span style="background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${model.qty} cases</span>
-      `;
-      tab.appendChild(closeBtn);
-      
-      modalHeader.appendChild(tab);
-    }
+    const tab = document.createElement('div');
+    tab.className = 'model-tab-extra';
+    tab.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #e3f2fd;
+      border: 2px solid #2196F3;
+      border-radius: 8px;
+      margin: 0 5px;
+      font-weight: 600;
+      color: #1976D2;
+    `;
+    
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: bold;
+      color: #dc3545;
+      margin-left: 5px;
+    `;
+    closeBtn.title = 'Remove this model';
+    closeBtn.onclick = function() {
+      removeModelFromSelection(model.lotId);
+    };
+    
+    tab.innerHTML = `
+      <span>📦 ${model.platingStockNo}</span>
+      <span style="background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${model.qty} cases</span>
+    `;
+    tab.appendChild(closeBtn);
+    
+    modalHeader.appendChild(tab);
   });
   
-  console.log('✅ Model tabs created with', allModels.length, 'models');
-  console.log('📦 Tab data:', allModels.map(m => `${m.platingStockNo}: ${m.qty}`).join(', '));
+  console.log('✅ Model tabs created');
 }
 
 // Remove model from selection
@@ -5873,7 +5894,6 @@ function removeModelFromSelection(lotIdToRemove) {
 // Recalculate tray distribution for all models
 function recalculateTrayDistributionForAllModels(allModels) {
   console.log('🧮 Recalculating tray distribution for', allModels.length, 'models');
-  console.log('📦 All models:', allModels);
   
   const delinkTableSection = document.getElementById('delinkTableSection');
   if (!delinkTableSection) {
@@ -5881,29 +5901,12 @@ function recalculateTrayDistributionForAllModels(allModels) {
     return;
   }
   
-  // Store existing tray IDs and their validation states before clearing
-  const existingTrayData = [];
-  const existingInputs = delinkTableSection.querySelectorAll('.tray-id-input');
-  existingInputs.forEach((input, index) => {
-    const trayId = input.value.trim();
-    const isValid = input.parentNode.querySelector('.tray-valid-alert') !== null;
-    const rowIndex = input.getAttribute('data-row-index');
-    existingTrayData.push({
-      index: parseInt(rowIndex) || index,
-      trayId: trayId,
-      isValid: isValid
-    });
-  });
-  
-  console.log('💾 Stored existing tray data:', existingTrayData);
-  
   // Calculate total trays needed
-  const totalQuantity = allModels.reduce((sum, model) => sum + parseInt(model.qty || 0), 0);
+  const totalQuantity = allModels.reduce((sum, model) => sum + model.qty, 0);
   const totalTrays = Math.ceil(totalQuantity / currentTrayCapacity);
   
   console.log(`📊 Total quantity: ${totalQuantity}, Trays needed: ${totalTrays}, Tray capacity: ${currentTrayCapacity}`);
   console.log(`📊 Models breakdown:`, allModels.map(m => `${m.platingStockNo}: ${m.qty}`).join(', '));
-  console.log(`🧮 Tray calculation: ${totalQuantity} / ${currentTrayCapacity} = ${totalQuantity / currentTrayCapacity} → ${totalTrays} trays`);
   
   // Update delink count header
   const delinkTrayCount = document.getElementById('delinkTrayCount');
@@ -5914,16 +5917,8 @@ function recalculateTrayDistributionForAllModels(allModels) {
     console.error('❌ delinkTrayCount element not found');
   }
   
-  // Get batch_id and lot_id from modal context
-  const batchId = window.currentModalContext?.batchId || '';
-  const lotId = window.currentModalContext?.lotId || '';
-  
   // Clear existing tray inputs
   delinkTableSection.innerHTML = '';
-  
-  // Calculate quantities for each tray
-  const fullTrays = Math.floor(totalQuantity / currentTrayCapacity);
-  const partialTrayQty = totalQuantity % currentTrayCapacity;
   
   // Create tray inputs for total quantity
   for (let i = 0; i < totalTrays; i++) {
@@ -5931,99 +5926,28 @@ function recalculateTrayDistributionForAllModels(allModels) {
     trayTab.className = 'tray-scan-tab model-bg-1';
     
     // Calculate quantity for this tray
-    // If there's a partial tray, it should be the first one (top tray)
     let trayQty;
-    if (i === 0 && partialTrayQty > 0) {
-      // First tray is partial (top tray)
-      trayQty = partialTrayQty;
+    if (i === 0 && totalQuantity % currentTrayCapacity !== 0) {
+      // First tray might be partial (top tray)
+      trayQty = totalQuantity % currentTrayCapacity;
     } else {
       // Full tray
       trayQty = currentTrayCapacity;
     }
     
-    // Check if we have existing tray data for this index
-    const existingTray = existingTrayData.find(t => t.index === i);
-    const existingTrayId = existingTray ? existingTray.trayId : '';
-    
     trayTab.innerHTML = `
-      <label style="font-size: 13px; font-weight: 600; color: #028084; margin-bottom: 4px;">Tray ${i + 1}</label>
       <input 
         type="text" 
         id="tray-${i}"
         class="tray-id-input model-bg-1" 
         placeholder="Scan Tray ${i + 1} Id"
         data-row-index="${i}"
-        data-batch-id="${batchId}"
-        data-lot-id="${lotId}"
         data-tray-qty="${trayQty}"
-        value="${existingTrayId}"
-        autocomplete="off"
-        maxlength="9"
-        style="text-transform: uppercase;"
       />
-      <div class="tray-qty" style="font-size: 12px; color: #666; margin-top: 2px;">${trayQty} cases</div>
     `;
     
     delinkTableSection.appendChild(trayTab);
   }
-  
-  // Re-setup scanning listeners for all inputs
-  if (typeof setupTrayScanningListeners === 'function') {
-    setupTrayScanningListeners();
-  } else {
-    console.warn('⚠️ setupTrayScanningListeners not available in Add Model context');
-    // Fallback: Setup listeners manually for new tray inputs
-    const trayInputs = delinkTableSection.querySelectorAll('.tray-id-input:not([readonly])');
-    trayInputs.forEach((input) => {
-      // Remove existing listeners to prevent duplicates
-      const newInput = input.cloneNode(true);
-      input.parentNode.replaceChild(newInput, input);
-      
-      newInput.addEventListener('input', function () {
-        if (this.value.trim() === '') {
-          this.style.borderColor = '';
-          this.style.backgroundColor = '';
-          const errorAlerts = this.parentNode.querySelectorAll('.tray-error-message');
-          errorAlerts.forEach(a => a.remove());
-          const validAlerts = this.parentNode.querySelectorAll('.tray-valid-alert');
-          validAlerts.forEach(a => a.remove());
-          return;
-        }
-        if (this.value.length <= 9) {
-          if (typeof validateAndMoveToNext === 'function') {
-            validateAndMoveToNext(this);
-          }
-        }
-      });
-      
-      newInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          if (typeof validateAndMoveToNext === 'function') {
-            validateAndMoveToNext(this);
-          }
-        }
-      });
-      
-      newInput.addEventListener('focus', function () {
-        this.select();
-      });
-    });
-  }
-  
-  // Re-trigger validation for existing tray IDs
-  setTimeout(() => {
-    existingTrayData.forEach(trayData => {
-      if (trayData.trayId && trayData.index < totalTrays) {
-        const input = document.getElementById(`tray-${trayData.index}`);
-        if (input && input.value) {
-          console.log(`🔄 Re-validating tray ${trayData.index + 1}: ${trayData.trayId}`);
-          // Trigger validation by dispatching input event
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }
-    });
-  }, 100);
   
   // Update tray distribution summary
   updateTrayDistributionSummary(allModels, totalQuantity, totalTrays);
@@ -6033,11 +5957,6 @@ function recalculateTrayDistributionForAllModels(allModels) {
 
 // Update tray distribution summary
 function updateTrayDistributionSummary(allModels, totalQuantity, totalTrays) {
-  console.log('📊 Updating tray distribution summary:');
-  console.log('  Total Quantity:', totalQuantity);
-  console.log('  Total Trays:', totalTrays);
-  console.log('  Models:', allModels);
-  
   const trayDistributionDiv = document.querySelector('.tray-distribution-display');
   if (!trayDistributionDiv) return;
   
@@ -6252,18 +6171,14 @@ function createExitAddModelButton() {
 
 // Exit Add Model Mode
 function exitAddModelMode() {
-  console.log('🚪 Exiting Add Model Mode...');
-  
   document.body.classList.remove('add-model-mode');
   
   // Remove buttons and indicators
   const exitBtn = document.getElementById('exitAddModelBtn');
-  const confirmBtn = document.getElementById('confirmSelectionBtn');
   const summary = document.getElementById('compatibleSummary');
   const loadingIndicator = document.getElementById('addModelLoadingIndicator');
   
   if (exitBtn) exitBtn.remove();
-  if (confirmBtn) confirmBtn.remove();
   if (summary) summary.remove();
   if (loadingIndicator) loadingIndicator.remove();
   
@@ -6285,15 +6200,18 @@ function exitAddModelMode() {
   });
   
   // Reopen the jig modal
-  setTimeout(() => {
-    const jigModal = document.getElementById('jigAddModal');
-    if (jigModal) {
-      jigModal.classList.add('open');
-      console.log('✅ Modal reopened');
-    } else {
-      console.error('❌ Could not find jig modal to reopen');
-    }
-  }, 100);
+  const jigModal = document.getElementById('jigAddModal');
+  if (jigModal) {
+    jigModal.classList.add('open');
+    
+    Swal.fire({
+      icon: 'info',
+      title: 'Returned to Jig Loading',
+      text: 'Your progress is preserved.',
+      timer: 1500,
+      showConfirmButton: false
+    });
+  }
   
   console.log('✅ Exited Add Model Mode');
 }
@@ -6336,9 +6254,147 @@ addModelStyles.textContent = `
 `;
 document.head.appendChild(addModelStyles);
 
-console.log('✅ Add Model functionality initialized for Jig Loading');
+// ==================== FIX 1: Row Hold / Release ====================
+// When a row is held, all cells EXCEPT the S.No (first) cell get blur + not-allowed
+// S.No cell stays clear so user can interact with hold toggle
+document.addEventListener('DOMContentLoaded', function() {
+  // Toggle hold state on toggle switch
+  document.querySelectorAll('.hold-toggle-btn').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+      const row = this.closest('tr');
+      if (!row) return;
+      const isChecked = this.checked; // checked = active/unheld, unchecked = held
+      if (!isChecked) {
+        // Row is being HELD
+        row.classList.add('row-on-hold');
+      } else {
+        // Row is being RELEASED
+        row.classList.remove('row-on-hold');
+      }
+    });
+  });
+});
 
-// ==================== END ADD MODEL FUNCTIONALITY ====================
+// ==================== FIX 2 & 6: Remark Chat Icon ====================
+// - Send button sends remark
+// - After sending: textarea locked, icon turns green, remark text shown
+// - Persists across refresh via localStorage
+// - Info (i) icon tooltip shows entered remark on hover
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Restore saved remarks from localStorage on page load
+  function restoreRemarks() {
+    document.querySelectorAll('.remark-chat-trigger').forEach(function(trigger) {
+      const lotId = trigger.getAttribute('data-lot-id');
+      const key = 'remark_' + lotId;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        applyRemarkSent(trigger, saved);
+      }
+    });
+  }
+
+  function applyRemarkSent(trigger, remarkText) {
+    // 1. Turn chat icon green
+    const chatImg = trigger.querySelector('.chat-icon-img');
+    if (chatImg) {
+      chatImg.style.filter = 'hue-rotate(100deg) saturate(4) brightness(0.75)';
+      chatImg.style.opacity = '1';
+    }
+    // 2. Show remark text in popup instead of textarea
+    const popup = trigger.querySelector('.remark-chat-popup');
+    if (popup) {
+      const inputArea = popup.querySelector('.remark-input-area');
+      const sentDisplay = popup.querySelector('.remark-sent-display');
+      if (inputArea) inputArea.style.display = 'none';
+      if (sentDisplay) {
+        sentDisplay.style.display = 'block';
+        sentDisplay.textContent = remarkText;
+      }
+    }
+    // 3. Show info icon with the remark in tooltip
+    const lotId = trigger.getAttribute('data-lot-id');
+    const infoTrigger = trigger.closest('td').querySelector(`.remark-info-trigger[data-lot-id="${lotId}"]`);
+    if (infoTrigger) {
+      infoTrigger.style.display = 'inline-block';
+      const tooltip = infoTrigger.querySelector('.remark-info-tooltip');
+      if (tooltip) tooltip.textContent = remarkText;
+    }
+  }
+
+  // Hover show/hide remark tooltip
+  document.querySelectorAll('.remark-chat-trigger').forEach(function(trigger) {
+    trigger.addEventListener('mouseenter', function() {
+      const popup = trigger.querySelector('.remark-chat-popup');
+      if (popup) {
+        popup.style.opacity = '1';
+        popup.style.visibility = 'visible';
+      }
+    });
+    trigger.addEventListener('mouseleave', function(e) {
+      const popup = trigger.querySelector('.remark-chat-popup');
+      if (popup && !popup.contains(e.relatedTarget)) {
+        popup.style.opacity = '0';
+        popup.style.visibility = 'hidden';
+      }
+    });
+    // Keep popup visible while hovering over popup itself
+    const popup = trigger.querySelector('.remark-chat-popup');
+    if (popup) {
+      popup.addEventListener('mouseleave', function(e) {
+        if (!trigger.contains(e.relatedTarget)) {
+          popup.style.opacity = '0';
+          popup.style.visibility = 'hidden';
+        }
+      });
+    }
+
+    // Send button click
+    const sendBtn = trigger.querySelector('.remark-send-btn');
+    const textarea = trigger.querySelector('.remark-textarea');
+    if (sendBtn && textarea) {
+      sendBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const remarkText = textarea.value.trim();
+        if (!remarkText) {
+          textarea.style.borderColor = '#dc3545';
+          textarea.placeholder = 'Please enter a remark first';
+          return;
+        }
+        const lotId = trigger.getAttribute('data-lot-id');
+        const batchId = trigger.getAttribute('data-batch-id');
+
+        // Save to localStorage (FIX: persist across refresh)
+        localStorage.setItem('remark_' + lotId, remarkText);
+
+        // Apply sent state
+        applyRemarkSent(trigger, remarkText);
+
+        // Close popup
+        if (popup) {
+          popup.style.opacity = '0';
+          popup.style.visibility = 'hidden';
+        }
+
+        // Optional: send to backend
+        const csrftoken = document.cookie.split(';').map(c => c.trim())
+          .find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+        if (csrftoken) {
+          fetch('/jig_loading/jig-save-hold-unhold-reason/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({ lot_id: lotId, batch_id: batchId, remark: remarkText })
+          }).catch(() => {}); // Silent fail - localStorage already saved
+        }
+      });
+    }
+  });
+
+  restoreRemarks();
+});
+
+
 
 </script>
 
@@ -6575,6 +6631,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 {% endblock %}
+
 {% endblock content %}
+
+
+
 
 

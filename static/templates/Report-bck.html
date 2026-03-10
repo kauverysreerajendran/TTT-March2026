@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="reports.css">
+    </head>
+    <body>
+     <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="header-content">
+                <div>
+                    <h3>Reports Module</h3>
+                </div>
+                <div class="export-section">
+                    <button id="exportBtn" class="export-btn" disabled>
+                        <span class="icon">📥</span>
+                        Export Reports
+                        <span id="selectedCount" class="count-badge" style="display: none;">0</span>
+                    </button>
+                    <div id="exportMenu" class="export-menu">
+                        <div class="export-header">
+                            <p><strong>Export Options</strong></p>
+                            <p class="export-subtext"><span id="exportCount">0</span> batch(es) selected</p>
+                        </div>
+                        <div class="export-option" data-type="excel">
+                            <span class="export-icon">📊</span>
+                            <div>
+                                <p><strong>Excel Report</strong></p>
+                                <p class="export-desc">Detailed spreadsheet export</p>
+                            </div>
+                        </div>
+                        <div class="export-option" data-type="pdf">
+                            <span class="export-icon">📄</span>
+                            <div>
+                                <p><strong>PDF Report</strong></p>
+                                <p class="export-desc">Formatted document report</p>
+                            </div>
+                        </div>
+                        <div class="export-option" data-type="chart">
+                            <span class="export-icon">📈</span>
+                            <div>
+                                <p><strong>Chart Export</strong></p>
+                                <p class="export-desc">Visual analytics export</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Filters -->
+        <div class="filters-section">
+            <div class="filters-header">
+                <span class="filter-icon">🔍</span>
+                <h2>Filters</h2>
+            </div>
+            <form method="GET" action="{% url 'reports' %}" class="filters-grid">
+                <div class="filter-group">
+                    <label>Batch ID</label>
+                    <div class="input-with-icon">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" name="batch_id" value="{{ batch_id }}" placeholder="Search Batch ID...">
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>LOT ID</label>
+                    <div class="input-with-icon">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" name="lot_id" value="{{ lot_id }}" placeholder="Search LOT ID...">
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Model</label>
+                    <select name="model_no">
+                        <option value="">All Models</option>
+                        {% for model_no_option in model_list %}
+                            <option value="{{ model_no_option }}" {% if model_no_option == model_no %}selected{% endif %}>{{ model_no_option }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Date From</label>
+                    <div class="input-with-icon">
+                        <span class="calendar-icon">📅</span>
+                        <input type="date" name="date_from" value="{{ date_from }}">
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Date To</label>
+                    <div class="input-with-icon">
+                        <span class="calendar-icon">📅</span>
+                        <input type="date" name="date_to" value="{{ date_to }}">
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Modules</label>
+                    <select name="department">
+                        <option value="all" {% if department == 'all' or not department %}selected{% endif %}>All Departments</option>
+                        <option value="day-planning" {% if department == 'day-planning' %}selected{% endif %}>Day Planning</option>
+                        <option value="input-screening" {% if department == 'input-screening' %}selected{% endif %}>Input Screening</option>
+                        <option value="brass-qc" {% if department == 'brass-qc' %}selected{% endif %}>Brass QC</option>
+                        <option value="brass-audit" {% if department == 'brass-audit' %}selected{% endif %}>Brass Audit</option>
+                        <option value="iqf" {% if department == 'iqf' %}selected{% endif %}>IQF</option>
+                        <option value="recovery-day-planning" {% if department == 'recovery-day-planning' %}selected{% endif %}>Recovery Day Planning</option>
+                        <option value="recovery-input-screening" {% if department == 'recovery-input-screening' %}selected{% endif %}>Recovery Input Screening</option>
+                        <option value="recovery-brass-qc" {% if department == 'recovery-brass-qc' %}selected{% endif %}>Recovery Brass QC</option>
+                        <option value="recovery-brass-audit" {% if department == 'recovery-brass-audit' %}selected{% endif %}>Recovery Brass Audit</option>
+                        <option value="recovery-iqf" {% if department == 'recovery-iqf' %}selected{% endif %}>Recovery IQF</option>
+                        <option value="jig-loading" {% if department == 'jig-loading' %}selected{% endif %}>Jig Loading</option>
+                        <option value="inprocess-inspection" {% if department == 'inprocess-inspection' %}selected{% endif %}>Inprocess Inspection</option>
+                        <option value="jig-unloading" {% if department == 'jig-unloading' %}selected{% endif %}>Jig Unloading</option>
+                        <option value="nickel-inspection" {% if department == 'nickel-inspection' %}selected{% endif %}>Nickel Inspection</option>
+                        <option value="nickel-audit" {% if department == 'nickel-audit' %}selected{% endif %}>Nickel Audit</option>
+                        <option value="spider-spindle" {% if department == 'spider-spindle' %}selected{% endif %}>Spider spindle</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="search-btn">Apply Filters</button>
+                </div>
+                <div class="filter-group">
+                    <label>&nbsp;</label>
+                    <a href="{% url 'reports' %}" class="clear-btn">Clear Filters</a>
+                </div>
+            </form>
+        </div>
+
+
+
+
+        <!-- Batch Tracking Table -->
+        <div class="table-section">
+            <div class="table-header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3>Batch Tracking Details</h3>
+                        <p id="tableInfo">
+                            {% if page_obj %}
+                                Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} batches
+                            {% else %}
+                                Showing 0 batches
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>MODEL INFO</th>
+                        <th>QUANTITY</th>
+                        <th>CURRENT STAGE</th>
+                        <th>STATUS</th>
+                        <th>ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="batchTableBody">
+                    {% for row in batch_details %}
+                        <tr>
+                            <td><input type="checkbox"></td>
+                            <td>
+                                <strong>{{ row.model_no }}</strong><br>
+                                {{ row.version }}
+                            </td>
+                            <td>
+                                <strong>{{ row.quantity }}</strong><br>
+                            </td>
+                            <td>{{ row.current_stage }}</td>
+                            <td><span class="badge bg-warning">{{ row.status }}</span></td>
+                            <td>
+                                <span class="action-icon">👁️</span>
+                                <span class="action-icon">🧾</span>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No data found for selected filters</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <!-- Django Template Pagination (same style as DP_Completed_Table.html) -->
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="pagination-wrapper">
+              <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-end mb-0">
+                  {# Previous button #}
+                {% if page_obj.has_previous %}
+                  <li>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if lot_id %}&lot_id={{ lot_id }}{% endif %}{% if batch_id %}&batch_id={{ batch_id }}{% endif %}{% if model_no %}&model_no={{ model_no }}{% endif %}{% if department %}&department={{ department }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}" aria-label="Previous">
+                      <i class="fa fa-chevron-left"></i>
+                    </a>
+                  </li>
+                {% else %}
+                  <li class="disabled">
+                    <span><i class="fa fa-chevron-left"></i></span>
+                  </li>
+                {% endif %}
+                
+                  {# Always show first page #}
+                  {% if page_obj.number > 3 %}
+                    <li><a href="?page=1{% if lot_id %}&lot_id={{ lot_id }}{% endif %}{% if batch_id %}&batch_id={{ batch_id }}{% endif %}{% if model_no %}&model_no={{ model_no }}{% endif %}{% if department %}&department={{ department }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">1</a></li>
+                    {% if page_obj.number > 4 %}
+                      <li class="disabled"><span>…</span></li>
+                    {% endif %}
+                  {% endif %}
+                
+                  {# Show pages around current page #}
+                  {% for num in page_obj.paginator.page_range %}
+                    {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                      {% if num == page_obj.number %}
+                        <li class="active"><span>{{ num }}</span></li>
+                      {% else %}
+                        <li><a href="?page={{ num }}{% if lot_id %}&lot_id={{ lot_id }}{% endif %}{% if batch_id %}&batch_id={{ batch_id }}{% endif %}{% if model_no %}&model_no={{ model_no }}{% endif %}{% if department %}&department={{ department }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">{{ num }}</a></li>
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                
+                  {# Show ellipsis and last page if needed #}
+                  {% if page_obj.number < page_obj.paginator.num_pages|add:'-2' %}
+                    {% if page_obj.number < page_obj.paginator.num_pages|add:'-3' %}
+                      <li class="disabled"><span>…</span></li>
+                    {% endif %}
+                    <li><a href="?page={{ page_obj.paginator.num_pages }}{% if lot_id %}&lot_id={{ lot_id }}{% endif %}{% if batch_id %}&batch_id={{ batch_id }}{% endif %}{% if model_no %}&model_no={{ model_no }}{% endif %}{% if department %}&department={{ department }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">{{ page_obj.paginator.num_pages }}</a></li>
+                  {% endif %}
+                
+                {# Next button #}
+                {% if page_obj.has_next %}
+                  <li>
+                    <a href="?page={{ page_obj.next_page_number }}{% if lot_id %}&lot_id={{ lot_id }}{% endif %}{% if batch_id %}&batch_id={{ batch_id }}{% endif %}{% if model_no %}&model_no={{ model_no }}{% endif %}{% if department %}&department={{ department }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}" aria-label="Next">
+                      <i class="fa fa-chevron-right"></i>
+                    </a>
+                  </li>
+                {% else %}
+                  <li class="disabled">
+                    <span><i class="fa fa-chevron-right"></i></span>
+                  </li>
+                {% endif %}
+                </ul>
+              </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+<style>
+/* Pagination Styles (matching DP_Completed_Table.html) */
+.pagination-wrapper {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.pagination {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.pagination li {
+    margin: 0 2px;
+}
+
+.pagination li a,
+.pagination li span {
+    display: block;
+    padding: 2px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    text-decoration: none;
+    color: #606060;
+    transition: all 0.2s;
+}
+
+.pagination li.active span {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.pagination li.disabled span {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+/* Filter Form Styles */
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.filter-group input,
+.filter-group select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.input-with-icon {
+    position: relative;
+}
+
+.input-with-icon .search-icon,
+.input-with-icon .calendar-icon {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+}
+
+.input-with-icon input {
+    padding-left: 35px;
+}
+
+.search-btn {
+    background: #028084;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.search-btn:hover {
+    background: #026a6d;
+}
+
+.clear-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    font-weight: 600;
+}
+
+.clear-btn:hover {
+    background: #5a6268;
+    color: white;
+    text-decoration: none;
+}
+
+/* Table Styles */
+.table {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.table th,
+.table td {
+    padding: 12px;
+    vertical-align: middle;
+    border: 1px solid #dee2e6;
+    text-align: left;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge.bg-warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.action-icon {
+    cursor: pointer;
+    margin-right: 8px;
+    font-size: 18px;
+}
+</style>
+
+<script nonce="{{ csp_nonce }}">
+document.addEventListener("DOMContentLoaded", function() {
+    // Process Flow functionality (keep existing JavaScript for process flow)
+    const processFlowContainer = document.getElementById('processFlowContainer');
+    
+    function renderProcessFlow(stageCounts) {
+        processFlowContainer.innerHTML = '';
+        const stageKeys = Object.keys(stageCounts);
+        if (stageKeys.length === 0) {
+            processFlowContainer.innerHTML = '<div class="text-muted">No process data found for selected filter.</div>';
+            return;
+        }
+        stageKeys.forEach((stage, idx) => {
+            const count = stageCounts[stage];
+            let statusClass = 'in-progress';
+            processFlowContainer.innerHTML += `
+                <div class="process-step ${statusClass}">
+                    <div class="step-name">${stage}</div>
+                    <div class="step-count">${count}</div>
+                    <div class="step-status">${statusClass}</div>
+                </div>
+                ${idx < stageKeys.length - 1 ? '<div class="arrow">➤</div>' : ''}
+            `;
+        });
+    }
+    
+    function fetchProcessFlow() {
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        let url = `/reports_module/get_stage_counts/?`;
+        if (urlParams.get('model_no')) {
+            url += `model_no=${encodeURIComponent(urlParams.get('model_no'))}&`;
+        }
+        if (urlParams.get('department') && urlParams.get('department') !== 'all') {
+            url += `department=${encodeURIComponent(urlParams.get('department'))}&`;
+        }
+        if (urlParams.get('date_from')) {
+            url += `date_from=${encodeURIComponent(urlParams.get('date_from'))}&`;
+        }
+        if (urlParams.get('date_to')) {
+            url += `date_to=${encodeURIComponent(urlParams.get('date_to'))}&`;
+        }
+        
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                renderProcessFlow(data);
+            })
+            .catch(error => {
+                console.error('Error fetching process flow:', error);
+            });
+    }
+    
+    // Load process flow on page load
+    fetchProcessFlow();
+});
+</script>
+    </body> 
+</html>

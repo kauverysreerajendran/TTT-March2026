@@ -350,7 +350,7 @@ html.pick-table-only {
 /* Large Desktop */
 @media (min-width: 1536px) {
   body::before {
-    content: "✅ Large Desktop Query Active";
+    /* content: "✅ Large Desktop Query Active"; */
     position: fixed;
     top: 0;
     left: 0;

@@ -1995,7 +1995,7 @@ if (h2) {
   
   // Submit button event listener (keep existing functionality)
         // Submit button event listener
-      submitButton.addEventListener('click', async () => {
+      submitButton.addEventListener('click', () => {
         // Validate that we have data to submit
         if (!tableData || tableData.length === 0) {
           Swal.fire({
@@ -2024,49 +2024,14 @@ if (h2) {
           return;
         }
 
-        // ✅ ASYNC VALIDATION - Validate Plating Stock Numbers before submitting
-        const invalidRows = [];
-        for (let idx = 0; idx < validRows.length; idx++) {
-          const row = validRows[idx];
-          const platingStockNo = row['Plating Stk No'];
-          if (platingStockNo) {
-            try {
-              const validation = await validatePlatingStockNo(platingStockNo);
-              if (!validation.isValid) {
-                invalidRows.push({
-                  rowNumber: idx + 1,
-                  error: validation.message
-                });
-              }
-            } catch (error) {
-              console.error(`❌ Validation error for row ${idx + 1}:`, error);
-              invalidRows.push({
-                rowNumber: idx + 1,
-                error: 'Validation failed due to system error'
-              });
-            }
-          }
-        }
-
-        if (invalidRows.length > 0) {
-          const errorMessages = invalidRows.map(r => 
-            `Row ${r.rowNumber}: ${r.error}`
-          ).join('\n');
-
-          Swal.fire({
-            icon: 'error',
-            title: 'Invalid Plating Stock Numbers',
-            text: `Please fix the following errors before submitting:\n${errorMessages}`,
-          });
-          return;
-        }
-
-
+        // Server-side validation handles all row checks and returns detailed errors.
+        // No sequential per-row HTTP calls needed here.
 
         // Clean rows by removing internal fields
         const cleanRows = validRows.map(row => {
           const cleanRow = { ...row };
           delete cleanRow._fileSource;
+          delete cleanRow._autoFilled;
           return cleanRow;
         });
 

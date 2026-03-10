@@ -2,7 +2,7 @@
 {% load static %}
 {% load stock_filters %} 
 {% block content %}
-<script>console.log("🔥 CRITICAL DEBUG: IS_PickTable.html LOADED 🔥");</script>
+<script nonce="{{ csp_nonce }}">console.log("🔥 CRITICAL DEBUG: IS_PickTable.html LOADED 🔥");</script>
   <style>
     /* ✅ FIX: Ensure acceptedTrayCancelBtn is always accessible */
     #acceptedTrayCancelBtn {
@@ -1299,6 +1299,17 @@ input:checked + .hold-slider:before {
                               </div>
                             </div>
                           </a>
+
+                          {% if data.dp_pick_remarks %}
+                          <a
+                            href="#"
+                            title="{{ data.dp_pick_remarks }}"
+                            class="dp-remark-tooltip-trigger"
+                            style="margin-left: 5px;"
+                          >
+                            <i class="fa fa-info-circle" style="color: #007bff; font-size: 16px;"></i>
+                          </a>
+                          {% endif %}
                        
                         </td>
                       
@@ -1669,15 +1680,23 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Original logic: open modal
                 const viewBtn = row.querySelector('.tray-scan-btn-DayPlanning-view');
                 if (viewBtn) {
-                  // ✅ NEW: Set flag to indicate modal is opened from scanner
-                  window.isModalOpenedFromScanner = true;
-                  
-                  viewBtn.click();
-                  
-                  // ✅ NEW: Auto-fill scanned tray ID and trigger validation after modal opens
-                  setTimeout(() => {
-                    autoTriggerTrayValidation(trayId);
-                  }, 500);
+                  // Block modal for held rows — check before setting any flags
+                  if (row.querySelector('.row-inactive-blur') || row.classList.contains('row-inactive-blur')) {
+                    console.log('⛔ [SCANNER] Target row is on hold; blocking modal open for lot', data.lot_id);
+                    scanStatus.style.display = 'inline-block';
+                    scanStatus.style.color = '#dc3545';
+                    scanStatus.textContent = 'Row on hold — access denied';
+                    scanInput.value = '';
+                    setTimeout(() => { scanStatus.style.display = 'none'; }, 4000);
+                  } else {
+                    // ✅ NEW: Set flag to indicate modal is opened from scanner
+                    window.isModalOpenedFromScanner = true;
+                    viewBtn.click();
+                    // ✅ NEW: Auto-fill scanned tray ID and trigger validation after modal opens
+                    setTimeout(() => {
+                      autoTriggerTrayValidation(trayId);
+                    }, 500);
+                  }
                 } else {
                   console.log("View button not found for Lot ID:", data.lot_id);
                 }
@@ -1761,19 +1780,29 @@ function autoTriggerTrayValidation(scannedTrayId) {
 function searchLotIdAcrossPages(lotId, trayId, currentPage) {
   console.log(`🔍 Searching for Lot ID ${lotId} across pages (current: ${currentPage})`);
   
-  // Try to navigate to the page containing the lot_id
-  // We'll navigate to different pages and check if the row exists
   const maxPages = 10; // Reasonable limit to prevent infinite searching
-  let pageToCheck = 1;
+  
+  // ✅ FIXED: Use sessionStorage to track next page to check across navigations
+  let pageToCheck = parseInt(sessionStorage.getItem('pendingScanNextPage') || '1');
+  
+  // If this is a fresh search (not a continuation), reset counter
+  const existingLotId = sessionStorage.getItem('pendingScanLotId');
+  if (!existingLotId || existingLotId !== lotId) {
+    pageToCheck = 1;
+  }
   
   function checkNextPage() {
     if (pageToCheck > maxPages) {
-      // Not found in reasonable number of pages
+      // Not found in reasonable number of pages - clear session and stop
+      sessionStorage.removeItem('pendingScanLotId');
+      sessionStorage.removeItem('pendingScanTrayId');
+      sessionStorage.removeItem('pendingScanOriginalPage');
+      sessionStorage.removeItem('pendingScanNextPage');
       const scanStatus = document.getElementById("scanStatusMessage");
       const scanInput = document.getElementById("scanHiddenInput");
       if (scanStatus) {
         scanStatus.style.color = "#dc3545";
-        scanStatus.textContent = "Tray found but not visible on current pages";
+        scanStatus.textContent = "Tray found but lot not visible on any page";
       }
       if (scanInput) {
         scanInput.value = "";
@@ -1799,6 +1828,8 @@ function searchLotIdAcrossPages(lotId, trayId, currentPage) {
     sessionStorage.setItem('pendingScanLotId', lotId);
     sessionStorage.setItem('pendingScanTrayId', trayId);
     sessionStorage.setItem('pendingScanOriginalPage', currentPage);
+    // ✅ FIXED: Store next page to check so we don't restart from 1
+    sessionStorage.setItem('pendingScanNextPage', (pageToCheck + 1).toString());
     
     // Navigate to the page
     window.location.href = newUrl.toString();
@@ -2107,6 +2138,7 @@ window.restorePreviousRowPosition = restorePreviousRowPosition;
       lastTrigger = null;
     }
   });
+
 });
 </script>
 
@@ -2184,11 +2216,24 @@ window.restorePreviousRowPosition = restorePreviousRowPosition;
              qtyInput.value = qtyInput.getAttribute('data-initial');
              qtyInput.setAttribute('readonly', true);
            }
-   
-   
+
+
            // Hide Tray Validation Status column by rebuilding table without it
          if (modal && detailsDiv && modal.buildTableHTML) {
-           detailsDiv.innerHTML = modal.buildTableHTML(false);
+           // ✅ INSTANT FIX: Clear ALL verification data instantly
+           modal.verificationData = {};
+           
+           // ✅ INSTANT FIX: Reset ALL tray verification flags
+           if (modal.traysData && modal.traysData.length > 0) {
+             modal.traysData.forEach(tray => {
+               tray.IP_tray_verified = false;
+               tray.tray_verified = false;
+               tray.is_verified = false;
+             });
+           }
+           
+           // ✅ INSTANT FIX: Force rebuild table immediately with forceNotVerified=true
+           detailsDiv.innerHTML = modal.buildTableHTML(false, true);
          }
           // ✅ Remove draft/cancel buttons and info message
          if (window.removeDraftCancelButtons) {
@@ -2588,7 +2633,7 @@ if (modalTopHeader) {
          }
    
          // ✅ TABLE BUILDING FUNCTION
-         function buildTableHTML(showValidationColumn = false) {
+         function buildTableHTML(showValidationColumn = false, forceNotVerified = false) {
            let html = `
              <table class="table table-bordered table-sm" style="width:100%; margin-bottom:0;">
                <thead>
@@ -2612,7 +2657,8 @@ if (modalTopHeader) {
                const verification = verificationData[position];
                const isVerifiedByUser = verification ? verification.is_verified : false;
                const isVerifiedInDB = tray.IP_tray_verified || false;
-               const isVerified = isVerifiedByUser || isVerifiedInDB;
+               // ✅ FORCE NOT VERIFIED when forceNotVerified is true
+               const isVerified = forceNotVerified ? false : (isVerifiedByUser || isVerifiedInDB);
                
                const verificationStatus = verification ? verification.verification_status : null;
                const verifiedTrayId = verification ? verification.tray_id : '';
@@ -4071,12 +4117,23 @@ if (redoBtn && validateInput) {
  
       // 3. Update modal's verificationData and rebuild table
       if (modal) {
-        modal.verificationData = verificationData;
-        // Rebuild the table to reflect "Not verified" status
+        // ✅ INSTANT FIX: Force clear ALL verification data
+        modal.verificationData = {};
+        
+        // ✅ INSTANT FIX: Reset ALL tray verification flags immediately 
+        if (modal.traysData && modal.traysData.length > 0) {
+          modal.traysData.forEach(tray => {
+            tray.IP_tray_verified = false;
+            tray.tray_verified = false;
+            tray.is_verified = false;
+          });
+        }
+        
+        // Rebuild the table to reflect "Not verified" status with forceNotVerified=true
         if (typeof modal.buildTableHTML === "function") {
           const detailsDiv = document.getElementById("trayScanDetails_DayPlanning");
           if (detailsDiv) {
-            detailsDiv.innerHTML = modal.buildTableHTML(false);
+            detailsDiv.innerHTML = modal.buildTableHTML(false, true);
           }
         }
       }
@@ -4343,63 +4400,45 @@ if (redoBtn && validateInput) {
      }
    
       // DELETE BUTTON HANDLER - REMOVED (Now handled via event delegation)
-      // Event delegation is used instead to handle dynamically created delete buttons
-           })
-           .then(res => res.json())
-           .then(data => {
-             if (data.success) {
-               row.remove();
-               Swal.fire({
-                 icon: 'success',
-                 title: 'Deleted!',
-                 text: 'Batch has been deleted.',
-                 timer: 1200,
-                 showConfirmButton: false
-               });                  
-             } else {
-               Swal.fire('Error', data.error || 'Delete failed', 'error');
-             }
-           });
-         }
-       });
-     });
-   });
    
    
    // Helper function to show error notification
    function showErrorNotification(message) {
-   // Create or get existing notification element
-   let notification = document.getElementById('error-notification');
-   if (!notification) {
-   notification = document.createElement('div');
-   notification.id = 'error-notification';
-  notification.style.cssText = `
-     position: fixed;
-     left: 50%;
-     top: 50%;
-     transform: translate(-50%, -50%);
-     background: #dc3545;
-     color: white;
-     padding: 18px 32px;
-     border-radius: 12px;
-     box-shadow: 0 4px 24px rgba(220,53,69,0.18);
-     z-index: 10001;
-     font-weight: 600;
-     font-size: 18px;
-     text-align: center;
-     transition: opacity 0.3s ease;
-     opacity: 1;
-  `;
- 
-notification.textContent = message;
+     // Create or get existing notification element
+     let notification = document.getElementById('error-notification');
+     if (!notification) {
+       notification = document.createElement('div');
+       notification.id = 'error-notification';
+       notification.style.cssText = `
+         position: fixed;
+         left: 50%;
+         top: 50%;
+         transform: translate(-50%, -50%);
+         background: #dc3545;
+         color: white;
+         padding: 18px 32px;
+         border-radius: 12px;
+         box-shadow: 0 4px 24px rgba(220,53,69,0.18);
+         z-index: 10001;
+         font-weight: 600;
+         font-size: 18px;
+         text-align: center;
+         transition: opacity 0.3s ease;
+         opacity: 1;
+       `;
+       document.body.appendChild(notification);
+     }
 
-// Show notification
-notification.style.opacity = '1';
+     notification.textContent = message;
 
-// Hide notification after 4 seconds
-setTimeout(() => {
-   notification.style.opacity = '0';
-}, 4000);
+     // Show notification
+     notification.style.opacity = '1';
+
+     // Hide notification after 4 seconds
+     setTimeout(() => {
+       notification.style.opacity = '0';
+     }, 4000);
+   }
    
    const table = document.getElementById("order-listing");
      if (!table) {
@@ -4470,6 +4509,13 @@ setTimeout(() => {
          event.preventDefault();
    
          const row = event.target.closest("tr");
+
+         // Block modal for held rows (marked with row-inactive-blur on their cells)
+         if (row && (row.querySelector('.row-inactive-blur') || row.classList.contains('row-inactive-blur'))) {
+           console.log('⛔ [IS] Row is on hold — modal blocked');
+           return;
+         }
+
          const batchId = link.getAttribute('data-batch-id');
          const stockLotId = link.getAttribute('data-stock-lot-id');
          const isOnProceed = row.getAttribute('data-few-cases-acceptance') === 'True';
@@ -10771,6 +10817,13 @@ function addAcceptedTrayFormInterceptor() {
          event.preventDefault();
    
          const row = event.target.closest("tr");
+
+         // Block modal for held rows (marked with row-inactive-blur on their cells)
+         if (row && (row.querySelector('.row-inactive-blur') || row.classList.contains('row-inactive-blur'))) {
+           console.log('⛔ [IS] Row is on hold — modal blocked');
+           return;
+         }
+
          const batchId = link.getAttribute('data-batch-id');
          const stockLotId = link.getAttribute('data-stock-lot-id');
          
@@ -10964,7 +11017,7 @@ function addAcceptedTrayFormInterceptor() {
          }
    
          // TABLE BUILDING FUNCTION (reuse your existing buildTableHTML)
-         function buildTableHTML(showValidationColumn = false) {
+         function buildTableHTML(showValidationColumn = false, forceNotVerified = false) {
            let html = `
              <table class="table table-bordered table-sm" style="width:100%; margin-bottom:0;">
                <thead>
@@ -10988,7 +11041,8 @@ function addAcceptedTrayFormInterceptor() {
                const verification = verificationData[position];
                const isVerifiedByUser = verification ? verification.is_verified : false;
                const isVerifiedInDB = tray.IP_tray_verified || false;
-               const isVerified = isVerifiedByUser || isVerifiedInDB;
+               // ✅ FORCE NOT VERIFIED when forceNotVerified is true
+               const isVerified = forceNotVerified ? false : (isVerifiedByUser || isVerifiedInDB);
                
                const verificationStatus = verification ? verification.verification_status : null;
                const verifiedTrayId = verification ? verification.tray_id : '';
@@ -11042,7 +11096,7 @@ function addAcceptedTrayFormInterceptor() {
              for (let i = 0; i < totalRows; i++) {
                const position = i + 1;
                const verification = verificationData[position];
-               const isVerified = verification ? verification.is_verified : false;
+               const isVerified = forceNotVerified ? false : (verification ? verification.is_verified : false);
                const verificationStatus = verification ? verification.verification_status : null;
                const verifiedTrayId = verification ? verification.tray_id : '';
                const trayQty = trayQtyList[i] || trayCapacity;

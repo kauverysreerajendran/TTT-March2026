@@ -181,13 +181,13 @@
 }
 
 .iqf-qty-info-bar {
-  display: flex !important;
-  gap: 20px !important;
-  margin-bottom: 24px !important;
-  padding: 20px !important;
-  background: linear-gradient(135deg, #f5f7fa 0%, #fffbf0 100%) !important;
-  border-radius: 12px !important;
-  border: 2px solid #e0e0e0 !important;
+    display: flex !important;
+    gap: 50px !important;
+    margin-bottom: 2px !important;
+    padding: 5px !important;
+    background: linear-gradient(135deg, #f5f7fa 0%, #fffbf0 100%) !important;
+    border-radius: 12px !important;
+    border: 2px solid #e0e0e0 !important;
 }
 
 .iqf-qty-item {
@@ -1442,7 +1442,7 @@
                         <input type="text"
                           class="missing-qty-input"
                           value="{{ data.iqf_missing_qty|default_if_none:'' }}"
-                          style="width: 36px; padding: 1px 3px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"
+                          style="width: 36px; padding: 1px 3px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; display: none;"
                           {% if data.iqf_accepted_qty_verified %}disabled{% endif %} />
                       </span>
                     </td>
@@ -1553,16 +1553,17 @@
                         {% endif %}
 
                       {% else %}
-                        <!-- Default state - Both buttons enabled -->
+                        <!-- Default state - Audit button enabled only after lot qty checkbox is verified -->
 
                         <button type="button" class="btn btn-social-icon-text btn-youtube tray-scan-btn"
-                                style="background-color: #eaab36; color: #fff; border: 2px solid #b38f00; box-shadow: 0 2px 8px rgba(234,171,54,0.12);"
+                                style="background-color: #eaab36; color: #fff; border: 2px solid #b38f00; box-shadow: 0 2px 8px rgba(234,171,54,0.12);{% if not data.iqf_accepted_qty_verified %} opacity:0.5; cursor:not-allowed;{% endif %}"
                                 data-stock-lot-id="{{ data.stock_lot_id }}"
                                 data-batch-id="{{ data.batch_id }}"
                                 data-model-no="{{ data.plating_stk_no }}"
                                 data-lot-qty="{{ data.brass_rejection_total_qty|default:'0' }}"
                                 data-missing-qty="{{ data.iqf_missing_qty|default:'0' }}"
                                 data-physical-qty="{{ data.iqf_physical_qty|default:'0' }}"
+                                {% if not data.iqf_accepted_qty_verified %}disabled title="Check the Lot Qty checkbox first to enable Audit"{% endif %}
                                 >
                           <i class="fa fa-check-circle" style="color: #fff; background: #b38f00; border-radius: 50%; padding: 2px;"></i>Audit
                         </button>
@@ -2567,8 +2568,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }, 8000);
     } else {
       console.log("❌ [LEGACY] Error message elements not found!");
-      // Fallback: show alert if error div not found
-      alert(message);
+      console.log("❌ [LEGACY] Error message elements not found! Alert:", message);
     }
   }
 
@@ -2946,6 +2946,32 @@ async function loadOptimalDistributionDraft(lotId) {
         result.draft_data.delink_trays || []
       );
 
+      console.log('Accepted trays payload:', result.accepted_tray_data?.accepted_trays);
+      // AFTER accepted tray rows are generated
+      setTimeout(() => {
+
+        const acceptedTrays = draftData.accepted_tray_data?.accepted_trays || [];
+        const rows = document.querySelectorAll('.accepted-tray-row');
+
+        console.log('Restoring trays after rows created:', rows.length);
+
+        acceptedTrays.forEach((tray, index) => {
+
+          if (rows[index] && tray.tray_id) {
+
+            const input = rows[index].querySelector('input');
+
+            if (input) {
+              input.value = tray.tray_id;
+              console.log('Restored tray:', tray.tray_id);
+            }
+
+          }
+
+        });
+
+      }, 200);
+
       // Update button to show draft exists
       const draftBtn = document.getElementById('acceptedTrayDraftBtn');
       if (draftBtn) {
@@ -3154,7 +3180,9 @@ function hideIQFModalAlert() {
 
 // ✅ EXISTING CODE STARTS HERE - KEEPING ALL ORIGINAL FUNCTIONALITY
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("🚀 IQF Tray Scan Script Loaded");
   const trayScanLinks = document.querySelectorAll(".tray-scan-btn");
+  console.log("📊 Found tray scan buttons:", trayScanLinks.length);
   const trayModal = document.getElementById("trayScanModal");
   const closeTrayBtn = document.getElementById("closeTrayScanModal");
   const detailsDiv = document.getElementById("trayScanDetails");
@@ -3166,6 +3194,7 @@ document.addEventListener("DOMContentLoaded", () => {
 trayScanLinks.forEach((link) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();
+    console.log("🎯 Tray scan button clicked for element:", link);
 
     const row = event.target.closest("tr");
     const batchId = link.getAttribute('data-batch-id');
@@ -3844,7 +3873,7 @@ function fetchAndShowAcceptedTrayData(lotId) {
     })
     .catch(error => {
       console.error('Error fetching accepted tray data:', error);
-      alert('Error loading accepted tray data. Please try again.');
+      console.error('Error loading accepted tray data. Please try again.');
     });
 }
 
@@ -3925,17 +3954,57 @@ async function showAcceptedTrayModalWithOptimalDistribution(rescanData, lotId, i
 
 // ✅ FIXED: Update renderModalWithOptimalDistribution to use correct values
 async function renderModalWithOptimalDistribution(allRemainingTrays, allComments, draftAlert, lotId) {
+  console.log('🔥 [MODAL] Starting renderModalWithOptimalDistribution');
+  console.log('🔥 [MODAL] allRemainingTrays:', allRemainingTrays);
+  console.log('🔥 [MODAL] lotId:', lotId);
+  console.log('🔥 [MODAL] window.currentModalValues:', window.currentModalValues);
+  
   // Calculate delink counts (unchanged)
   let delinkCount = 0;
   let availableTrays = [];
   
-  try {
-    const counts = await calculateDelinkAndRejectionCounts(allRemainingTrays, lotId);
-    delinkCount = counts.delinkCount;
-    availableTrays = counts.availableTrays;
-  } catch (error) {
-    console.error('❌ Error calculating counts:', error);
+  // ✅ CRITICAL FIX: Get rejection qty from multiple sources
+  let totalIqfQty = 0;
+  
+  // Try to get from currentModalValues first
+  if (window.currentModalValues?.missingQty && parseInt(window.currentModalValues.missingQty) > 0) {
+    totalIqfQty = parseInt(window.currentModalValues.missingQty);
+    console.log('🔥 [MODAL] Using missingQty from currentModalValues:', totalIqfQty);
+  } else {
+    // Fallback: Calculate from rejection table inputs
+    const rejectionInputs = document.querySelectorAll('.rejection-qty-input');
+    rejectionInputs.forEach(input => {
+      totalIqfQty += parseInt(input.value) || 0;
+    });
+    console.log('🔥 [MODAL] Calculated from rejection inputs:', totalIqfQty);
   }
+  
+  console.log('🔥 [MODAL] Final totalIqfQty for delink calculation:', totalIqfQty);
+  
+  try {
+    // Collect accepted tray IDs already entered in the form (not yet saved to DB)
+    const acceptedTrayInputs = document.querySelectorAll('#accepted-tray-table-container input[type="text"]');
+    const pendingAcceptedTrayIds = [];
+    acceptedTrayInputs.forEach(inp => {
+      const val = inp.value.trim();
+      if (val) pendingAcceptedTrayIds.push(val);
+    });
+    const delinkUrl = `/iqf/iqf_get_delink_candidates/?lot_id=${encodeURIComponent(lotId)}` +
+      (pendingAcceptedTrayIds.length ? `&accepted_tray_ids=${encodeURIComponent(pendingAcceptedTrayIds.join(','))}` : '');
+    const delinkResponse = await fetch(delinkUrl);
+    const delinkData = await delinkResponse.json();
+    if (delinkData.success && Array.isArray(delinkData.delink_candidates)) {
+      delinkCount = delinkData.delink_candidates.length;
+      availableTrays = delinkData.delink_candidates.map(c => c.tray_id);
+    }
+    console.log('🔥 [MODAL] Delink from backend - delinkCount:', delinkCount, 'pendingAccepted:', pendingAcceptedTrayIds, 'availableTrays:', availableTrays);
+  } catch (error) {
+    console.error('❌ [MODAL] Error fetching delink candidates:', error);
+    delinkCount = 0;
+    availableTrays = [];
+  }
+
+  console.log('📊 [MODAL] Final delink count for modal:', delinkCount);
 
   // ✅ FIXED: Use the same global values as left popup
   const displayModelNo = window.currentModalValues?.modelNo || 'N/A';
@@ -3962,14 +4031,18 @@ async function renderModalWithOptimalDistribution(allRemainingTrays, allComments
   `;
 
   // Rest of the HTML remains the same...
+  console.log('🔥 [DELINK-TABLE] About to check delinkCount:', delinkCount);
+  console.log('🔥 [DELINK-TABLE] delinkCount > 0?', delinkCount > 0);
+  
   if (delinkCount > 0) {
+    console.log('🔥 [DELINK-TABLE] ✅ CREATING DELINK TABLE with', delinkCount, 'rows (from backend)');
     html += `
       <!-- Delink Table -->
       <table class="table table-bordered" style="margin-bottom: 15px;">
         <thead>
           <tr>
             <th colspan="2" style="padding: 8px; text-align: center; background-color: #6c757d; color: white; font-weight: bold; font-size: 16px;">
-              Delink Table (${delinkCount} empty trays)
+              Delink Table (${delinkCount} unused trays)
             </th>
           </tr>
           <tr>
@@ -3981,6 +4054,7 @@ async function renderModalWithOptimalDistribution(allRemainingTrays, allComments
     `;
     
     for (let i = 0; i < delinkCount; i++) {
+      console.log('🔥 [DELINK-TABLE] Creating row', i + 1, 'of', delinkCount);
       html += `
         <tr>
           <td style="padding: 6px;">${i + 1}</td>
@@ -4002,6 +4076,9 @@ async function renderModalWithOptimalDistribution(allRemainingTrays, allComments
         </tbody>
       </table>
     `;
+    console.log('🔥 [DELINK-TABLE] ✅ DELINK TABLE CREATED SUCCESSFULLY');
+  } else {
+    console.log('🔥 [DELINK-TABLE] ❌ NO DELINK TABLE - delinkCount is:', delinkCount, '(from backend data)');
   }
 
   // ✅ OPTIMAL DISTRIBUTION Rejection Table
@@ -4102,7 +4179,9 @@ async function renderModalWithOptimalDistribution(allRemainingTrays, allComments
   if (typeof autoSaveManager !== 'undefined') {
     // Setup auto-save listeners for this modal
     setTimeout(() => {
-      autoSaveManager.setupAutoSaveListeners(lotId, '');
+      if (typeof autoSaveManager !== 'undefined') {
+            autoSaveManager.setupAutoSaveListeners(lotId, '');
+      }
       console.log('✅ [AUTO-SAVE] Auto-save setup for accepted tray modal complete');
     }, 500);
   }
@@ -4120,16 +4199,12 @@ async function renderModalWithOptimalDistribution(allRemainingTrays, allComments
 }
 
 // ✅ FIXED: calculateDelinkAndRejectionCounts - COUNT delink candidates, ALLOW ALL final remaining trays
-async function calculateDelinkAndRejectionCounts(allRemainingTrays, lotId) {
-  console.log('🔢 Calculating delink and rejection counts...');
-  
-  // 1. ✅ Count delink candidates for ROW COUNT purposes only
-  const delinkCount = allRemainingTrays.filter(tray => tray.is_delink_candidate).length;
-  
-  // 2. ✅ Get ALL final remaining tray IDs (regardless of remaining_qty)
-  const availableTrays = allRemainingTrays.map(tray => tray.tray_id);
-  
-  // 3. ✅ CRITICAL: Fetch tray capacity dynamically - NO FALLBACK
+async function calculateDelinkAndRejectionCounts(allRemainingTrays, lotId, totalIqfQty) {
+  console.log('🔥 [DELINK-CALC] ==================== STARTING CALCULATION ====================');
+  console.log('🔥 [DELINK-CALC] Input params - allRemainingTrays:', allRemainingTrays?.length, 'lotId:', lotId, 'totalIqfQty:', totalIqfQty);
+  console.log('🔥 [DELINK-CALC] allRemainingTrays details:', allRemainingTrays);
+
+  // 1. ✅ CRITICAL: Fetch tray capacity dynamically - NO FALLBACK
   let trayCapacity = null;
   try {
     const capacityResult = await fetchTrayCapacityDynamic(lotId);
@@ -4137,6 +4212,7 @@ async function calculateDelinkAndRejectionCounts(allRemainingTrays, lotId) {
       throw new Error(capacityResult.error);
     }
     trayCapacity = capacityResult.tray_capacity;
+    console.log('🔥 [DELINK-CALC] Tray capacity fetched:', trayCapacity);
   } catch (error) {
     console.error('❌ Tray capacity error in calculateDelinkAndRejectionCounts:', error);
     throw new Error(`Tray capacity fetch failed: ${error.message}`);
@@ -4145,12 +4221,62 @@ async function calculateDelinkAndRejectionCounts(allRemainingTrays, lotId) {
   if (!trayCapacity || trayCapacity <= 0) {
     throw new Error('Invalid tray capacity received from server');
   }
+
+  // 2. Calculate available trays after acceptance usage
+  const totalOriginalTrays = allRemainingTrays.length;
   
-  console.log('📊 Calculated counts with dynamic capacity:', {
-    delinkCount, // Count from delink candidates
-    availableTrays: availableTrays, // ALL final remaining tray IDs
-    trayCapacity
+  // ✅ FIXED: Check if acceptance uses original tray or new tray
+  let reusedInAcceptance = 0;
+  const acceptedTrayInput = document.querySelector('#accepted-tray-table-container input[type="text"]');
+  
+  if (acceptedTrayInput && acceptedTrayInput.value.trim() !== '') {
+    const enteredTrayId = acceptedTrayInput.value.trim();
+    // Check if entered tray ID is one of the original trays
+    const isOriginalTray = allRemainingTrays.some(tray => tray.tray_id === enteredTrayId);
+    reusedInAcceptance = isOriginalTray ? 1 : 0;
+    
+    console.log('🔍 [DELINK-CALC] Acceptance tray analysis:');
+    console.log('🔍 [DELINK-CALC] - enteredTrayId:', enteredTrayId);
+    console.log('🔍 [DELINK-CALC] - isOriginalTray:', isOriginalTray);
+    console.log('🔍 [DELINK-CALC] - originalTrayIds:', allRemainingTrays.map(t => t.tray_id));
+  }
+  
+  const availableAfterAcceptance = totalOriginalTrays - reusedInAcceptance;
+  
+  console.log('🔥 [DELINK-CALC] Available trays calculation:');
+  console.log('🔥 [DELINK-CALC] - totalOriginalTrays:', totalOriginalTrays);
+  console.log('🔥 [DELINK-CALC] - reusedInAcceptance:', reusedInAcceptance);
+  console.log('🔥 [DELINK-CALC] - availableAfterAcceptance:', availableAfterAcceptance);
+
+  // 3. Calculate trays needed for rejection
+  const traysForRejection = Math.ceil(totalIqfQty / trayCapacity);
+  console.log('🔥 [DELINK-CALC] - traysForRejection needed:', traysForRejection, '= Math.ceil(' + totalIqfQty + '/' + trayCapacity + ')');
+
+  // 4. ✅ Calculate actual delink count = available - needed for rejection
+  const delinkCount = Math.max(0, availableAfterAcceptance - traysForRejection);
+  console.log('🔥 [DELINK-CALC] Final delinkCount:', delinkCount, '= max(0,', availableAfterAcceptance, '-', traysForRejection, ')');
+  
+  // 5. ✅ Get actual delink candidate tray IDs
+  const delinkCandidates = allRemainingTrays.filter(tray => 
+    !tray.is_reused_in_acceptance && 
+    !tray.used_in_acceptance && 
+    tray.is_delink_candidate
+  );
+  const availableTrays = delinkCandidates.map(tray => tray.tray_id);
+  console.log('🔥 [DELINK-CALC] Delink candidates:', delinkCandidates);
+  console.log('🔥 [DELINK-CALC] Available trays for delink:', availableTrays);
+  
+  console.log('🔥 [DELINK-CALC] ==================== FINAL RESULT ====================');
+  console.log('🔥 [DELINK-CALC] Calculated counts with proper usage accounting:', {
+    delinkCount: delinkCount, // Actual unused trays after acceptance and rejection allocation
+    availableTrays: availableTrays, // Only delink candidate tray IDs
+    trayCapacity,
+    traysForRejection,
+    totalOriginalTrays,
+    reusedInAcceptance,
+    availableAfterAcceptance
   });
+  console.log('🔥 [DELINK-CALC] ==================== END CALCULATION ====================');
   
   return {
     delinkCount: delinkCount,
@@ -4386,7 +4512,7 @@ function validateSubmitRequirementsWithFeedback() {
       firstInvalidInput.select();
       firstInvalidInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    alert(`❌ Invalid tray IDs found in accepted tray table (Row ${invalidAcceptedTrays.join(', ')}). Please scan valid tray IDs before proceeding.`);
+    console.error(`❌ Invalid tray IDs found in accepted tray table (Row ${invalidAcceptedTrays.join(', ')}). Please scan valid tray IDs before proceeding.`);
     return false;
   }
   
@@ -4397,7 +4523,7 @@ function validateSubmitRequirementsWithFeedback() {
       firstEmptyInput.focus();
       firstEmptyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    alert(`❌ Empty tray IDs found in accepted tray table (Row ${emptyAcceptedTrays.join(', ')}). Please scan all required tray IDs before proceeding.`);
+    console.error(`❌ Empty tray IDs found in accepted tray table (Row ${emptyAcceptedTrays.join(', ')}). Please scan all required tray IDs before proceeding.`);
     return false;
   }
 
@@ -4407,8 +4533,17 @@ function validateSubmitRequirementsWithFeedback() {
   let emptyDelinkInputs = [];
   delinkInputs.forEach((input, index) => {
     const trayId = input.value.trim();
-    const isValid = input.style.borderColor === 'rgb(40, 167, 69)'; // Green border
-    if (!trayId || !isValid) {
+    // ✅ FIX: Read available trays from data attribute set at render time (from iqf_get_delink_candidates)
+    // This is correct because window.currentRemainingTrays only contains trays from iqf_get_remaining_trays
+    // which may not include all delink candidates (e.g. trays not in IQF_Rejected_TrayScan scope).
+    let inputAvailableTrays;
+    try {
+      inputAvailableTrays = JSON.parse(input.getAttribute('data-available-trays') || '[]');
+    } catch (e) {
+      inputAvailableTrays = (window.currentRemainingTrays || []).map(tray => tray.tray_id);
+    }
+    const validation = trayId ? validateDelinkTray(trayId, inputAvailableTrays) : { isValid: false };
+    if (!trayId || !validation.isValid) {
       allDelinkFilled = false;
       emptyDelinkInputs.push(index + 1);
       input.style.borderColor = '#f44336';
@@ -4423,7 +4558,7 @@ function validateSubmitRequirementsWithFeedback() {
       firstEmptyInput.focus();
       firstEmptyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    alert(`❌ Invalid or missing delink tray IDs found (Row ${emptyDelinkInputs.join(', ')}). Please scan valid tray IDs before proceeding.`);
+    console.error(`❌ Invalid or missing delink tray IDs found (Row ${emptyDelinkInputs.join(', ')}). Please scan valid tray IDs before proceeding.`);
     return false;
   }
 
@@ -4447,7 +4582,7 @@ function validateSubmitRequirementsWithFeedback() {
         label.style.fontWeight = '';
       }
     }, 3000);
-    alert('❌ Please check "Verify All" before submitting.');
+    console.error('❌ Please check "Verify All" before submitting.');
     return false;
   }
 
@@ -4532,7 +4667,9 @@ async function loadDraftData(lotId) {
       
       // Show notification if any draft was found
       if (foundAnyDraft) {
-        autoSaveManager.showAutoSaveNotification('Draft data restored');
+        if (typeof autoSaveManager !== 'undefined') {
+          autoSaveManager.showAutoSaveNotification('Draft data restored');
+        }
         console.log('✅ [DRAFT-LOAD] All draft data loaded successfully');
       } else {
         console.log('ℹ️ [DRAFT-LOAD] No existing draft data found');
@@ -4719,53 +4856,76 @@ function loadTrayRejectionDraft(draftData) {
   }
 }
 
-// ✅ NEW: Load accepted tray draft (top tray and delink trays)
 function loadAcceptedTrayDraft(draftData) {
   try {
     console.log('🔄 [DRAFT-LOAD] Loading accepted tray draft:', draftData);
-    
-    // Wait a bit for DOM to be ready, then restore
-    setTimeout(() => {
-      
-      // Restore top tray ID
+
+    const waitForRows = setInterval(() => {
+
+      const acceptedRows = document.querySelectorAll('#accepted-tray-table-body tr');
+      const delinkInputs = document.querySelectorAll('.delink-tray-input');
+
+      // Wait until accepted tray rows exist
+      if (acceptedRows.length === 0) {
+        console.log('⏳ Waiting for accepted tray rows...');
+        return;
+      }
+
+      clearInterval(waitForRows);
+      console.log('✅ Accepted tray rows detected:', acceptedRows.length);
+
+      /* ---------- Restore top tray ---------- */
       if (draftData.top_tray_id) {
         const topTrayInput = document.getElementById('topTrayIdInput');
         if (topTrayInput) {
           topTrayInput.value = draftData.top_tray_id;
-          topTrayInput.dispatchEvent(new Event('input'));
-          console.log('✅ [DRAFT-LOAD] Restored top tray ID:', draftData.top_tray_id);
+          topTrayInput.dispatchEvent(new Event('input', { bubbles: true }));
+          console.log('✅ Restored top tray ID:', draftData.top_tray_id);
         }
       }
-      
-      // Restore delink trays
-      if (draftData.delink_trays && Array.isArray(draftData.delink_trays)) {
-        const delinkInputs = document.querySelectorAll('.delink-tray-input');
+
+      /* ---------- Restore delink trays ---------- */
+      if (Array.isArray(draftData.delink_trays)) {
         draftData.delink_trays.forEach((trayId, index) => {
           if (delinkInputs[index] && trayId) {
             delinkInputs[index].value = trayId;
-            delinkInputs[index].dispatchEvent(new Event('input'));
-            console.log('✅ [DRAFT-LOAD] Restored delink tray:', trayId);
+            delinkInputs[index].dispatchEvent(new Event('input', { bubbles: true }));
+            console.log('✅ Restored delink tray:', trayId);
           }
         });
       }
-      
-      // Restore acceptance remarks  
+
+      /* ---------- Restore accepted trays ---------- */
+      if (Array.isArray(draftData.accepted_trays)) {
+        draftData.accepted_trays.forEach((tray, index) => {
+
+          const trayId = tray?.tray_id || '';
+          const trayInput = acceptedRows[index]?.querySelector('.accepted-tray-id-input');
+
+          if (trayInput && trayId) {
+            trayInput.value = trayId;
+            trayInput.dispatchEvent(new Event('input', { bubbles: true }));
+            trayInput.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log(`✅ Restored accepted tray ${index + 1}: ${trayId}`);
+          }
+
+        });
+      }
+
+      /* ---------- Restore remarks ---------- */
       if (draftData.acceptance_remarks) {
         const remarksInput = document.getElementById('acceptanceRemarksInput');
         if (remarksInput) {
           remarksInput.value = draftData.acceptance_remarks;
           remarksInput.dispatchEvent(new Event('input', { bubbles: true }));
-          console.log('✅ [DRAFT-LOAD] Restored acceptance remarks:', draftData.acceptance_remarks);
-        } else {
-          console.log('⚠️ [DRAFT-LOAD] Acceptance remarks input not found');
+          console.log('✅ Restored acceptance remarks:', draftData.acceptance_remarks);
         }
-      } else {
-        console.log('ℹ️ [DRAFT-LOAD] No acceptance remarks to restore');
       }
-      
-      console.log('✅ [DRAFT-LOAD] Accepted tray draft loaded successfully');
-    }, 300);
-    
+
+      console.log('✅ Accepted tray draft restoration complete');
+
+    }, 100);
+
   } catch (error) {
     console.error('❌ [DRAFT-LOAD] Error loading accepted tray draft:', error);
   }
@@ -4855,6 +5015,23 @@ function addNormalModeEventListeners(lotId) {
         const delink_trays = Array.from(delinkInputs)
           .map(input => input.value.trim())
           .filter(id => id);
+
+        const acceptedRows = document.querySelectorAll('#accepted-tray-table-body tr');
+        const accepted_trays = [];
+        acceptedRows.forEach((row, idx) => {
+          const trayInput = row.querySelector('.accepted-tray-id-input');
+          const qtyCell = row.cells[2];
+          const tray_id = trayInput ? trayInput.value.trim() : '';
+          const qty = qtyCell ? (parseInt(qtyCell.textContent.trim(), 10) || 0) : 0;
+          if (tray_id) {
+            accepted_trays.push({
+              tray_id: tray_id,
+              qty: qty,
+              tray_qty: qty,
+              sequence: idx + 1
+            });
+          }
+        });
         
         // Create comprehensive draft data
         const draftData = {
@@ -4862,6 +5039,7 @@ function addNormalModeEventListeners(lotId) {
           is_manual_draft: true,
           top_tray_id: top_tray_id,
           delink_trays: delink_trays,
+          accepted_trays: accepted_trays,
           timestamp: new Date().toISOString()
         };
         
@@ -4877,6 +5055,7 @@ function addNormalModeEventListeners(lotId) {
             batch_id: '',
             top_tray_id: top_tray_id,
             delink_trays: delink_trays,
+            accepted_trays: accepted_trays,
             draft_save: true  // This is manual draft
           })
         });
@@ -5008,14 +5187,30 @@ function processAllTrayData(lotId, isDraft, successMessage) {
     }
   });
 
-  // ✅ NEW: Collect rejection_top_trays if needed (backend expects this field)
-  const rejectionTopTrays = [];
-  // This might be needed based on your business logic - currently empty
+  // ✅ NEW: Collect accepted tray data from right modal
+  const acceptedTrays = [];
+  // Check if the accepted tray modal is open and has scanned trays
+  const acceptedTrayModal = document.getElementById('newPopupModal');
+  if (acceptedTrayModal && acceptedTrayModal.classList.contains('open')) {
+    // Collect from accepted tray scan table (right modal)
+    document.querySelectorAll('#newPopupModal .accepted-tray-id-input').forEach((input) => {
+      const trayId = input.value.trim();
+      const qtyInput = input.closest('tr').querySelector('.accepted-tray-qty-input');
+      const qty = qtyInput ? parseInt(qtyInput.value.trim()) || 0 : 0;
+      
+      if (trayId && qty > 0) {
+        acceptedTrays.push({
+          tray_id: trayId,
+          qty: qty
+        });
+      }
+    });
+  }
 
   console.log('✅ FIXED: Submitting data in correct format:', {
     delinkTrays,
     verifications,
-    rejectionTopTrays,
+    acceptedTrays,
     isDraft
   });
 
@@ -5024,7 +5219,8 @@ function processAllTrayData(lotId, isDraft, successMessage) {
     lot_id: lotId,
     delink_trays: delinkTrays,           // Array of strings
     verifications: verifications,         // Array of objects with {tray_id, verified, qty}
-    rejection_top_trays: rejectionTopTrays, // Array of objects with {tray_id, qty}
+    accepted_trays: acceptedTrays,        // Array of objects with {tray_id, qty}
+    rejection_top_trays: [],             // Reserved for future use
     is_draft: isDraft
   };
 
@@ -5064,8 +5260,22 @@ function processAllTrayData(lotId, isDraft, successMessage) {
             msgP.textContent = "Draft saved successfully!";
           }
         } else {
-          // For final submit, reload page
-          window.location.reload();
+          // For final submit, close all related modals and return to pick table
+          const newPopupModal = document.getElementById('newPopupModal');
+          const trayScanModal = document.getElementById('trayScanModal');
+          const trayScanModalDayPlanning = document.getElementById('trayScanModal_DayPlanning');
+
+          if (newPopupModal) newPopupModal.classList.remove('open');
+          if (trayScanModal) trayScanModal.classList.remove('open');
+          if (trayScanModalDayPlanning) trayScanModalDayPlanning.classList.remove('open');
+
+          // Navigate explicitly to IQF pick table after successful verification submit
+          window.location.href = '/iqf/iqf_picktable/';
+          
+          // Show success message
+          if (msgP) {
+            msgP.textContent = "Verification completed successfully!";
+          }
         }
       }, 1200);
       
@@ -5499,7 +5709,7 @@ function buildRejectionFormHTML(detailsDiv, stockLotId, batchId, hasLotRejection
       // Add brass rejection comment if exists (display after quantity info bar)
       if (lotRejectedComment) {
         html += `
-          <div style="margin: 18px 0; padding: 18px 20px; background: linear-gradient(135deg, #fffbf0 0%, #fff9e6 100%); border: 2px solid #ffd54f; border-radius: 12px; color: #ad6800; font-size: 15px; box-shadow: 0 4px 12px rgba(255,193,7,0.15);">
+          <div style="margin: 10px 0;padding: 10px 23px;background: linear-gradient(135deg, #fffbf0 0%, #fff9e6 100%);border: 2px solid #ffd54f;border-radius: 12px;color: #ad6800;font-size: 15px;box-shadow: 0 4px 12px rgba(255,193,7,0.15);">
             <div style="display: flex; align-items: flex-start; gap: 12px;">
               <i class="fa fa-exclamation-triangle" style="color: #ff9800; font-size: 22px; margin-top: 2px; animation: pulse 2s infinite;"></i>
               <div style="flex: 1;">
@@ -6928,6 +7138,12 @@ async function updateAcceptedTrayTable(totalBrassQty, totalEnteredQty, providedT
 
   if (!acceptedTrayTableBody || !acceptedTrayContainer) return;
 
+  // Prevent async race conditions during rapid draft/input updates:
+  // only the latest invocation is allowed to render rows.
+  window.__iqfAcceptedRenderSeq = (window.__iqfAcceptedRenderSeq || 0) + 1;
+  const currentRenderSeq = window.__iqfAcceptedRenderSeq;
+  const isStaleRender = () => currentRenderSeq !== window.__iqfAcceptedRenderSeq;
+
   let trayCapacity = providedTrayCapacity;
 
   // ✅ If no tray capacity provided, fetch it dynamically - NO FALLBACK
@@ -6942,6 +7158,7 @@ async function updateAcceptedTrayTable(totalBrassQty, totalEnteredQty, providedT
     console.log('🔄 Fetching tray capacity for accepted tray table...');
     try {
       const capacityResult = await fetchTrayCapacityDynamic(stockLotId);
+      if (isStaleRender()) return;
       
       if (!capacityResult.success) {
         console.error('❌ Failed to fetch tray capacity:', capacityResult.error);
@@ -6957,6 +7174,7 @@ async function updateAcceptedTrayTable(totalBrassQty, totalEnteredQty, providedT
       }
 
     } catch (error) {
+      if (isStaleRender()) return;
       console.error('❌ Network error fetching tray capacity:', error);
       showTrayCapacityError(`Network error: ${error.message}`);
       return;
@@ -6999,11 +7217,6 @@ async function updateAcceptedTrayTable(totalBrassQty, totalEnteredQty, providedT
     
     acceptedTrayTableBody.innerHTML = '';
 
-    const headerQtyElement = document.getElementById('accepted-qty-display');
-    if (headerQtyElement) {
-      headerQtyElement.textContent = acceptedQty;
-    }
-
     // ✅ Fetch max reusable trays from backend based on rejection qty
     let maxReusableTrays = 0;
     try {
@@ -7011,12 +7224,14 @@ async function updateAcceptedTrayTable(totalBrassQty, totalEnteredQty, providedT
       if (stockLotIdForReuse && totalEnteredQty >= 0) {
         const reuseResp = await fetch(`/iqf/get_tray_capacity/?lot_id=${encodeURIComponent(stockLotIdForReuse)}&rejection_qty=${totalEnteredQty}`);
         const reuseData = await reuseResp.json();
+        if (isStaleRender()) return;
         if (reuseData.success && reuseData.max_reusable_trays !== undefined) {
           maxReusableTrays = reuseData.max_reusable_trays;
           console.log(`📊 Max reusable trays from backend: ${maxReusableTrays}`);
         }
       }
     } catch (e) {
+      if (isStaleRender()) return;
       console.error('Error fetching reuse info:', e);
     }
 
@@ -7040,6 +7255,15 @@ async function updateAcceptedTrayTable(totalBrassQty, totalEnteredQty, providedT
     
     for (let i = 0; i < fullTrays; i++) {
       trayQuantities.push(trayCapacity);
+    }
+
+    if (isStaleRender()) return;
+
+    // Final consistent render for latest call only
+    acceptedTrayTableBody.innerHTML = '';
+    const headerQtyElement = document.getElementById('accepted-qty-display');
+    if (headerQtyElement) {
+      headerQtyElement.textContent = acceptedQty;
     }
 
     // ✅ FIXED: Create rows and restore existing tray IDs
@@ -7109,15 +7333,23 @@ function addAcceptedTrayIdValidation() {
     
     // Collect all scanned accepted tray IDs
     const allInputs = document.querySelectorAll('.accepted-tray-id-input');
-    const trayIds = [];
-    allInputs.forEach(function(inp) {
+    const acceptedTrays = [];
+    allInputs.forEach(function(inp, idx) {
       const val = inp.value.trim();
       if (val && inp.validationState === 'success') {
-        trayIds.push(val);
+        const row = inp.closest('tr');
+        const qtyCell = row && row.cells && row.cells[2] ? row.cells[2] : null;
+        const qty = qtyCell ? (parseInt(qtyCell.textContent.trim(), 10) || 0) : 0;
+        acceptedTrays.push({
+          tray_id: val,
+          qty: qty,
+          tray_qty: qty,
+          sequence: idx + 1
+        });
       }
     });
     
-    if (trayIds.length === 0) {
+    if (acceptedTrays.length === 0) {
       console.log('⚠️ [AUTO-SAVE] No valid tray IDs to save');
       return;
     }
@@ -7125,16 +7357,17 @@ function addAcceptedTrayIdValidation() {
     // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                       document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1] || '';
-    
+    const accepted_Trays = collectAcceptedTrays();
     const payload = {
       lot_id: lotId,
       is_auto_save: true,
-      delink_trays: trayIds,
+      accepted_trays: accepted_Trays,
+      delink_trays: [],
       top_tray_id: '',
       top_tray_qty: 0
     };
     
-    console.log('💾 [AUTO-SAVE] Saving accepted trays:', trayIds);
+    console.log('💾 [AUTO-SAVE] Saving accepted trays:', acceptedTrays);
     
     fetch('/iqf/iqf_save_accepted_tray_draft/', {
       method: 'POST',
@@ -7820,6 +8053,80 @@ function handleTrayWiseRejectionWithAcceptance(batchId, stockLotId, msgDiv, proc
             });
         }
       }, 1000);
+    } else if (data.delink_required) {
+      // Show delink confirmation
+      const delinkText = 'Delink required for new tray usage. Confirm to proceed?';
+      
+      if (confirm(delinkText)) {
+        // Call again with delink_confirmed
+        fetch('/iqf/iqf_tray_rejection/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+          },
+          body: JSON.stringify({
+            lot_id: stockLotId,
+            batch_id: batchId,
+            tray_rejections: tray_rejections,
+            accepted_trays: accepted_trays,
+            acceptance_remarks: acceptanceRemarks,
+            delink_confirmed: true
+          })
+        })
+        .then(res => res.json())
+        .then(data2 => {
+          if (data2.success) {
+            if (msgDiv) {
+              msgDiv.style.color = "#388e3c";
+              msgDiv.textContent = "Rejection and acceptance data saved successfully!";
+            }
+            
+            setTimeout(() => {
+              const trayModal = document.getElementById("trayScanModal");
+              const detailsDiv = document.getElementById("trayScanDetails");
+              if (trayModal && detailsDiv) {
+                trayModal.classList.add("open");
+                showReadOnlyRejectionData(stockLotId, detailsDiv);
+              }
+              
+              fetch(`/iqf/iqf_get_rejected_tray_scan_data/?lot_id=${encodeURIComponent(stockLotId)}`)
+                .then(res => res.json())
+                .then(rescanData => {
+                  if (rescanData.success) {
+                    showAcceptedTrayModalWithOptimalDistribution(rescanData, stockLotId, false);
+                  } else {
+                    window.location.reload();
+                  }
+                })
+                .catch(() => {
+                  window.location.reload();
+                });
+            }, 1000);
+          } else {
+            if (msgDiv) {
+              msgDiv.style.color = "#d32f2f";
+              msgDiv.textContent = data2.error || "Failed to save data after delink";
+            }
+            proceedButton.disabled = false;
+          }
+        })
+        .catch(err => {
+          console.error('❌ Network error after delink:', err);
+          if (msgDiv) {
+            msgDiv.style.color = "#d32f2f";
+            msgDiv.textContent = "Network error after delink. Please try again.";
+          }
+          proceedButton.disabled = false;
+        });
+      } else {
+        // User cancelled delink
+        proceedButton.disabled = false;
+        if (msgDiv) {
+          msgDiv.style.color = "#d32f2f";
+          msgDiv.textContent = "Delink cancelled. Please try again.";
+        }
+      }
     } else {
       if (msgDiv) {
         msgDiv.style.color = "#d32f2f";
@@ -8602,12 +8909,12 @@ function handleAcceptButtonClick(acceptBtn) {
 }
 
 function showAlert(title, text, icon) {
-    console.log('🚨 Showing alert:', title, text, icon);
+    console.log('🚨 Alert:', title, text, icon);
     
     if (typeof Swal !== 'undefined') {
         Swal.fire(title, text, icon);
     } else {
-        alert(title + (text ? '\n' + text : ''));
+        console.log('🚨 Alert (no Swal):', title, text);
     }
 }
 
@@ -8648,7 +8955,7 @@ function showSuccess(title, onComplete) {
             timer: 1200
         }).then(onComplete);
     } else {
-        alert(title);
+        console.log('🎉 Success (no Swal):', title);
         onComplete();
     }
 }
@@ -10920,22 +11227,82 @@ document.addEventListener("DOMContentLoaded", function () {
   function validateBarcode(trayId) {
     console.log("🔍 [IQF SCANNER] Processing tray ID:", trayId);
     
-    // Find priority row (Draft first, then first available)
-    openPriorityRowModal(trayId);
-    
-    // Optional: Log API response for debugging (doesn't affect modal opening)
+    // First, fetch the lot_id for this tray
     fetch(`/iqf/get_lot_id_for_tray/?tray_id=${encodeURIComponent(trayId)}`)
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          console.log("✅ [IQF SCANNER] Tray found in system - ID:", trayId, "Lot:", data.lot_id);
+        if (data.success && data.lot_id) {
+          console.log("✅ [IQF SCANNER] Tray found - ID:", trayId, "Lot:", data.lot_id);
+          
+          // Find the row with this lot_id on current page
+          const allDataRows = document.querySelectorAll('#order-listing tbody tr');
+          let targetRow = null;
+          
+          for (let i = 0; i < allDataRows.length; i++) {
+            const row = allDataRows[i];
+            const stockLotId = row.getAttribute('data-stock-lot-id');
+            if (stockLotId === data.lot_id) {
+              targetRow = row;
+              break;
+            }
+          }
+          
+          if (targetRow) {
+            // Found on current page - open modal for this row
+            openSpecificRowModal(targetRow, trayId);
+            scanStatus.style.color = "#28a745";
+            scanStatus.textContent = "Modal opened!";
+          } else {
+            // Not found on current page - search across pages
+            console.log("Row not found on current page for Lot ID:", data.lot_id);
+            const currentUrl = new URL(window.location);
+            const currentPage = currentUrl.searchParams.get('page') || '1';
+            scanStatus.style.color = "#dc3545";
+            scanStatus.textContent = "Lot not found on current page, searching...";
+            searchLotIdAcrossPages(data.lot_id, trayId, currentPage);
+          }
         } else {
-          console.log("⚠️ [IQF SCANNER] Tray not in system, manual entry required:", trayId);
+          // Tray not found in system - show message only
+          console.log("⚠️ [IQF SCANNER] Tray not in system:", trayId);
+          scanStatus.style.color = "#ff8c00";
+          scanStatus.textContent = "Tray not in system - manual entry required";
         }
       })
       .catch((error) => {
-        console.log("⚠️ [IQF SCANNER] API error (modal still opened):", error);
+        console.log("⚠️ [IQF SCANNER] API error, using priority row:", error);
+        openPriorityRowModal(trayId);
+        scanStatus.style.color = "#dc3545";
+        scanStatus.textContent = "Network error - using priority row";
       });
+  }
+  
+  // Function to open modal for a specific row
+  function openSpecificRowModal(targetRow, trayId) {
+    console.log("🎯 [IQF SCANNER] Opening modal for specific row");
+    
+    // Find the View button in the target row (in Action column)
+    const viewBtn = targetRow.querySelector('a[href="#"]');
+    
+    if (!viewBtn) {
+      showScanError("View button not available for the selected row!");
+      return;
+    }
+    
+    // Store the scanned tray ID globally so it can be used when modal opens
+    window.scannedTrayIdForIQFModal = trayId;
+    
+    // Click the View button to open modal
+    viewBtn.click();
+    
+    // Pre-fill tray ID in modal after it opens
+    setTimeout(() => {
+      fillTrayIdInIQFModal(trayId);
+    }, 500);
+    
+    // Stop scanning after successful modal opening
+    setTimeout(() => {
+      stopScanning();
+    }, 2000);
   }
   
   // Function to find and open priority row modal (Draft first, then first available)
@@ -11006,6 +11373,163 @@ document.addEventListener("DOMContentLoaded", function () {
     setTimeout(() => {
       stopScanning();
     }, 2000);
+  }
+  
+  // ✅ NEW: Search for lot_id across pages when not found on current page
+  function searchLotIdAcrossPages(lotId, trayId, currentPage) {
+    console.log(`🔍 Searching for Lot ID ${lotId} across pages (current: ${currentPage})`);
+    
+    const maxPages = 10; // Reasonable limit to prevent infinite searching
+    
+    // ✅ FIXED: Use sessionStorage to track next page to check across navigations
+    let pageToCheck = parseInt(sessionStorage.getItem('pendingScanNextPage') || '1');
+    
+    // If this is a fresh search (not a continuation), reset counter
+    const existingLotId = sessionStorage.getItem('pendingScanLotId');
+    if (!existingLotId || existingLotId !== lotId) {
+      pageToCheck = 1;
+    }
+    
+    function checkNextPage() {
+      if (pageToCheck > maxPages) {
+        // Not found in reasonable number of pages - clear session and stop
+        sessionStorage.removeItem('pendingScanLotId');
+        sessionStorage.removeItem('pendingScanTrayId');
+        sessionStorage.removeItem('pendingScanOriginalPage');
+        sessionStorage.removeItem('pendingScanNextPage');
+        const scanStatus = document.getElementById("scanStatusMessage");
+        const scanInput = document.getElementById("scanHiddenInput");
+        if (scanStatus) {
+          scanStatus.style.color = "#dc3545";
+          scanStatus.textContent = "Tray found but lot not visible on any page";
+        }
+        if (scanInput) {
+          scanInput.value = "";
+          scanInput.focus();
+        }
+        return;
+      }
+      
+      if (pageToCheck.toString() === currentPage) {
+        // Skip current page (already checked)
+        pageToCheck++;
+        checkNextPage();
+        return;
+      }
+      
+      console.log(`🔍 Checking page ${pageToCheck} for Lot ID ${lotId}`);
+      
+      // Navigate to the page
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('page', pageToCheck);
+      
+      // Store scan data for after page load
+      sessionStorage.setItem('pendingScanLotId', lotId);
+      sessionStorage.setItem('pendingScanTrayId', trayId);
+      sessionStorage.setItem('pendingScanOriginalPage', currentPage);
+      // ✅ FIXED: Store next page to check so we don't restart from 1
+      sessionStorage.setItem('pendingScanNextPage', (pageToCheck + 1).toString());
+      
+      // Navigate to the page
+      window.location.href = newUrl.toString();
+    }
+    
+    checkNextPage();
+  }
+  
+  // ✅ NEW: Check for pending scan after page load
+  function checkPendingScanAfterPageLoad() {
+    const pendingLotId = sessionStorage.getItem('pendingScanLotId');
+    const pendingTrayId = sessionStorage.getItem('pendingScanTrayId');
+    const originalPage = sessionStorage.getItem('pendingScanOriginalPage');
+    
+    if (pendingLotId && pendingTrayId) {
+      console.log(`🔄 [IQF SCANNER] Continuing search for Lot ID ${pendingLotId} on new page`);
+      
+      // Clear the pending scan data
+      sessionStorage.removeItem('pendingScanLotId');
+      sessionStorage.removeItem('pendingScanTrayId');
+      sessionStorage.removeItem('pendingScanOriginalPage');
+      sessionStorage.removeItem('pendingScanNextPage');
+      
+      // Find the row with this lot_id on current page
+      const allDataRows = document.querySelectorAll('#order-listing tbody tr');
+      let targetRow = null;
+      
+      for (let i = 0; i < allDataRows.length; i++) {
+        const row = allDataRows[i];
+        const stockLotId = row.getAttribute('data-stock-lot-id');
+        if (stockLotId === pendingLotId) {
+          targetRow = row;
+          break;
+        }
+      }
+      
+      if (targetRow) {
+        // Found on this page - open modal
+        console.log(`✅ [IQF SCANNER] Found Lot ID ${pendingLotId} on page ${window.location.search}`);
+        openSpecificRowModal(targetRow, pendingTrayId);
+        highlightAndMoveRowToTop(targetRow, pendingLotId);
+        const scanStatus = document.getElementById("scanStatusMessage");
+        if (scanStatus) {
+          scanStatus.style.color = "#28a745";
+          scanStatus.textContent = "Lot found and modal opened!";
+        }
+      } else {
+        // Not found on this page either - continue searching
+        const currentUrl = new URL(window.location);
+        const currentPage = currentUrl.searchParams.get('page') || '1';
+        console.log(`❌ [IQF SCANNER] Lot ID ${pendingLotId} not found on page ${currentPage}, continuing search`);
+        searchLotIdAcrossPages(pendingLotId, pendingTrayId, currentPage);
+      }
+    }
+  }
+  
+  // ✅ NEW: Highlight and move row to top when Accept/Reject buttons are enabled
+  function highlightAndMoveRowToTop(row, lotId) {
+    console.log(`🎯 Highlighting and moving row to top for Lot ID: ${lotId}`);
+    
+    // If there's already a highlighted row, restore it first
+    if (window.currentHighlightedRow && window.originalRowPosition) {
+      restorePreviousRowPosition();
+    }
+    
+    // Store original position
+    window.originalRowPosition = row;
+    window.currentHighlightedRow = row;
+    
+    // Add highlight class
+    row.classList.add('highlighted-tray-scan');
+    
+    // Move row to top of table
+    const tbody = row.closest('tbody');
+    if (tbody) {
+      tbody.insertBefore(row, tbody.firstChild);
+    }
+    
+    // Scroll to top of table
+    const tableContainer = document.querySelector('.table-responsive');
+    if (tableContainer) {
+      tableContainer.scrollTop = 0;
+    }
+    
+    // Auto-remove highlight after 10 seconds
+    setTimeout(() => {
+      restorePreviousRowPosition();
+    }, 10000);
+  }
+  
+  // ✅ NEW: Restore previous row to its original position
+  function restorePreviousRowPosition() {
+    if (window.currentHighlightedRow && window.originalRowPosition) {
+      // Remove highlight class
+      window.currentHighlightedRow.classList.remove('highlighted-tray-scan');
+      
+      // Note: In a real implementation, you'd need to track and restore the exact position
+      // For now, just remove the highlight
+      window.currentHighlightedRow = null;
+      window.originalRowPosition = null;
+    }
   }
   
   // Function to find and fill next empty tray ID slot in IQF modals
@@ -11259,6 +11783,9 @@ document.addEventListener("DOMContentLoaded", function () {
   scanInput.addEventListener("focus", resetInactivityTimer);
   scanInput.addEventListener("input", resetInactivityTimer);
   scanInput.addEventListener("keydown", resetInactivityTimer);
+  
+  // ✅ NEW: Check for pending scan after page load
+  checkPendingScanAfterPageLoad();
   
   console.log("✅ [IQF SCANNER] Barcode scanner initialized successfully");
 });
@@ -11798,8 +12325,23 @@ function extractLotIdFromContext() {
 }
 
 console.log('✅ [AUTO-SAVE] IQF Auto-save system loaded successfully');
+function collectAcceptedTrays() {
+  const rows = document.querySelectorAll('#accepted-tray-table-body tr');
 
+  const trays = [];
 
+  rows.forEach((row, index) => {
+    const input = row.querySelector('.accepted-tray-id-input');
+    const trayId = input ? input.value.trim() : '';
+
+    trays.push({
+      tray_id: trayId,
+      position: index + 1
+    });
+  });
+
+  return trays;
+}
 </script>
 
 {% endblock %} {% endblock content %}

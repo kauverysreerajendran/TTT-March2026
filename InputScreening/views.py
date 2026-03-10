@@ -136,6 +136,7 @@ class IS_PickTable(APIView):
             (Q(rejected_ip_stock=False) | Q(rejected_ip_stock__isnull=True)) &
             (Q(accepted_tray_scan_status=False) | Q(accepted_tray_scan_status__isnull=True)),
             tray_scan_exists=True,
+            Moved_to_D_Picker=True,  # Only show lots fully submitted from Day Planning (excludes drafts)
 
         ).exclude(
             totalstockmodel__remove_lot=True    
@@ -171,6 +172,7 @@ class IS_PickTable(APIView):
             'few_cases_accepted_Ip_stock',
             'accepted_tray_scan_status',
             'IP_pick_remarks',
+            'dp_pick_remarks',
             'rejected_ip_stock',
             'ip_onhold_picking',
             'created_at',
@@ -484,14 +486,31 @@ class IPDeleteBatchAPIView(APIView):
     def post(self, request):
         try:
             data = request.data if hasattr(request, 'data') else json.loads(request.body.decode('utf-8'))
+            batch_id = data.get('batch_id')
             stock_lot_id = data.get('stock_lot_id')
-            if not stock_lot_id:
-                return JsonResponse({'success': False, 'error': 'Missing stock_lot_id'}, status=400)
-            obj = TotalStockModel.objects.filter(lot_id=stock_lot_id).first()
-            if not obj:
-                return JsonResponse({'success': False, 'error': 'Stock lot not found'}, status=404)
-            obj.delete()
-            return JsonResponse({'success': True, 'message': 'Stock lot deleted'})
+
+            if not batch_id and not stock_lot_id:
+                return JsonResponse({'success': False, 'error': 'Missing batch_id or stock_lot_id'}, status=400)
+
+            # Delete ALL TotalStockModel records for this batch (including DRAFT records)
+            # This prevents deleted batches from reappearing due to leftover DRAFT records
+            if batch_id:
+                batch_obj = ModelMasterCreation.objects.filter(batch_id=batch_id).first()
+                if batch_obj:
+                    deleted_count, _ = TotalStockModel.objects.filter(batch_id=batch_obj).delete()
+                    if deleted_count == 0:
+                        return JsonResponse({'success': False, 'error': 'No stock records found for this batch'}, status=404)
+                    return JsonResponse({'success': True, 'message': f'{deleted_count} stock record(s) deleted'})
+                else:
+                    return JsonResponse({'success': False, 'error': 'Batch not found'}, status=404)
+            else:
+                # Fallback: delete by stock_lot_id if batch_id not provided
+                obj = TotalStockModel.objects.filter(lot_id=stock_lot_id).first()
+                if not obj:
+                    return JsonResponse({'success': False, 'error': 'Stock lot not found'}, status=404)
+                # Also delete any other TotalStockModel records for the same batch
+                TotalStockModel.objects.filter(batch_id=obj.batch_id).delete()
+                return JsonResponse({'success': True, 'message': 'Stock lot deleted'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
@@ -1271,6 +1290,29 @@ def reject_check_tray_id_simple(request):
         tray_obj = IPTrayId.objects.filter(tray_id=tray_id, lot_id=current_lot_id).first()
 
         if not tray_obj:
+            # ✅ FIX: Check if tray is delinked (lot_id=None, delink_tray=True) — delinked trays are reusable
+            delinked_tray = IPTrayId.objects.filter(tray_id=tray_id, delink_tray=True, lot_id__isnull=True).first()
+            if delinked_tray:
+                print(f"[Simple Validation] Delinked tray {tray_id} is available for reuse")
+                # Validate tray type compatibility before allowing reuse
+                tray_type_validation = validate_tray_type_compatibility(tray_id_obj, current_lot_id)
+                if not tray_type_validation['is_compatible']:
+                    return JsonResponse({
+                        'exists': False,
+                        'valid_for_rejection': False,
+                        'error': tray_type_validation['error'],
+                        'status_message': tray_type_validation['status_message'],
+                        'tray_type_mismatch': True,
+                        'scanned_tray_type': tray_type_validation['scanned_tray_type'],
+                        'expected_tray_type': tray_type_validation['expected_tray_type']
+                    })
+                return JsonResponse({
+                    'exists': True,
+                    'valid_for_rejection': True,
+                    'status_message': 'Delinked Tray Available (Reuse)',
+                    'validation_type': 'delinked_reuse',
+                    'tray_type_compatible': True
+                })
             return JsonResponse({
                 'exists': False,
                 'valid_for_rejection': False,
@@ -4042,6 +4084,75 @@ class TrayIdList_Complete_APIView(APIView):
             data.append(tray_data)
             row_counter += 1
         
+        # ✅ FIX: Include delink trays from IP_Accepted_TrayID_Store
+        # Delinked trays have lot_id=None in IPTrayId, so they are not returned by the base queryset.
+        # The delink tray info is stored in IP_Accepted_TrayID_Store.delink_trays JSON field.
+        try:
+            accepted_store = IP_Accepted_TrayID_Store.objects.filter(lot_id=lot_id, is_save=True).first()
+            if accepted_store and accepted_store.delink_trays:
+                for delink_entry in accepted_store.delink_trays:
+                    delink_tray_id = delink_entry.get('tray_id', '')
+                    delink_tray_qty = delink_entry.get('tray_qty', 0)
+                    data.append({
+                        's_no': row_counter,
+                        'tray_id': delink_tray_id,
+                        'tray_quantity': delink_tray_qty,
+                        'position': row_counter - 1,
+                        'is_top_tray': False,
+                        'rejected_tray': False,
+                        'delink_tray': True,
+                        'rejection_details': [],
+                        'top_tray': False,
+                    })
+                    row_counter += 1
+                print(f"Added {len(accepted_store.delink_trays)} delink trays from IP_Accepted_TrayID_Store")
+        except Exception as e:
+            print(f"Error fetching delink trays from IP_Accepted_TrayID_Store: {e}")
+
+        # ✅ FIX: Include delinked trays used for rejection
+        # Delinked trays have lot_id=None in IPTrayId, so they are missed by base queryset.
+        # Check IP_Rejected_TrayScan for rejected tray IDs not already in the data list.
+        if not (accepted_ip_stock and not few_cases_accepted_ip_stock):
+            try:
+                existing_tray_ids = {item['tray_id'] for item in data}
+                rejected_scan_tray_ids = IP_Rejected_TrayScan.objects.filter(
+                    lot_id=lot_id
+                ).exclude(
+                    models.Q(rejected_tray_id__isnull=True) | models.Q(rejected_tray_id='')
+                ).values_list('rejected_tray_id', flat=True).distinct()
+
+                for rej_tray_id in rejected_scan_tray_ids:
+                    if rej_tray_id not in existing_tray_ids:
+                        tray_obj = IPTrayId.objects.filter(tray_id=rej_tray_id).first()
+                        rejection_details = []
+                        rej_scans = IP_Rejected_TrayScan.objects.filter(
+                            lot_id=lot_id,
+                            rejected_tray_id=rej_tray_id
+                        )
+                        for s in rej_scans:
+                            rejection_details.append({
+                                'rejected_quantity': s.rejected_tray_quantity,
+                                'rejection_reason': s.rejection_reason.rejection_reason if s.rejection_reason else 'Unknown',
+                                'rejection_reason_id': s.rejection_reason.rejection_reason_id if s.rejection_reason else None,
+                                'user': s.user.username if s.user else None
+                            })
+                        data.append({
+                            's_no': row_counter,
+                            'tray_id': rej_tray_id,
+                            'tray_quantity': tray_obj.tray_quantity if tray_obj else (rej_scans.first().rejected_tray_quantity if rej_scans.exists() else 0),
+                            'position': row_counter - 1,
+                            'is_top_tray': False,
+                            'rejected_tray': True,
+                            'delink_tray': getattr(tray_obj, 'delink_tray', False) if tray_obj else True,
+                            'rejection_details': rejection_details,
+                            'top_tray': False,
+                        })
+                        existing_tray_ids.add(rej_tray_id)
+                        row_counter += 1
+                print(f"Checked IP_Rejected_TrayScan for missing rejected trays")
+            except Exception as e:
+                print(f"Error fetching rejected delink trays: {e}")
+
         print(f"Total trays returned: {len(data)}")
         
         # Get shortage rejections count (trays without tray_id)
@@ -4282,18 +4393,25 @@ def delink_selected_trays(request):
     return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
 
 
-# ✅ ADDED: Stub function to prevent 404 errors from frontend calls
+# ✅ ADDED: Function to look up lot_id for a given tray_id
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_lot_id_for_tray(request):
     """
-    Stub function to prevent 404 errors from frontend calls.
-    This endpoint is called by the frontend but was not implemented.
+    Look up the lot_id associated with a given tray_id.
+    Queries the main TrayId table (modelmasterapp) where trays are registered.
+    Used by the scanner to identify which lot row to highlight/open.
     """
-    tray_id = request.GET.get('tray_id')
-    return JsonResponse({
-        'success': False, 
-        'error': 'Function not implemented',
-        'tray_id': tray_id,
-        'message': 'This endpoint is a placeholder to prevent 404 errors'
-    }, status=501)  # 501 = Not Implemented
+    tray_id = request.GET.get('tray_id', '').strip()
+    if not tray_id:
+        return JsonResponse({'success': False, 'error': 'tray_id parameter is required'}, status=400)
+
+    try:
+        from modelmasterapp.models import TrayId
+        tray = TrayId.objects.filter(tray_id=tray_id).first()
+        if tray and tray.lot_id:
+            return JsonResponse({'success': True, 'lot_id': tray.lot_id, 'tray_id': tray.tray_id})
+        else:
+            return JsonResponse({'success': False, 'error': f'No lot found for tray ID: {tray_id}', 'tray_id': tray_id})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

@@ -49,6 +49,10 @@ from .models import *
 from adminportal.views import *
 from modelmasterapp.models import RowAccessLock
 
+# ── Pre-compiled regex patterns (compiled once at import, reused every row) ────
+_RE_STOCK = re.compile(r'^(\d+)([A-Z])([A-Z][A-Z]02)$')
+_RE_SUFFIX = re.compile(r'^[A-Z][A-Z]02$')
+
 
 
 # API to lock a row when accessed - Day Planning Pick Table
@@ -254,20 +258,21 @@ class DPBulkUploadView(APIView):
                 return None, None, f"❌ Invalid Polishing Stk No format: '{polishing_stock_no}' must end with '02'. Example: 1805XAB02"
 
             # STEP 0.1: CRITICAL - Validate that ALL letters are UPPERCASE
-            plating_letters = ''.join(re.findall(r'[A-Za-z]', plating_base))
-            if plating_letters != plating_letters.upper():
-                lowercase_found = [c for c in plating_letters if c.islower()]
+            # Use filter+isupper — faster than re.findall for this simple check
+            plating_alpha = [c for c in plating_base if c.isalpha()]
+            if any(c.islower() for c in plating_alpha):
+                lowercase_found = [c for c in plating_alpha if c.islower()]
                 return None, None, f"❌ Invalid Plating Stk No: '{plating_stock_no}' contains lowercase letters '{', '.join(lowercase_found)}'. ALL letters must be UPPERCASE. Correct format: {plating_base.upper()}"
-            
-            polishing_letters = ''.join(re.findall(r'[A-Za-z]', polishing_base))
-            if polishing_letters != polishing_letters.upper():
-                lowercase_found = [c for c in polishing_letters if c.islower()]
+
+            polishing_alpha = [c for c in polishing_base if c.isalpha()]
+            if any(c.islower() for c in polishing_alpha):
+                lowercase_found = [c for c in polishing_alpha if c.islower()]
                 return None, None, f"❌ Invalid Polishing Stk No: '{polishing_stock_no}' contains lowercase letters '{', '.join(lowercase_found)}'. ALL letters must be UPPERCASE. Correct format: {polishing_base.upper()}"
 
             # STEP 1: Validate that plating and polishing stock numbers match pattern
-            # Extract model number and pattern from both stock numbers (ONLY UPPERCASE)
-            plating_match = re.match(r'^(\d+)([A-Z])([A-Z][A-Z]02)$', plating_base)
-            polishing_match = re.match(r'^(\d+)([A-Z])([A-Z][A-Z]02)$', polishing_base)
+            # Use module-level pre-compiled patterns (avoids recompile every call)
+            plating_match = _RE_STOCK.match(plating_base)
+            polishing_match = _RE_STOCK.match(polishing_base)
             
             if not plating_match:
                 return None, None, f"❌ Invalid Plating Stk No format: '{plating_stock_no}'. Expected format: ModelNumber + UPPERCASE_ColorCode + UPPERCASE_Letters + 02 (e.g., 1805SAB02). Current: {plating_base}"
@@ -295,16 +300,11 @@ class DPBulkUploadView(APIView):
                 return None, None, f"❌ Stock number mismatch: Expected polishing stock number '{expected_polishing_stock}' but got '{polishing_stock_no}'. Only the color code should be 'X'."
             
             # STEP 1.4: Additional validation: Ensure suffix follows UPPERCASE AB02 pattern
-            if not re.match(r'^[A-Z][A-Z]02$', plating_suffix):
+            if not _RE_SUFFIX.match(plating_suffix):
                 return None, None, f"❌ Invalid suffix pattern in Plating Stk No: '{plating_suffix}'. Expected pattern: [UPPERCASE][UPPERCASE]02 (e.g., AB02, not ab02 or Ab02)"
-            
-            if not re.match(r'^[A-Z][A-Z]02$', polishing_suffix):
+
+            if not _RE_SUFFIX.match(polishing_suffix):
                 return None, None, f"❌ Invalid suffix pattern in Polishing Stk No: '{polishing_suffix}'. Expected pattern: [UPPERCASE][UPPERCASE]02 (e.g., AB02, not ab02 or Ab02)"
-            
-            # The polishing stock should have X and match the plating pattern
-            print(f"✅ Stock number validation passed:")
-            print(f"   Plating: {plating_model}{plating_color_code}{plating_suffix}")
-            print(f"   Polishing: {polishing_model}X{polishing_suffix} ✓")
 
             # STEP 2: Extract model number and validate in ModelMaster
             model_no = plating_model
@@ -315,25 +315,14 @@ class DPBulkUploadView(APIView):
             if not model_stock:
                 return None, None, f"❌ Plating Stk No '{plating_stock_no}' - Model number '{model_no}' not available in Master Data."
 
-            print(f"✅ Model number '{model_no}' exists in ModelMaster.")
-
             # STEP 3: Determine plating color internal code
-            plating_color_internal = None
             if "/" in plating_stock_no:
-                # Extract the part after "/" for ambiguous resolution
-                additional_identifier = plating_stock_no.split("/")[1]
-                plating_color_internal = additional_identifier
-                print(f"🔍 Found additional identifier after '/': {additional_identifier} (resolving ambiguous plating code)")
+                plating_color_internal = plating_stock_no.split("/")[1]
             else:
-                # Use the plating color code directly
                 plating_color_internal = plating_color_code
-                print(f"🔍 Using plating color code directly: {plating_color_code}")
-
-            print(f"📋 Final plating_color_internal to lookup: '{plating_color_internal}'")
 
             # STEP 4: Extract polish and version codes from polishing stock number
-            # For polishing, we know the color code is X, so we extract from the known pattern
-            letters = ''.join(re.findall(r'[A-Z]', polishing_stock_no))  # Only UPPERCASE letters
+            letters = ''.join(c for c in polishing_stock_no if c.isupper())
             if len(letters) < 3:
                 return None, None, f"❌ Invalid polishing stock format. Found less than 3 UPPERCASE letters in: {polishing_stock_no}. Expected format: ModelNumber + X + [UPPERCASE][UPPERCASE]02"
 
@@ -347,12 +336,9 @@ class DPBulkUploadView(APIView):
             else:
                 polish_obj = PolishFinishType.objects.filter(polish_internal=polish_code).first()
             if not polish_obj:
-                # Get available polish codes for error message
                 available_polish = list(PolishFinishType.objects.values_list('polish_internal', flat=True))
                 polish_suggestion = f" Available polish codes: {', '.join(available_polish)}" if available_polish else ""
                 return None, None, f"❌ Invalid Polish Code '{polish_code}' in Polishing Stk No '{polishing_stock_no}'.{polish_suggestion}"
-            
-            print(f"✅ Polish code '{polish_code}' ({polish_obj.polish_finish}) is valid in PolishFinishType master data.")
 
             # STEP 4.2: Validate version code against Version master data
             if versions is not None:
@@ -364,14 +350,11 @@ class DPBulkUploadView(APIView):
                 ).first()
             
             if not version_obj:
-                # Get available version codes for error message
                 available_versions_internal = list(Version.objects.exclude(version_internal__isnull=True).exclude(version_internal='').values_list('version_internal', flat=True))
                 available_versions_name = list(Version.objects.values_list('version_name', flat=True))
                 all_available_versions = list(set(available_versions_internal + available_versions_name))
                 version_suggestion = f" Available version codes: {', '.join(sorted(all_available_versions)[:10])}" if all_available_versions else ""
                 return None, None, f"❌ Invalid Version Code '{version_code}' in Polishing Stk No '{polishing_stock_no}'.{version_suggestion}"
-            
-            print(f"✅ Version code '{version_code}' ({version_obj.version_name}) is valid in Version master data.")
 
             # Return as tuple of 3 values: model_stock, codes_tuple, error_msg
             codes_tuple = (plating_color_internal, polish_code, version_code)
@@ -412,7 +395,8 @@ class DPBulkUploadView(APIView):
             }, status=400)
 
         try:
-            wb = openpyxl.load_workbook(uploaded_file)
+            wb = None
+            wb = openpyxl.load_workbook(uploaded_file, read_only=True, data_only=True)
             sheet = wb.active
             if not sheet:
                 return JsonResponse({
@@ -490,16 +474,25 @@ class DPBulkUploadView(APIView):
                 'success': False,
                 'error': f'❌ An error occurred: {str(e)}'
             }, status=500)
+        finally:
+            if wb:
+                wb.close()
 
     def handle_datatable_submission(self, request):
-        """Handle submission from HTML datatable"""
+        """Handle submission from HTML datatable — optimized for bulk uploads (1000+ rows)."""
         try:
-            # Parse JSON data from request body
             data = request.data
             rows = data.get('rows', [])
-            
-            # Pre-fetch all master data for performance optimization
-            model_masters = {obj.model_no: obj for obj in ModelMaster.objects.all()}
+
+            if not rows:
+                return JsonResponse({
+                    'success': False,
+                    'error': '❌ No data provided for processing.'
+                }, status=400)
+
+            # ── Pre-fetch ALL master data once ─────────────────────────────────────
+            # select_related('tray_type') prevents N+1 lazy FK queries per row
+            model_masters = {obj.model_no: obj for obj in ModelMaster.objects.select_related('tray_type').all()}
             polish_types = {obj.polish_internal: obj for obj in PolishFinishType.objects.all()}
             versions = {}
             for obj in Version.objects.all():
@@ -514,21 +507,29 @@ class DPBulkUploadView(APIView):
             categories = {obj.category_name: obj for obj in Category.objects.all()}
             vendors = {obj.vendor_name: obj for obj in Vendor.objects.all()}
             locations = {obj.location_name: obj for obj in Location.objects.all()}
-            
-            if not rows:
-                return JsonResponse({
-                    'success': False,
-                    'error': '❌ No data provided for processing.'
-                }, status=400)
+
+            # Pre-build suggestion strings from cached dicts (avoids per-error DB hits)
+            _color_hint = ", ".join(list(plating_colors_name.keys())[:5])
+            _polish_hint = ", ".join(list(polish_types.keys())[:5])
+            _version_hint = ", ".join(sorted(list(versions.keys()))[:10])
+            _cat_hint = ", ".join(list(categories.keys())[:5])
+            _vendor_hint = ", ".join(list(vendors.keys())[:5])
+            _loc_hint = ", ".join(list(locations.keys())[:5])
+            # ───────────────────────────────────────────────────────────────────────
 
             success_count = 0
             failure_count = 0
             failed_rows = []
+            objects_to_create = []
+
+            # Single timestamp prefix for all batch IDs in this upload
+            upload_ts = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
+
+            # Per-upload cache: avoid re-running validate_codes for duplicate stock pairs
+            _codes_cache = {}
 
             for idx, row_data in enumerate(rows, start=1):
                 try:
-                    # Extract data from row with new field names
-                    s_no = str(row_data.get('S.No', '')).strip()
                     plating_stock_no = str(row_data.get('Plating Stk No', '')).strip()
                     polishing_stock_no = str(row_data.get('Polishing Stk No', '')).strip()
                     plating_colour = str(row_data.get('Plating Colour', '')).strip()
@@ -536,30 +537,20 @@ class DPBulkUploadView(APIView):
                     input_qty = row_data.get('Input Qty')
                     source = str(row_data.get('Source', '')).strip()
 
-                    print(f"\n🔄 Processing row {idx}: Plating Stk No={plating_stock_no}, Polishing Stk No={polishing_stock_no}, Colour={plating_colour}, Category={category}, Qty={input_qty}, Source={source}")
-
                     # Validate required fields
                     empty_fields = []
-                    if not plating_stock_no:
-                        empty_fields.append("Plating Stk No")
-                    if not polishing_stock_no:
-                        empty_fields.append("Polishing Stk No")
-                    if not plating_colour:
-                        empty_fields.append("Plating Colour")
-                    if not category:
-                        empty_fields.append("Category")
-                    if input_qty in [None, '', 0]:
-                        empty_fields.append("Input Qty")
-                    if not source:
-                        empty_fields.append("Source")
+                    if not plating_stock_no:   empty_fields.append("Plating Stk No")
+                    if not polishing_stock_no: empty_fields.append("Polishing Stk No")
+                    if not plating_colour:     empty_fields.append("Plating Colour")
+                    if not category:           empty_fields.append("Category")
+                    if input_qty in [None, '', 0]: empty_fields.append("Input Qty")
+                    if not source:             empty_fields.append("Source")
 
                     if empty_fields:
-                        field_list = ", ".join(empty_fields)
-                        failed_rows.append(f"Row {idx}: ❌ {field_list} should not be empty.")
+                        failed_rows.append(f"Row {idx}: ❌ {', '.join(empty_fields)} should not be empty.")
                         failure_count += 1
                         continue
 
-                    # Convert quantity to integer
                     try:
                         input_qty = int(input_qty)
                     except (ValueError, TypeError):
@@ -567,155 +558,123 @@ class DPBulkUploadView(APIView):
                         failure_count += 1
                         continue
 
-                    # Validate codes using new stock numbers - FIXED UNPACKING
-                    model_stock, codes, error_msg = self.validate_codes(plating_stock_no, polishing_stock_no, model_masters, polish_types, versions)
+                    cache_key = (plating_stock_no, polishing_stock_no)
+                    if cache_key in _codes_cache:
+                        model_stock, codes, error_msg = _codes_cache[cache_key]
+                    else:
+                        model_stock, codes, error_msg = self.validate_codes(
+                            plating_stock_no, polishing_stock_no, model_masters, polish_types, versions
+                        )
+                        _codes_cache[cache_key] = (model_stock, codes, error_msg)
                     if error_msg:
                         failure_count += 1
                         failed_rows.append(f"Row {idx}: {error_msg}")
                         continue
-
                     if not codes:
                         failure_count += 1
                         failed_rows.append(f"Row {idx}: ❌ Could not extract codes from stock numbers.")
                         continue
 
                     plating_color_internal, polish_code, version_code = codes
-                    print(f"🧪 Codes Extracted ➤ Plating Internal: '{plating_color_internal}', Polish: '{polish_code}', Version: '{version_code}'")
 
-                    # ENHANCED VALIDATION WITH DETAILED ERROR MESSAGES
-
-                    # 1. Validate plating code using the resolved plating_color_internal
+                    # 1. Plating internal code
                     plating_obj_code = plating_colors_internal.get(plating_color_internal)
                     if not plating_obj_code:
                         failure_count += 1
                         failed_rows.append(f"Row {idx}: ❌ Plating color internal code '{plating_color_internal}' not available in Master Data.")
                         continue
 
-                    # 2. Validate plating color from input
+                    # 2. Plating colour from Excel
                     plating_color_obj = plating_colors_name.get(plating_colour)
                     if not plating_color_obj:
                         failure_count += 1
-                        # Get available plating colors for suggestion
-                        available_colors = list(Plating_Color.objects.values_list('plating_color', flat=True)[:5])
-                        color_suggestion = f" Available colors: {', '.join(available_colors)}" if available_colors else ""
-                        failed_rows.append(f"Row {idx}: ❌ Plating Colour '{plating_colour}' not available in Master Data.{color_suggestion}")
+                        failed_rows.append(f"Row {idx}: ❌ Plating Colour '{plating_colour}' not available in Master Data. Available: {_color_hint}")
                         continue
 
-                    # 3. Cross-validation: Check if resolved plating_color_internal matches with the plating color from Excel
+                    # 3. Cross-validate internal code vs Excel colour
                     if plating_obj_code.pk != plating_color_obj.pk:
                         failure_count += 1
                         failed_rows.append(f"Row {idx}: ❌ Plating color mismatch: Stock code '{plating_stock_no}' resolves to '{plating_obj_code.plating_color}' but Excel shows '{plating_colour}'.")
                         continue
 
-                    # 4. Validate polish code
+                    # 4. Polish code
                     polish_obj = polish_types.get(polish_code)
                     if not polish_obj:
                         failure_count += 1
-                        # Get available polish codes for suggestion
-                        available_polish = list(PolishFinishType.objects.values_list('polish_internal', flat=True)[:5])
-                        polish_suggestion = f" Available polish codes: {', '.join(available_polish)}" if available_polish else ""
-                        failed_rows.append(f"Row {idx}: ❌ Polish code '{polish_code}' not available in Master Data.{polish_suggestion}")
+                        failed_rows.append(f"Row {idx}: ❌ Polish code '{polish_code}' not available in Master Data. Available: {_polish_hint}")
                         continue
 
-                    # 5. Enhanced version code validation - check both version_name and version_internal
+                    # 5. Version code
                     version_obj = versions.get(version_code)
-                    
                     if not version_obj:
                         failure_count += 1
-                        # Get available version codes for suggestion from both fields
-                        available_versions_internal = list(Version.objects.exclude(version_internal__isnull=True).exclude(version_internal='').values_list('version_internal', flat=True))
-                        available_versions_name = list(Version.objects.values_list('version_name', flat=True))
-                        all_available_versions = list(set(available_versions_internal + available_versions_name))[:10]  # Combine and deduplicate
-                        version_suggestion = f" Available version codes: {', '.join(sorted(all_available_versions))}" if all_available_versions else ""
-                        failed_rows.append(f"Row {idx}: Version code '{version_code}' not available in Master Data.{version_suggestion}")
+                        failed_rows.append(f"Row {idx}: ❌ Version code '{version_code}' not available in Master Data. Available: {_version_hint}")
                         continue
 
-                    # 6. Validate category
+                    # 6. Category
                     category_obj = categories.get(category)
                     if not category_obj:
                         failure_count += 1
-                        # Get available categories for suggestion
-                        available_categories = list(Category.objects.values_list('category_name', flat=True)[:5])
-                        category_suggestion = f" Available categories: {', '.join(available_categories)}" if available_categories else ""
-                        failed_rows.append(f"Row {idx}: ❌ Category '{category}' not available in Master Data.{category_suggestion}")
+                        failed_rows.append(f"Row {idx}: ❌ Category '{category}' not available in Master Data. Available: {_cat_hint}")
                         continue
-                    
-                    print(f"✅ Category validation passed: '{category}' found in database")
 
-                    # 7. Validate source format - handle both underscore and non-underscore formats
+                    # 7. Source (Vendor_Location or Location-only)
                     vendor_obj = None
                     location_obj = None
-
                     if "_" in source:
-                        # Format: Vendor_Location (e.g., Titan_CPSE)
                         vendor_name, loc_name = source.split("_", 1)
-                        
-                        # Validate vendor by vendor_name field
                         vendor_obj = vendors.get(vendor_name)
                         if not vendor_obj:
                             failure_count += 1
-                            # Get available vendors for suggestion
-                            available_vendors = list(Vendor.objects.values_list('vendor_name', flat=True)[:5])
-                            vendor_suggestion = f" Available vendors: {', '.join(available_vendors)}" if available_vendors else ""
-                            failed_rows.append(f"Row {idx}: ❌ Vendor '{vendor_name}' not available in Master Data.{vendor_suggestion}")
+                            failed_rows.append(f"Row {idx}: ❌ Vendor '{vendor_name}' not available in Master Data. Available: {_vendor_hint}")
                             continue
-
-                        # Validate location
                         location_obj = locations.get(loc_name)
                         if not location_obj:
                             failure_count += 1
-                            # Get available locations for suggestion
-                            available_locations = list(Location.objects.values_list('location_name', flat=True)[:5])
-                            location_suggestion = f" Available locations: {', '.join(available_locations)}" if available_locations else ""
-                            failed_rows.append(f"Row {idx}: ❌ Location '{loc_name}' not available in Master Data.{location_suggestion}")
+                            failed_rows.append(f"Row {idx}: ❌ Location '{loc_name}' not available in Master Data. Available: {_loc_hint}")
                             continue
-                            
-                        print(f"✅ Source with underscore - Vendor: '{vendor_name}' (Found: {vendor_obj.vendor_name}), Location: '{loc_name}'")
                     else:
-                        # Format: Location only (e.g., CPSE, Mumbai, Delhi)
-                        # Changed from Vendor to Location
                         location_obj = locations.get(source)
                         if not location_obj:
                             failure_count += 1
-                            # Get available locations for suggestion
-                            available_locations = list(Location.objects.values_list('location_name', flat=True)[:5])
-                            location_suggestion = f" Available locations: {', '.join(available_locations)}" if available_locations else ""
-                            failed_rows.append(f"Row {idx}: ❌ Location '{source}' not available in Master Data.{location_suggestion}")
+                            failed_rows.append(f"Row {idx}: ❌ Location '{source}' not available in Master Data. Available: {_loc_hint}")
                             continue
-                            
-                        # No vendor specified for this format
-                        vendor_obj = None
-                        print(f"✅ Source without underscore - Location only: '{source}' (Found: {location_obj.location_name})")
 
-                    # Generate batch ID
-                    batch_id = f"BATCH-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}-{idx}"
-
-                    # Create ModelMasterCreation record with validated category
-                    ModelMasterCreation.objects.create(
-                        batch_id=batch_id,
+                    # Collect validated object — DO NOT save yet
+                    objects_to_create.append(ModelMasterCreation(
+                        batch_id=f"BATCH-{upload_ts}-{idx}",
                         model_stock_no=model_stock,
-                        plating_color=plating_obj_code.plating_color,  # Use resolved plating color
-                        vendor_internal=vendor_obj.vendor_internal if vendor_obj else None,  # Handle None case
-                        location=location_obj,  # Can be None for vendor-only format
+                        plating_color=plating_obj_code.plating_color,
+                        vendor_internal=vendor_obj.vendor_internal if vendor_obj else None,
+                        location=location_obj,
                         tray_capacity=model_stock.tray_capacity if model_stock else None,
                         tray_type=model_stock.tray_type.tray_type if model_stock and model_stock.tray_type else None,
                         ep_bath_type=model_stock.ep_bath_type if model_stock else None,
                         total_batch_quantity=input_qty,
-                        version=version_obj if version_obj else None,
-                        polish_finish=polish_obj if polish_obj else None,
-                        category=category_obj,  # Save category object instead of string
-                        plating_stk_no=plating_stock_no,           # <-- Save Plating Stk No
-                        polishing_stk_no=polishing_stock_no,  # <-- Save Polishing Stk No   
-                    )
-                    print("✅ Row saved successfully!")
+                        version=version_obj,
+                        polish_finish=polish_obj,
+                        category=category_obj,
+                        plating_stk_no=plating_stock_no,
+                        polishing_stk_no=polishing_stock_no,
+                    ))
                     success_count += 1
 
                 except Exception as e:
                     failure_count += 1
                     failed_rows.append(f"Row {idx}: ❌ Error processing row: {str(e).splitlines()[0]}")
-                    print(f"❌ Error processing row {idx}: {str(e)}")
 
-            # Prepare response with detailed error list
+            # ── Single bulk INSERT inside one transaction ───────────────────────────
+            if objects_to_create:
+                last_sequence = ModelMasterCreation.objects.aggregate(
+                    max_seq=models.Max('sequence_number')
+                )['max_seq'] or 0
+                for i, obj in enumerate(objects_to_create, start=1):
+                    obj.sequence_number = last_sequence + i
+                with transaction.atomic():
+                    ModelMasterCreation.objects.bulk_create(objects_to_create)
+                print(f"✅ Bulk inserted {len(objects_to_create)} records")
+            # ───────────────────────────────────────────────────────────────────────
+
             if success_count > 0 and failure_count == 0:
                 return JsonResponse({
                     'success': True,
@@ -725,13 +684,13 @@ class DPBulkUploadView(APIView):
                 return JsonResponse({
                     'success': True,
                     'message': f"⚠️ Partial Success: {success_count} succeeded, {failure_count} failed.",
-                    'failed_rows': failed_rows  # This will show all the detailed error messages
+                    'failed_rows': failed_rows
                 })
             else:
                 return JsonResponse({
                     'success': False,
                     'error': f"❌ All {failure_count} row(s) failed to process.",
-                    'failed_rows': failed_rows  # This will show all the detailed error messages
+                    'failed_rows': failed_rows
                 }, status=400)
 
         except json.JSONDecodeError:
@@ -751,24 +710,25 @@ class DPBulkUploadView(APIView):
         uploaded_file = request.FILES.get('file')
         if not uploaded_file:
             messages.error(request, "❌ No file uploaded.")
-            return Response({'master_data': ModelMasterCreation.objects.all()}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'master_data': ModelMasterCreation.objects.none()}, status=status.HTTP_400_BAD_REQUEST)
 
         if not uploaded_file.name.endswith(('.xls', '.xlsx')):
             messages.error(request, f"❌ Only Excel files are allowed. '{uploaded_file.name}' is not valid.")
-            return Response({'master_data': ModelMasterCreation.objects.all()}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'master_data': ModelMasterCreation.objects.none()}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            wb = openpyxl.load_workbook(uploaded_file)
+            wb = None
+            wb = openpyxl.load_workbook(uploaded_file, read_only=True, data_only=True)
             sheet = wb.active
             if not sheet:
                 messages.error(request, "❌ Could not read the Excel sheet.")
-                return Response({'master_data': ModelMasterCreation.objects.all()}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'master_data': ModelMasterCreation.objects.none()}, status=status.HTTP_400_BAD_REQUEST)
 
-            # ========== NEW: VALIDATE COLUMNS BEFORE PROCESSING ==========
+            # ========== VALIDATE COLUMNS BEFORE PROCESSING ==========
             is_valid, error_message, actual_columns = self.validate_excel_columns(sheet)
             if not is_valid:
                 messages.error(request, mark_safe(error_message.replace('\n', '<br>')))
-                return Response({'master_data': ModelMasterCreation.objects.all()}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'master_data': ModelMasterCreation.objects.none()}, status=status.HTTP_400_BAD_REQUEST)
             
             print("✅ Excel column validation passed")
             # ========== END COLUMN VALIDATION ==========
@@ -779,7 +739,8 @@ class DPBulkUploadView(APIView):
             objects_to_create = []
 
             # Pre-fetch all master data for performance optimization
-            model_masters = {obj.model_no: obj for obj in ModelMaster.objects.all()}
+            # select_related('tray_type') prevents N+1 lazy FK queries per row
+            model_masters = {obj.model_no: obj for obj in ModelMaster.objects.select_related('tray_type').all()}
             polish_types = {obj.polish_internal: obj for obj in PolishFinishType.objects.all()}
             versions = {}
             for obj in Version.objects.all():
@@ -791,6 +752,20 @@ class DPBulkUploadView(APIView):
             categories = {obj.category_name: obj for obj in Category.objects.all()}
             vendors = {obj.vendor_name: obj for obj in Vendor.objects.all()}
             locations = {obj.location_name: obj for obj in Location.objects.all()}
+
+            # Pre-build suggestion strings (avoids per-error DB queries inside the loop)
+            _color_hint = ", ".join(list(plating_colors_name.keys())[:5])
+            _polish_hint = ", ".join(list(polish_types.keys())[:5])
+            _version_hint = ", ".join(sorted(list(versions.keys()))[:10])
+            _cat_hint = ", ".join(list(categories.keys())[:5])
+            _vendor_hint = ", ".join(list(vendors.keys())[:5])
+            _loc_hint = ", ".join(list(locations.keys())[:5])
+
+            # Single timestamp prefix for all batch IDs in this upload
+            upload_ts = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
+
+            # Per-upload cache: avoid re-running validate_codes for duplicate stock pairs
+            _codes_cache = {}
 
             for idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
                 if not any(row):
@@ -843,7 +818,14 @@ class DPBulkUploadView(APIView):
                     continue
 
                 # Validate codes using new stock numbers
-                model_stock, codes, error_msg = self.validate_codes(plating_stock_no, polishing_stock_no, model_masters, polish_types, versions)
+                cache_key = (plating_stock_no, polishing_stock_no)
+                if cache_key in _codes_cache:
+                    model_stock, codes, error_msg = _codes_cache[cache_key]
+                else:
+                    model_stock, codes, error_msg = self.validate_codes(
+                        plating_stock_no, polishing_stock_no, model_masters, polish_types, versions
+                    )
+                    _codes_cache[cache_key] = (model_stock, codes, error_msg)
                 if error_msg:
                     failure_count += 1
                     failed_rows.append(f"Row {idx}: {error_msg}")
@@ -855,7 +837,6 @@ class DPBulkUploadView(APIView):
                     continue
 
                 plating_color_internal, polish_code, version_code = codes
-                print(f"🧪 Codes Extracted ➤ Plating Internal: '{plating_color_internal}', Polish: '{polish_code}', Version: '{version_code}'")
 
                 # ========== APPLY SAME VALIDATION AS DATATABLE SUBMISSION ==========
 
@@ -870,10 +851,7 @@ class DPBulkUploadView(APIView):
                 plating_color_obj = plating_colors_name.get(plating_colour)
                 if not plating_color_obj:
                     failure_count += 1
-                    # Get available plating colors for suggestion
-                    available_colors = list(Plating_Color.objects.values_list('plating_color', flat=True)[:5])
-                    color_suggestion = f" Available colors: {', '.join(available_colors)}" if available_colors else ""
-                    failed_rows.append(f"Row {idx}: ❌ Plating Colour '{plating_colour}' not available in Master Data.{color_suggestion}")
+                    failed_rows.append(f"Row {idx}: ❌ Plating Colour '{plating_colour}' not available in Master Data. Available: {_color_hint}")
                     continue
 
                 # 3. Cross-validation: Check if resolved plating_color_internal matches with the plating color from Excel
@@ -886,33 +864,21 @@ class DPBulkUploadView(APIView):
                 polish_obj = polish_types.get(polish_code)
                 if not polish_obj:
                     failure_count += 1
-                    # Get available polish codes for suggestion
-                    available_polish = list(PolishFinishType.objects.values_list('polish_internal', flat=True)[:5])
-                    polish_suggestion = f" Available polish codes: {', '.join(available_polish)}" if available_polish else ""
-                    failed_rows.append(f"Row {idx}: ❌ Polish code '{polish_code}' not available in Master Data.{polish_suggestion}")
+                    failed_rows.append(f"Row {idx}: ❌ Polish code '{polish_code}' not available in Master Data. Available: {_polish_hint}")
                     continue
 
-                # 5. Enhanced version code validation - check both version_name and version_internal
+                # 5. Version code validation
                 version_obj = versions.get(version_code)
-                
                 if not version_obj:
                     failure_count += 1
-                    # Get available version codes for suggestion from both fields
-                    available_versions_internal = list(Version.objects.exclude(version_internal__isnull=True).exclude(version_internal='').values_list('version_internal', flat=True))
-                    available_versions_name = list(Version.objects.values_list('version_name', flat=True))
-                    all_available_versions = list(set(available_versions_internal + available_versions_name))[:10]  # Combine and deduplicate
-                    version_suggestion = f" Available version codes: {', '.join(sorted(all_available_versions))}" if all_available_versions else ""
-                    failed_rows.append(f"Row {idx}: Version code '{version_code}' not available in Master Data.{version_suggestion}")
+                    failed_rows.append(f"Row {idx}: ❌ Version code '{version_code}' not available in Master Data. Available: {_version_hint}")
                     continue
 
                 # 6. Validate category
                 category_obj = categories.get(category)
                 if not category_obj:
                     failure_count += 1
-                    # Get available categories for suggestion
-                    available_categories = list(Category.objects.values_list('category_name', flat=True)[:5])
-                    category_suggestion = f" Available categories: {', '.join(available_categories)}" if available_categories else ""
-                    failed_rows.append(f"Row {idx}: ❌ Category '{category}' not available in Master Data.{category_suggestion}")
+                    failed_rows.append(f"Row {idx}: ❌ Category '{category}' not available in Master Data. Available: {_cat_hint}")
                     continue
 
                 # 7. Validate source format - handle both underscore and non-underscore formats
@@ -927,41 +893,26 @@ class DPBulkUploadView(APIView):
                     vendor_obj = vendors.get(vendor_name)
                     if not vendor_obj:
                         failure_count += 1
-                        # Get available vendors for suggestion
-                        available_vendors = list(Vendor.objects.values_list('vendor_name', flat=True)[:5])
-                        vendor_suggestion = f" Available vendors: {', '.join(available_vendors)}" if available_vendors else ""
-                        failed_rows.append(f"Row {idx}: ❌ Vendor '{vendor_name}' not available in Master Data.{vendor_suggestion}")
+                        failed_rows.append(f"Row {idx}: ❌ Vendor '{vendor_name}' not available in Master Data. Available: {_vendor_hint}")
                         continue
 
                     # Validate location
                     location_obj = locations.get(loc_name)
                     if not location_obj:
                         failure_count += 1
-                        # Get available locations for suggestion
-                        available_locations = list(Location.objects.values_list('location_name', flat=True)[:5])
-                        location_suggestion = f" Available locations: {', '.join(available_locations)}" if available_locations else ""
-                        failed_rows.append(f"Row {idx}: ❌ Location '{loc_name}' not available in Master Data.{location_suggestion}")
+                        failed_rows.append(f"Row {idx}: ❌ Location '{loc_name}' not available in Master Data. Available: {_loc_hint}")
                         continue
-                        
-                    print(f"✅ Source with underscore - Vendor: '{vendor_name}' (Found: {vendor_obj.vendor_name}), Location: '{loc_name}'")
                 else:
                     # Format: Location only (e.g., CPSE, Mumbai, Delhi)
-                    # Changed from Vendor to Location
                     location_obj = locations.get(source)
                     if not location_obj:
                         failure_count += 1
-                        # Get available locations for suggestion
-                        available_locations = list(Location.objects.values_list('location_name', flat=True)[:5])
-                        location_suggestion = f" Available locations: {', '.join(available_locations)}" if available_locations else ""
-                        failed_rows.append(f"Row {idx}: ❌ Location '{source}' not available in Master Data.{location_suggestion}")
+                        failed_rows.append(f"Row {idx}: ❌ Location '{source}' not available in Master Data. Available: {_loc_hint}")
                         continue
-                        
-                    # No vendor specified for this format
                     vendor_obj = None
-                    print(f"✅ Source without underscore - Location only: '{source}' (Found: {location_obj.location_name})")
 
-                # Generate batch ID
-                batch_id = f"BATCH-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}-{idx}"
+                # Generate batch ID using pre-computed timestamp
+                batch_id = f"BATCH-{upload_ts}-{idx}"
 
                 # Collect data for bulk create
                 obj_data = {
@@ -981,16 +932,16 @@ class DPBulkUploadView(APIView):
                     'polishing_stk_no': polishing_stock_no,  # <-- Save Polishing Stk No   
                 }
                 objects_to_create.append(ModelMasterCreation(**obj_data))
-                print(f"✅ Row {idx} validated successfully!")
                 success_count += 1
 
-            # Bulk create all valid objects
+            # Bulk create all valid objects in a single transaction
             if objects_to_create:
                 # Set sequence numbers
                 last_sequence = ModelMasterCreation.objects.aggregate(max_seq=models.Max('sequence_number'))['max_seq'] or 0
                 for i, obj in enumerate(objects_to_create, start=1):
                     obj.sequence_number = last_sequence + i
-                ModelMasterCreation.objects.bulk_create(objects_to_create)
+                with transaction.atomic():
+                    ModelMasterCreation.objects.bulk_create(objects_to_create)
                 print(f"✅ Bulk created {len(objects_to_create)} records")
 
             # Return results with enhanced error messages
@@ -1005,12 +956,16 @@ class DPBulkUploadView(APIView):
                 error_msg += "\n".join(failed_rows)
                 messages.error(request, mark_safe(error_msg.replace('\n', '<br>')))
 
-            return Response({'master_data': ModelMasterCreation.objects.all()})
+
+            return Response({'master_data': ModelMasterCreation.objects.none()})
 
         except Exception as e:
             print(f"❌ Error processing file: {str(e)}")
             messages.error(request, f"❌ An error occurred: {str(e)}")
-            return Response({'master_data': ModelMasterCreation.objects.all()}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'master_data': ModelMasterCreation.objects.none()}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        finally:
+            if wb:
+                wb.close()
 
 class DPBulkUploadPreviewView(APIView):
     """
@@ -1088,7 +1043,8 @@ class DPBulkUploadPreviewView(APIView):
             }, status=400)
         
         try:
-            wb = openpyxl.load_workbook(uploaded_file)
+            wb = None
+            wb = openpyxl.load_workbook(uploaded_file, read_only=True, data_only=True)
             sheet = wb.active
             if not sheet:
                 return Response({
@@ -1132,16 +1088,13 @@ class DPBulkUploadPreviewView(APIView):
                     'Source': row[6] or '',
                 })
             
-            print(f"📊 Excel Processing Summary:")
-            print(f"   Total rows processed: {total_rows_processed}")
-            print(f"   Valid data rows: {len(data)}")
-            print(f"   Skipped rows: {skipped_rows}")
-            print(f"   Final data length: {len(data)}")
-                
             return Response({'success': True, 'data': data})
-            
+
         except Exception as e:
             return Response({'success': False, 'error': str(e)}, status=500)
+        finally:
+            if wb:
+                wb.close()
 
 
 # Alternative: Enhanced error messages with more specific column details
@@ -1224,7 +1177,8 @@ class DPBulkUploadPreviewViewEnhanced(APIView):
             }, status=400)
         
         try:
-            wb = openpyxl.load_workbook(uploaded_file)
+            wb = None
+            wb = openpyxl.load_workbook(uploaded_file, read_only=True, data_only=True)
             sheet = wb.active
             if not sheet:
                 return Response({
@@ -1263,11 +1217,14 @@ class DPBulkUploadPreviewViewEnhanced(APIView):
                     break
             
             return Response({'success': True, 'data': data})
-            
+
         except Exception as e:
             return Response({'success': False, 'error': str(e)}, status=500)
- 
- 
+        finally:
+            if wb:
+                wb.close()
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class GetPlatingColourAPIView(APIView):
     """
@@ -1729,6 +1686,15 @@ class TrayIdScanAPIView(APIView):
                 if not tray_id:
                     continue
                 
+                # Check if tray ID starts with JB or NB
+                if not (tray_id.startswith('JB-') or tray_id.startswith('NB-')):
+                    tray_not_in_system_errors.append({
+                        'tray_id': tray_id,
+                        'position': i + 1,
+                        'error': f'Tray ID "{tray_id}" is not allowed. Only JB and NB trays are permitted.'
+                    })
+                    continue
+                
                 # ✅ NEW: First check if tray exists in TrayId table
                 existing_tray = TrayId.objects.filter(tray_id=tray_id).first()
                 
@@ -2049,6 +2015,14 @@ class ValidateTopTrayAPIView(APIView):
                     'error': f'Tray ID "{tray_id}" not found in system. Only pre-configured trays are allowed.'
                 })
 
+            # Check if tray ID starts with JB or NB
+            if not (tray_id.startswith('JB-') or tray_id.startswith('NB-')):
+                return JsonResponse({
+                    'success': True,
+                    'valid': False,
+                    'error': f'Tray ID "{tray_id}" is not allowed. Only JB and NB trays are permitted.'
+                })
+
             # Check if tray exists in this specific batch (TrayId or DraftTrayId)
             tray = TrayId.objects.filter(
                 tray_id=tray_id,
@@ -2137,6 +2111,13 @@ class TopTrayScanAPIView(APIView):
                 return JsonResponse({
                     'success': False, 
                     'error': 'Missing batch ID or tray ID.'
+                }, status=400)
+
+            # Check if tray ID starts with JB or NB
+            if not (scanned_tray_id.startswith('JB-') or scanned_tray_id.startswith('NB-')):
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Tray ID "{scanned_tray_id}" is not allowed. Only JB and NB trays are permitted.'
                 }, status=400)
 
             batch_instance = ModelMasterCreation.objects.filter(batch_id=batch_id).first()
@@ -2502,6 +2483,14 @@ class TrayIdUniqueCheckAPIView(APIView):
         
         if not tray_id:
             return JsonResponse({'exists': False, 'error': 'Missing tray_id'})
+
+        # Check if tray ID starts with JB or NB
+        if not (tray_id.startswith('JB-') or tray_id.startswith('NB-')):
+            return JsonResponse({
+                'exists': False,
+                'available': False,
+                'error': f'Tray ID "{tray_id}" is not allowed. Only JB and NB trays are permitted.'
+            })
 
         existing_tray = TrayId.objects.filter(tray_id=tray_id).first()
 

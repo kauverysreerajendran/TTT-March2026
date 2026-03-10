@@ -321,7 +321,6 @@ thead th {
   opacity: 1 !important;
   transform: scale(1.2);
   color: white !important;
-}
   top: 50%;
   transform: translateY(-50%);
   font-size: 11px;
@@ -1005,56 +1004,58 @@ box-shadow: 2px 0 8px rgba(0,0,0,0.04);
  <!-- Pagination Section -->
                <div class="pagination-wrapper">
                   <nav aria-label="Page navigation">
-                     <ul class="pagination justify-content-end mb-0">
-                        {# Previous button #}
-                        {% if page_obj.has_previous %}
-                        <li>
-                           <a href="?page={{ page_obj.previous_page_number }}{% if filter_query_string %}&{{ filter_query_string }}{% endif %}" aria-label="Previous">
-                           <span aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
-                           </a>
-                        </li>
-                        {% else %}
-                        <li class="disabled">
-                           <span aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
-                        </li>
-                        {% endif %}
-                        {# Always show first page #}
-                        {% if page_obj.number > 3 %}
-                        <li><a href="?page=1{% if filter_query_string %}&{{ filter_query_string }}{% endif %}">1</a></li>
-                        {% if page_obj.number > 4 %}
-                        <li class="disabled"><span>…</span></li>
-                        {% endif %}
-                        {% endif %}
-                        {# Show pages around current page #}
-                        {% for num in page_obj.paginator.page_range %}
-                        {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
-                        {% if num == page_obj.number %}
-                        <li class="active"><span>{{ num }}</span></li>
-                        {% else %}
-                        <li><a href="?page={{ num }}{% if filter_query_string %}&{{ filter_query_string }}{% endif %}">{{ num }}</a></li>
-                        {% endif %}
-                        {% endif %}
-                        {% endfor %}
-                        {# Show ellipsis and last page if needed #}
-                        {% if page_obj.number < page_obj.paginator.num_pages|add:'-2' %}
-                        {% if page_obj.number < page_obj.paginator.num_pages|add:'-3' %}
-                        <li class="disabled"><span>…</span></li>
-                        {% endif %}
-                        <li><a href="?page={{ page_obj.paginator.num_pages }}{% if filter_query_string %}&{{ filter_query_string }}{% endif %}">{{ page_obj.paginator.num_pages }}</a></li>
-                        {% endif %}
-                        {# Next button #}
-                        {% if page_obj.has_next %}
-                        <li>
-                           <a href="?page={{ page_obj.next_page_number }}{% if filter_query_string %}&{{ filter_query_string }}{% endif %}" aria-label="Next">
-                           <span aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
-                           </a>
-                        </li>
-                        {% else %}
-                        <li class="disabled">
-                           <span aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
-                        </li>
-                        {% endif %}
-                     </ul>
+                    <ul class="pagination justify-content-end mb-0">
+                      {# Previous button #}
+                      {% with from_date=from_date to_date=to_date %}
+                      {% if page_obj.has_previous %}
+                      <li>
+                        <a href="?page={{ page_obj.previous_page_number }}{% if filter_query_string %}&{{ filter_query_string }}{% endif %}{% if date_filter_applied %}&from_date={{ from_date }}&to_date={{ to_date }}{% endif %}" aria-label="Previous">
+                        <span aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+                        </a>
+                      </li>
+                      {% else %}
+                      <li class="disabled">
+                        <span aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+                      </li>
+                      {% endif %}
+                      {# Always show first page #}
+                      {% if page_obj.number > 3 %}
+                      <li><a href="?page=1{% if filter_query_string %}&{{ filter_query_string }}{% endif %}{% if date_filter_applied %}&from_date={{ from_date }}&to_date={{ to_date }}{% endif %}">1</a></li>
+                      {% if page_obj.number > 4 %}
+                      <li class="disabled"><span>…</span></li>
+                      {% endif %}
+                      {% endif %}
+                      {# Show pages around current page #}
+                      {% for num in page_obj.paginator.page_range %}
+                      {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                      {% if num == page_obj.number %}
+                      <li class="active"><span>{{ num }}</span></li>
+                      {% else %}
+                      <li><a href="?page={{ num }}{% if filter_query_string %}&{{ filter_query_string }}{% endif %}{% if date_filter_applied %}&from_date={{ from_date }}&to_date={{ to_date }}{% endif %}">{{ num }}</a></li>
+                      {% endif %}
+                      {% endif %}
+                      {% endfor %}
+                      {# Show ellipsis and last page if needed #}
+                      {% if page_obj.number < page_obj.paginator.num_pages|add:'-2' %}
+                      {% if page_obj.number < page_obj.paginator.num_pages|add:'-3' %}
+                      <li class="disabled"><span>…</span></li>
+                      {% endif %}
+                      <li><a href="?page={{ page_obj.paginator.num_pages }}{% if filter_query_string %}&{{ filter_query_string }}{% endif %}{% if date_filter_applied %}&from_date={{ from_date }}&to_date={{ to_date }}{% endif %}">{{ page_obj.paginator.num_pages }}</a></li>
+                      {% endif %}
+                      {# Next button #}
+                      {% if page_obj.has_next %}
+                      <li>
+                        <a href="?page={{ page_obj.next_page_number }}{% if filter_query_string %}&{{ filter_query_string }}{% endif %}{% if date_filter_applied %}&from_date={{ from_date }}&to_date={{ to_date }}{% endif %}" aria-label="Next">
+                        <span aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
+                        </a>
+                      </li>
+                      {% else %}
+                      <li class="disabled">
+                        <span aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
+                      </li>
+                      {% endif %}
+                      {% endwith %}
+                    </ul>
                   </nav>
                </div>
         </div>
@@ -2782,9 +2783,12 @@ document.addEventListener("DOMContentLoaded", function() {
   function updateFilterIndicator() {
     const indicator = document.getElementById('filterActiveIndicator');
     const hasActiveFilters = Object.keys(activeFilters).length > 0;
+    // Also preserve date filter indicator — do NOT hide it if date filter is active
+    const _urlP = new URLSearchParams(window.location.search);
+    const hasDateFilter = !!(_urlP.get('from_date') && _urlP.get('to_date'));
     
     if (indicator) {
-      indicator.style.display = hasActiveFilters ? 'block' : 'none';
+      indicator.style.display = (hasActiveFilters || hasDateFilter) ? 'block' : 'none';
     }
     
     // Update filter icons to show active state
