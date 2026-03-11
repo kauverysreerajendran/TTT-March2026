@@ -472,10 +472,10 @@ box-shadow: 2px 0 8px rgba(0,0,0,0.04);
     cursor: not-allowed;
     background: #f5f5f5 !important;
   }
-    /* Show remark tooltip above the trigger instead of below */
+  /* Remark tooltip positioning is handled by JS */
   .remark-tooltip {
     top: auto !important;
-    bottom: 110% !important;
+    bottom: auto !important;
   }
 
   /* Styling for remark tooltip close button */
@@ -2006,214 +2006,223 @@ window.highlightAndMoveRowToTop = highlightAndMoveRowToTop;
 window.restorePreviousRowPosition = restorePreviousRowPosition;
 </script>
 
-<!-- Tooltip for Global Remark (Brass-style) -->
+<!-- Tooltip for Global Remark (delegated) -->
 <script nonce="{{ csp_nonce }}">
   document.addEventListener("DOMContentLoaded", function () {
-    var triggers = document.querySelectorAll(".remark-tooltip-trigger");
-    triggers.forEach(function (trigger) {
-      var tooltip = trigger.querySelector(".remark-tooltip");
-      var sendButton = tooltip ? tooltip.querySelector("button:not(.remark-close-btn)") : null;
+    let currentTooltip = null;
+    let currentTrigger = null;
 
-      function positionFloatingTooltip() {
-        if (!tooltip) return;
-        const rect = trigger.getBoundingClientRect();
-        const tooltipRect = tooltip.getBoundingClientRect();
-        let top = rect.bottom + 8;
-        let left = rect.left + rect.width / 2 - (tooltipRect.width || 300) / 2;
+    function moveToBody(tooltip) {
+      if (!tooltip._placeholder) {
+        const placeholder = document.createElement("span");
+        placeholder.style.display = "none";
+        tooltip.parentNode.insertBefore(placeholder, tooltip);
+        tooltip._placeholder = placeholder;
+      }
+      if (tooltip.parentNode !== document.body) {
+        document.body.appendChild(tooltip);
+      }
+    }
 
-        if (left + (tooltipRect.width || 300) > window.innerWidth - 10) {
-          left = window.innerWidth - (tooltipRect.width || 300) - 10;
-        }
-        if (left < 10) left = 10;
-        if (top + (tooltipRect.height || 120) > window.innerHeight - 10) {
-          top = rect.top - (tooltipRect.height || 120) - 8;
-        }
-        if (top < 10) top = 10;
+    function restoreTooltip(tooltip) {
+      if (tooltip._placeholder && tooltip._placeholder.parentNode) {
+        tooltip._placeholder.parentNode.insertBefore(tooltip, tooltip._placeholder);
+        tooltip._placeholder.remove();
+        tooltip._placeholder = null;
+      }
+      tooltip.style.position = "absolute";
+      tooltip.style.top = "110%";
+      tooltip.style.left = "50%";
+      tooltip.style.transform = "translateX(-50%)";
+      tooltip.style.right = "";
+    }
 
-        tooltip.style.left = left + "px";
-        tooltip.style.top = top + "px";
-        tooltip.style.right = "auto";
-        tooltip.style.transform = "none";
-        tooltip.style.maxHeight = (window.innerHeight - 20) + "px";
-        tooltip.style.overflowY = "auto";
+    function positionTooltip(trigger, tooltip) {
+      const rect = trigger.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const tooltipW = tooltipRect.width || 300;
+      const tooltipH = tooltipRect.height || 120;
+
+      // Always show below the trigger (no clamping to top)
+      let top = rect.bottom + 8;
+      // Ensure tooltip stays below the sticky header
+      const thead = document.querySelector('#order-listing thead');
+      if (thead) {
+        const headRect = thead.getBoundingClientRect();
+        const minTop = headRect.bottom + 8;
+        if (top < minTop) top = minTop;
       }
 
-      function showTooltip(pin) {
-        if (!tooltip) return;
-        tooltip.dataset.pinned = pin ? "true" : "false";
-
-        // Move tooltip to body to escape table stacking contexts
-        if (!tooltip._placeholder) {
-          const placeholder = document.createElement("span");
-          placeholder.style.display = "none";
-          tooltip.parentNode.insertBefore(placeholder, tooltip);
-          tooltip._placeholder = placeholder;
-        }
-        if (tooltip.parentNode !== document.body) {
-          document.body.appendChild(tooltip);
-        }
-
-        tooltip.style.position = "fixed";
-        tooltip.style.display = "block";
-        tooltip.style.opacity = "1";
-        tooltip.style.visibility = "visible";
-        tooltip.style.zIndex = "1000000";
-        tooltip.style.pointerEvents = "auto";
-
-        positionFloatingTooltip();
-
-        var textarea = tooltip.querySelector("textarea");
-        if (textarea) {
-          textarea.focus();
-        }
+      let left = rect.left + rect.width / 2 - tooltipW / 2;
+      if (left + tooltipW > window.innerWidth - 10) {
+        left = window.innerWidth - tooltipW - 10;
       }
+      if (left < 10) left = 10;
 
-      function hideTooltip(force) {
-        if (!tooltip) return;
-        if (tooltip.dataset.pinned === "true" && !force) return;
-        tooltip.style.opacity = "0";
-        tooltip.style.visibility = "hidden";
-        tooltip.style.display = "none";
+      tooltip.style.setProperty("left", left + "px", "important");
+      tooltip.style.setProperty("top", top + "px", "important");
+      tooltip.style.setProperty("right", "auto", "important");
+      tooltip.style.setProperty("transform", "none", "important");
+      // Allow tooltip to overflow viewport if needed (requested: always below)
+      tooltip.style.maxHeight = "";
+      tooltip.style.overflowY = "";
+    }
 
-        if (tooltip._placeholder && tooltip._placeholder.parentNode) {
-          tooltip._placeholder.parentNode.insertBefore(tooltip, tooltip._placeholder);
-          tooltip._placeholder.remove();
-          tooltip._placeholder = null;
-        }
-        tooltip.style.position = "absolute";
-        tooltip.style.top = "110%";
-        tooltip.style.left = "50%";
-        tooltip.style.transform = "translateX(-50%)";
-        tooltip.style.right = "";
-      }
-
-      // Click to toggle tooltip (more stable than hover for fixed positioning)
-      trigger.addEventListener("click", function (e) {
-        e.preventDefault();
-        if (tooltip.dataset.pinned === "true") {
-          tooltip.dataset.pinned = "false";
-          hideTooltip(true);
-        } else {
-          showTooltip(true);
-        }
+    function showTooltip(trigger, tooltip) {
+      moveToBody(tooltip);
+      tooltip.style.setProperty("position", "fixed", "important");
+      tooltip.style.setProperty("display", "block", "important");
+      tooltip.style.setProperty("opacity", "1", "important");
+      tooltip.style.setProperty("visibility", "visible", "important");
+      tooltip.style.setProperty("z-index", "1000000", "important");
+      tooltip.style.setProperty("pointer-events", "auto", "important");
+      // Initial position + reflowed position for accurate size
+      positionTooltip(trigger, tooltip);
+      requestAnimationFrame(function () {
+        positionTooltip(trigger, tooltip);
       });
 
-      // Prevent outside-click handler from firing when interacting inside tooltip
-      if (tooltip) {
-        tooltip.addEventListener("mousedown", function (e) {
-          e.stopPropagation();
-        });
-        tooltip.addEventListener("click", function (e) {
-          e.stopPropagation();
-        });
-        const textarea = tooltip.querySelector("textarea");
-        if (textarea) {
-          textarea.addEventListener("input", function () {
-            tooltip.dataset.pinned = "true";
-          });
+      const textarea = tooltip.querySelector("textarea");
+      if (textarea && !textarea.readOnly) {
+        textarea.focus();
+      }
+    }
+
+    function hideTooltip(tooltip) {
+      tooltip.style.opacity = "0";
+      tooltip.style.visibility = "hidden";
+      tooltip.style.display = "none";
+      restoreTooltip(tooltip);
+    }
+
+    // Delegated click to open/close
+    document.addEventListener("click", function (e) {
+      const trigger = e.target.closest(".remark-tooltip-trigger");
+      if (!trigger) {
+        if (currentTooltip && !e.target.closest(".remark-tooltip")) {
+          hideTooltip(currentTooltip);
+          currentTooltip = null;
+          currentTrigger = null;
         }
+        return;
       }
 
-      document.addEventListener("click", function (e) {
-        if (!tooltip) return;
-        if (tooltip.dataset.pinned === "true") {
-          const clickedInside = tooltip.contains(e.target) || trigger.contains(e.target);
-          if (!clickedInside) {
-            tooltip.dataset.pinned = "false";
-            hideTooltip(true);
-          }
-        }
-      });
+      e.preventDefault();
+      e.stopPropagation();
 
-      // ESC to close
-      document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && tooltip && tooltip.dataset.pinned === "true") {
-          tooltip.dataset.pinned = "false";
-          hideTooltip(true);
-        }
-      });
+      const tooltip = trigger.querySelector(".remark-tooltip");
+      if (!tooltip) return;
 
-      if (sendButton) {
-        sendButton.addEventListener("click", function (e) {
-          e.preventDefault();
-          var textarea = tooltip ? tooltip.querySelector("textarea") : null;
-          var remark = textarea ? textarea.value.trim() : "";
-          if (!remark) {
-            Swal.fire('Error', 'Please enter a remark before sending.', 'error');
-            return;
-          }
-          var row = trigger.closest("tr");
-          var batchId = row ? row.getAttribute('data-batch-id') : null;
-          if (!batchId) {
-            Swal.fire('Error', 'Batch ID not found.', 'error');
-            return;
-          }
-          fetch('/inputscreening/save_ip_pick_remark/', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-              batch_id: batchId,
-              remark: remark
-            })
-          })
-          .then(res => res.json())
-          .then(data => {
-            if (data.success) {
-              Swal.fire({
-                icon: 'success',
-                title: 'Remark saved!',
-                timer: 1200,
-                showConfirmButton: false
-              }).then(() => {
-                if (textarea) {
-                  textarea.value = remark;
-                  textarea.setAttribute("readonly", true);
-                }
-                if (sendButton && tooltip) {
-                  const infoDiv = document.createElement("div");
-                  infoDiv.style.marginTop = "40px";
-                  infoDiv.style.color = "#31708f";
-                  infoDiv.style.background = "#d9edf7";
-                  infoDiv.style.border = "1px solid #bce8f1";
-                  infoDiv.style.borderRadius = "4px";
-                  infoDiv.style.padding = "8px 12px";
-                  infoDiv.style.fontSize = "10px";
-                  infoDiv.style.textAlign = "left";
-                  infoDiv.innerHTML = `
-                    <i class="fa fa-info-circle" style="margin-right: 6px;"></i>
-                    Remark already saved and cannot be edited.
-                  `;
-                  sendButton.parentNode.replaceChild(infoDiv, sendButton);
-                }
-                // Persist remark for later view
-                if (row) {
-                  row.setAttribute('data-remark', remark);
-                  const remarkHidden = row.querySelector('input[type="hidden"].remark-hidden-input');
-                  if (remarkHidden) {
-                    remarkHidden.value = remark;
-                  }
-                }
+      if (currentTooltip && currentTooltip !== tooltip) {
+        hideTooltip(currentTooltip);
+      }
 
-                const chatIcon = trigger.querySelector('img[alt="Chat"]');
-                if (chatIcon) {
-                  chatIcon.style.filter = 'grayscale(0) brightness(1.1) sepia(1) hue-rotate(80deg) saturate(3) contrast(1.2)';
-                  chatIcon.style.opacity = '1';
-                }
-                // Keep tooltip open so user can view the saved remark
-                tooltip.dataset.pinned = "true";
-              });
-            } else {
-              Swal.fire('Error', data.error || 'Failed to save remark', 'error');
+      if (tooltip.style.display === "block") {
+        hideTooltip(tooltip);
+        currentTooltip = null;
+        currentTrigger = null;
+      } else {
+        showTooltip(trigger, tooltip);
+        currentTooltip = tooltip;
+        currentTrigger = trigger;
+      }
+    });
+
+    // Keep open when interacting inside tooltip
+    document.addEventListener("mousedown", function (e) {
+      if (e.target.closest(".remark-tooltip")) {
+        e.stopPropagation();
+      }
+    });
+
+    // ESC closes
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && currentTooltip) {
+        hideTooltip(currentTooltip);
+        currentTooltip = null;
+        currentTrigger = null;
+      }
+    });
+
+    // Send button handler (delegated)
+    document.addEventListener("click", function (e) {
+      const sendBtn = e.target.closest('.remark-tooltip button:not(.remark-close-btn)');
+      if (!sendBtn) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const tooltip = sendBtn.closest('.remark-tooltip');
+      const trigger = tooltip ? tooltip.closest('.remark-tooltip-trigger') : null;
+      const textarea = tooltip ? tooltip.querySelector('textarea') : null;
+      const remark = textarea ? textarea.value.trim() : "";
+      if (!remark) {
+        Swal.fire('Error', 'Please enter a remark before sending.', 'error');
+        return;
+      }
+      const row = trigger ? trigger.closest('tr') : null;
+      const batchId = row ? row.getAttribute('data-batch-id') : null;
+      if (!batchId) {
+        Swal.fire('Error', 'Batch ID not found.', 'error');
+        return;
+      }
+      fetch('/inputscreening/save_ip_pick_remark/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+          batch_id: batchId,
+          remark: remark
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Remark saved!',
+            timer: 1200,
+            showConfirmButton: false
+          }).then(() => {
+            if (textarea) {
+              textarea.value = remark;
+              textarea.setAttribute('readonly', true);
             }
-          })
-          .catch(() => {
-            Swal.fire('Error', 'Network error', 'error');
+            if (sendBtn && tooltip) {
+              const infoDiv = document.createElement('div');
+              infoDiv.style.marginTop = '40px';
+              infoDiv.style.color = '#31708f';
+              infoDiv.style.background = '#d9edf7';
+              infoDiv.style.border = '1px solid #bce8f1';
+              infoDiv.style.borderRadius = '4px';
+              infoDiv.style.padding = '8px 12px';
+              infoDiv.style.fontSize = '10px';
+              infoDiv.style.textAlign = 'left';
+              infoDiv.innerHTML = `
+                <i class="fa fa-info-circle" style="margin-right: 6px;"></i>
+                Remark already saved and cannot be edited.
+              `;
+              sendBtn.parentNode.replaceChild(infoDiv, sendBtn);
+            }
+            if (row) {
+              row.setAttribute('data-remark', remark);
+              const remarkHidden = row.querySelector('input[type="hidden"].remark-hidden-input');
+              if (remarkHidden) remarkHidden.value = remark;
+            }
+            const chatIcon = trigger ? trigger.querySelector('img[alt="Chat"]') : null;
+            if (chatIcon) {
+              chatIcon.style.filter = 'grayscale(0) brightness(1.1) sepia(1) hue-rotate(80deg) saturate(3) contrast(1.2)';
+              chatIcon.style.opacity = '1';
+            }
           });
-        });
-      }
+        } else {
+          Swal.fire('Error', data.error || 'Failed to save remark', 'error');
+        }
+      })
+      .catch(() => {
+        Swal.fire('Error', 'Network error', 'error');
+      });
     });
   });
 </script>
