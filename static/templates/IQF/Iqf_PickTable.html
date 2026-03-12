@@ -8027,7 +8027,7 @@ function handleTrayWiseRejectionWithAcceptance(batchId, stockLotId, msgDiv, proc
       }
       
       setTimeout(() => {
-        if (isFullLotRejection) {
+        if (isFullLotRejection || data.no_verification_required) {
           // ✅ For full lot rejection: just reload page, no popups
           window.location.reload();
         } else {
@@ -8083,25 +8083,29 @@ function handleTrayWiseRejectionWithAcceptance(batchId, stockLotId, msgDiv, proc
             }
             
             setTimeout(() => {
-              const trayModal = document.getElementById("trayScanModal");
-              const detailsDiv = document.getElementById("trayScanDetails");
-              if (trayModal && detailsDiv) {
-                trayModal.classList.add("open");
-                showReadOnlyRejectionData(stockLotId, detailsDiv);
-              }
-              
-              fetch(`/iqf/iqf_get_rejected_tray_scan_data/?lot_id=${encodeURIComponent(stockLotId)}`)
-                .then(res => res.json())
-                .then(rescanData => {
-                  if (rescanData.success) {
-                    showAcceptedTrayModalWithOptimalDistribution(rescanData, stockLotId, false);
-                  } else {
+              if (data2.no_verification_required) {
+                window.location.reload();
+              } else {
+                const trayModal = document.getElementById("trayScanModal");
+                const detailsDiv = document.getElementById("trayScanDetails");
+                if (trayModal && detailsDiv) {
+                  trayModal.classList.add("open");
+                  showReadOnlyRejectionData(stockLotId, detailsDiv);
+                }
+                
+                fetch(`/iqf/iqf_get_rejected_tray_scan_data/?lot_id=${encodeURIComponent(stockLotId)}`)
+                  .then(res => res.json())
+                  .then(rescanData => {
+                    if (rescanData.success) {
+                      showAcceptedTrayModalWithOptimalDistribution(rescanData, stockLotId, false);
+                    } else {
+                      window.location.reload();
+                    }
+                  })
+                  .catch(() => {
                     window.location.reload();
-                  }
-                })
-                .catch(() => {
-                  window.location.reload();
-                });
+                  });
+              }
             }, 1000);
           } else {
             if (msgDiv) {

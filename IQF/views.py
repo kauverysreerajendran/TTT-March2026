@@ -1941,6 +1941,32 @@ class IQFTrayRejectionAPIView(APIView):
 
     def post(self, request):
         try:
+            def _build_zero_rejection_acceptance_rows(current_lot_id, use_audit_scope):
+                tray_qty_map = {}
+
+                iqf_trays = IQFTrayId.objects.filter(lot_id=current_lot_id).exclude(tray_quantity__lte=0)
+                if iqf_trays.exists():
+                    for tray in iqf_trays:
+                        if tray.tray_id:
+                            tray_qty_map[tray.tray_id] = tray_qty_map.get(tray.tray_id, 0) + int(tray.tray_quantity or 0)
+                    return tray_qty_map
+
+                iqf_rejected_scans = IQF_Rejected_TrayScan.objects.filter(lot_id=current_lot_id).exclude(tray_id='')
+                if iqf_rejected_scans.exists():
+                    for tray in iqf_rejected_scans:
+                        tray_qty_map[tray.tray_id] = tray_qty_map.get(tray.tray_id, 0) + int(tray.rejected_tray_quantity or 0)
+                    return tray_qty_map
+
+                if use_audit_scope:
+                    upstream_scans = Brass_Audit_Rejected_TrayScan.objects.filter(lot_id=current_lot_id).exclude(rejected_tray_id='')
+                else:
+                    upstream_scans = Brass_QC_Rejected_TrayScan.objects.filter(lot_id=current_lot_id).exclude(rejected_tray_id='')
+
+                for tray in upstream_scans:
+                    tray_qty_map[tray.rejected_tray_id] = tray_qty_map.get(tray.rejected_tray_id, 0) + int(tray.rejected_tray_quantity or 0)
+
+                return tray_qty_map
+
             data = request.data if hasattr(request, 'data') else json.loads(request.body.decode('utf-8'))
             lot_id = data.get('lot_id')
             batch_id = data.get('batch_id')
@@ -1968,6 +1994,61 @@ class IQFTrayRejectionAPIView(APIView):
             # Step 1: Calculate total rejection quantity
             total_rejection_qty = sum(int(item['quantity']) for item in tray_rejections if int(item['quantity']) > 0)
             print(f"📊 Total rejection quantity: {total_rejection_qty}")
+
+            # Step 1a: Zero rejection means accept the current IQF lot quantity as-is.
+            if total_rejection_qty == 0:
+                stock = TotalStockModel.objects.filter(lot_id=lot_id).first()
+                use_audit = bool(getattr(stock, 'send_brass_audit_to_iqf', False)) if stock else False
+                accepted_qty_map = _build_zero_rejection_acceptance_rows(lot_id, use_audit)
+
+                if not accepted_qty_map:
+                    return Response({
+                        'success': False,
+                        'error': f'No current tray quantities found for lot {lot_id}'
+                    }, status=400)
+
+                IQF_Accepted_TrayID_Store.objects.filter(lot_id=lot_id).delete()
+                for tray_id, tray_qty in accepted_qty_map.items():
+                    IQF_Accepted_TrayID_Store.objects.create(
+                        lot_id=lot_id,
+                        tray_id=tray_id,
+                        tray_qty=tray_qty,
+                        user=request.user,
+                        accepted_comment=acceptance_remarks,
+                        is_save=True
+                    )
+                    print(f"   ✅ Zero rejection acceptance tray saved: {tray_id} qty={tray_qty}")
+
+                total_accepted_qty = sum(accepted_qty_map.values())
+                if stock:
+                    stock.iqf_acceptance = True
+                    stock.iqf_few_cases_acceptance = False
+                    stock.iqf_onhold_picking = False
+                    stock.iqf_rejection = False
+                    stock.iqf_accepted_qty = total_accepted_qty
+                    stock.total_IP_accpeted_quantity = total_accepted_qty
+                    stock.send_brass_qc = True
+                    stock.last_process_module = "IQF"
+                    stock.iqf_last_process_date_time = timezone.now()
+                    stock.save(update_fields=[
+                        'iqf_acceptance', 'iqf_few_cases_acceptance', 'iqf_onhold_picking',
+                        'iqf_rejection', 'iqf_accepted_qty', 'total_IP_accpeted_quantity',
+                        'send_brass_qc', 'last_process_module', 'iqf_last_process_date_time'
+                    ])
+                    print(f"   ✅ Zero rejection acceptance completed for lot {lot_id}: qty={total_accepted_qty}")
+
+                IQF_Draft_Store.objects.filter(
+                    lot_id=lot_id,
+                    draft_type__in=['lot_rejection', 'tray_rejection', 'accepted_tray']
+                ).delete()
+
+                return Response({
+                    'success': True,
+                    'message': 'Current lot quantity accepted as-is',
+                    'allocation_type': 'direct_acceptance',
+                    'no_verification_required': True,
+                    'total_accepted': total_accepted_qty
+                })
 
             # Step 2: Get original available trays BEFORE saving frontend accepted trays
             # Use fallback logic to get all eligible trays
@@ -3048,7 +3129,7 @@ def iqf_get_rejected_tray_scan_data(request):
             for idx, rec in enumerate(brass_rejected_trays, 1):
                 qty_val = int(rec.rejected_tray_quantity) if rec.rejected_tray_quantity else 0
                 reason_text = rec.rejection_reason.rejection_reason if rec.rejection_reason else 'N/A'
-                print(f"      Record {idx}: tray_id='{rec.rejected_tray_id}', qty={qty_val}, reason='{reason_text}', top_tray={rec.top_tray}")
+                print(f"      Record {idx}: tray_id='{rec.rejected_tray_id}', qty={qty_val}, reason='{reason_text}', top_tray={getattr(rec, 'top_tray', False)}")
             
             for tray_obj in brass_rejected_trays:
                 tray_key = tray_obj.rejected_tray_id or 'NO_TRAY'  # Use 'NO_TRAY' as key if tray_id is None
@@ -3061,9 +3142,11 @@ def iqf_get_rejected_tray_scan_data(request):
                 iqf_tray_id_obj = IQFTrayId.objects.filter(lot_id=lot_id, tray_id=tray_obj.rejected_tray_id).first()
                 
                 # Use top_tray from any of these sources (priority: Brass_QC_Rejected_TrayScan > BrassTrayId > IQFTrayId)
-                is_top_tray = (tray_obj.top_tray or 
-                              (brass_tray_id_obj and brass_tray_id_obj.top_tray) or 
-                              (iqf_tray_id_obj and iqf_tray_id_obj.top_tray))
+                is_top_tray = bool(
+                    getattr(tray_obj, 'top_tray', False) or
+                    (brass_tray_id_obj and brass_tray_id_obj.top_tray) or
+                    (iqf_tray_id_obj and iqf_tray_id_obj.top_tray)
+                )
                 
                 # Aggregate by tray_id
                 if tray_key not in tray_aggregation:
