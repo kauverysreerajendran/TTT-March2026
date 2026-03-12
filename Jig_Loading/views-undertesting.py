@@ -1,6 +1,6 @@
 from django.views.generic import *
 from modelmasterapp.models import *
-from .models import Jig, JigLoadingMaster, JigLoadTrayId, JigLoadingManualDraft, JigCompleted
+from .models import *
 from rest_framework.decorators import *
 from django.http import JsonResponse
 import logging
@@ -19,6 +19,8 @@ import re
 import json
 from django.core.paginator import Paginator
 from datetime import datetime
+
+
 @method_decorator(login_required, name='dispatch') 
 class JigView(TemplateView):
     template_name = "JigLoading/Jig_Picktable.html"
@@ -131,6 +133,12 @@ class JigView(TemplateView):
                 'last_process_module': stock.last_process_module,
                 'lot_status': lot_status,
                 'lot_status_class': lot_status_class,
+                # ✅ ISSUE #7 FIX: Add hold/release fields
+                'jig_hold_lot': getattr(stock, 'jig_hold_lot', False),
+                'jig_holding_reason': getattr(stock, 'jig_holding_reason', ''),
+                'jig_release_lot': getattr(stock, 'jig_release_lot', False),
+                'jig_release_reason': getattr(stock, 'jig_release_reason', ''),
+                'inprocess_remarks': getattr(stock, 'jig_pick_remarks', ''),
             })
         
         # Sort by Last Updated descending (newest first)
@@ -167,7 +175,9 @@ class TrayInfoView(APIView):
                     })
         else:
             # For incomplete lots, show allocated trays from JigLoadTrayId
-            trays = JigLoadTrayId.objects.filter(lot_id=lot_id, batch_id__batch_id=batch_id).values('tray_id', 'tray_quantity').order_by('tray_quantity')
+            # FIX 2: Order by 'id' (insertion order) to preserve physical tray sequence.
+            # ordering by 'tray_quantity' was re-sorting trays by size and shuffling the display.
+            trays = JigLoadTrayId.objects.filter(lot_id=lot_id, batch_id__batch_id=batch_id).values('tray_id', 'tray_quantity').order_by('id')
             tray_list = [{'tray_id': t['tray_id'], 'tray_quantity': t['tray_quantity']} for t in trays]
         
         return Response({'trays': tray_list})
@@ -240,45 +250,7 @@ class JigAddModalDataView(TemplateView):
             stock = get_object_or_404(TotalStockModel, lot_id=lot_id)
             batch = stock.batch_id
             model_master = batch.model_stock_no if (batch and batch.model_stock_no) else stock.model_stock_no
-
-            # BUG 10 FIX: Plating colour compatibility check for "Add Model".
-            # When a jig_qr_id is supplied and it already has a drafted lot, the new lot
-            # must share the same plating colour — different plating colours mean a
-            # different bath process, so mixing them on one jig is incorrect.
-            if jig_qr_id:
-                existing_draft = JigLoadingManualDraft.objects.filter(
-                    jig_id=jig_qr_id,
-                    draft_status='active'
-                ).exclude(lot_id=lot_id).first()
-
-                if existing_draft:
-                    # Resolve plating colour of the already-drafted lot
-                    try:
-                        existing_stock = TotalStockModel.objects.get(lot_id=existing_draft.lot_id)
-                        existing_color = (
-                            existing_stock.plating_color.plating_color
-                            if existing_stock.plating_color else None
-                        )
-                        new_color = (
-                            stock.plating_color.plating_color
-                            if stock.plating_color else None
-                        )
-                        if existing_color and new_color and existing_color != new_color:
-                            logger.warning(
-                                f"⛔ Plating colour mismatch: existing={existing_color}, new={new_color} "
-                                f"for jig {jig_qr_id}"
-                            )
-                            return JsonResponse({
-                                'success': False,
-                                'error': (
-                                    f"Plating colour mismatch: this jig already has a lot with "
-                                    f"'{existing_color}' plating. Cannot add a lot with "
-                                    f"'{new_color}' plating to the same jig."
-                                )
-                            }, status=400)
-                    except TotalStockModel.DoesNotExist:
-                        pass
-
+            
             # Comprehensive plating_stk_no resolution logic
             plating_stk_no = self._resolve_plating_stock_number(batch, model_master)
             
@@ -409,7 +381,9 @@ class JigAddModalDataView(TemplateView):
         # Get jig details if exists
         jig_details = None
         if jig_qr_id:
-            jig_details = JigDetails.objects.filter(jig_qr_id=jig_qr_id, lot_id=lot_id).first()
+            jig_details_model = globals().get('JigDetails')
+            if jig_details_model is not None:
+                jig_details = jig_details_model.objects.filter(jig_qr_id=jig_qr_id, lot_id=lot_id).first()
         
         # Set initial loaded_cases_qty to 0 (no trays scanned yet)
         modal_data['loaded_cases_qty'] = 0
@@ -643,14 +617,7 @@ class JigAddModalDataView(TemplateView):
             modal_data['excess_message'] = f"{leftover_cases} cases are in excess"
         else:
             modal_data['open_with_half_filled'] = False
-            # BUG 11 FIX: When broken hooks exist, the display count should only reflect
-            # the effective (scannable) cases — NOT the full original lot qty.
-            # Showing "0/98" when 5 hooks are broken and only 93 cases can be scanned is
-            # misleading. The half-filled tray's 5 cases are tracked separately.
-            if modal_data['broken_buildup_hooks'] > 0:
-                modal_data['loaded_cases_qty'] = f"0/{modal_data['effective_loaded_cases']}"
-            else:
-                modal_data['loaded_cases_qty'] = f"0/{modal_data['original_lot_qty']}"
+            modal_data['loaded_cases_qty'] = f"0/{modal_data['original_lot_qty']}"
             modal_data['excess_message'] = ""
 
         return modal_data
@@ -880,47 +847,61 @@ class JigAddModalDataView(TemplateView):
     
     
     
-    def _distribute_cases_to_trays(self, total_cases, tray_capacity):
+    def _distribute_cases_to_trays(self, total_cases, tray_capacity, partial_lot=False):
         """
         Distribute cases into trays based on tray capacity.
         Returns distribution with full trays and partial tray details.
-        For leftover lots, put partial tray first for scanning.
+
+        FIX 2: Natural order — full trays first, partial tray LAST (physical stack order).
+        The partial tray is always the TOP tray because it sits on top of the stack.
+        partial_lot=True is only used for explicit leftover/partial lots where the
+        partial tray must be scanned first.
         """
         if total_cases <= 0 or not tray_capacity or tray_capacity <= 0:
             return None
-            
+
         full_trays = total_cases // tray_capacity
         partial_cases = total_cases % tray_capacity
-        
+
         trays = []
-        
-        # For leftover lots (when there are partial cases), put partial tray first
-        if partial_cases > 0:
+
+        if partial_cases > 0 and partial_lot:
+            # Only for explicit leftover lots: partial tray goes FIRST (scan first)
             trays.append({
                 'tray_number': 1,
                 'cases': partial_cases,
                 'is_full': False,
-                'is_top_tray': True,  # Mark as top tray for scanning
+                'is_top_tray': True,
                 'scan_required': True
             })
-            # Then add full trays
             for i in range(full_trays):
                 trays.append({
-                    'tray_number': i + 2,  # Start from 2 since partial is 1
+                    'tray_number': i + 2,
                     'cases': tray_capacity,
                     'is_full': True,
+                    'is_top_tray': False,
                     'scan_required': False
                 })
         else:
-            # For full trays only, add them in order
+            # FIX: Natural physical order — full trays first, partial tray LAST
             for i in range(full_trays):
                 trays.append({
                     'tray_number': i + 1,
                     'cases': tray_capacity,
                     'is_full': True,
+                    'is_top_tray': False,
                     'scan_required': False
                 })
-        
+            if partial_cases > 0:
+                # Partial tray is physically on TOP of the stack — goes last in list
+                trays.append({
+                    'tray_number': full_trays + 1,
+                    'cases': partial_cases,
+                    'is_full': False,
+                    'is_top_tray': True,   # ✅ Correct: partial tray is the top tray
+                    'scan_required': True
+                })
+
         return {
             'total_cases': total_cases,
             'full_trays_count': full_trays,
@@ -1135,27 +1116,56 @@ class JigAddModalDataView(TemplateView):
 # Tray ID Validation - Delink Table View
 @api_view(['GET'])
 def validate_tray_id(request):
+    import logging
+    logger = logging.getLogger(__name__)
+    
     tray_id = request.GET.get('tray_id')
     batch_id = request.GET.get('batch_id')
-    lot_id = request.GET.get('lot_id')  # <-- Add this line to get lot_id from request
-    if not tray_id or not batch_id or not lot_id:
+    lot_id = request.GET.get('lot_id')  # Single lot ID (for backward compatibility)
+    lot_ids_param = request.GET.get('lot_ids')  # Comma-separated lot IDs (for multi-model)
+    
+    # Determine which lot IDs to validate against
+    if lot_ids_param:
+        # Multi-model mode: parse comma-separated lot IDs
+        lot_ids_to_check = [lid.strip() for lid in lot_ids_param.split(',') if lid.strip()]
+    elif lot_id:
+        # Single model mode: validate against single lot ID
+        lot_ids_to_check = [lot_id]
+    else:
         return Response({'valid': False, 'message': 'Tray ID, Batch ID, and Lot ID required'}, status=400)
-    # Only accept tray_id that belongs to this lot and batch
-    tray = JigLoadTrayId.objects.filter(
-        tray_id=tray_id,
-        batch_id__batch_id=batch_id,
-        lot_id=lot_id
-    ).first()
+    
+    if not tray_id:
+        return Response({'valid': False, 'message': 'Tray ID, Batch ID, and Lot ID required'}, status=400)
+    
+    logger.info(f"🔍 Multi-model validation: tray_id={tray_id}, batch_id={batch_id}, lot_ids={lot_ids_to_check}")
+    
+    # For multi-model scenarios, don't filter by batch_id since different lots may have different batches
+    if len(lot_ids_to_check) > 1:
+        # Multi-model: Check if tray exists for ANY of the provided lot IDs (ignore batch_id)
+        tray = JigLoadTrayId.objects.filter(
+            tray_id=tray_id,
+            lot_id__in=lot_ids_to_check
+        ).first()
+    else:
+        # Single model: Check with batch_id for backward compatibility
+        if not batch_id:
+            return Response({'valid': False, 'message': 'Tray ID, Batch ID, and Lot ID required'}, status=400)
+        tray = JigLoadTrayId.objects.filter(
+            tray_id=tray_id,
+            batch_id__batch_id=batch_id,
+            lot_id__in=lot_ids_to_check
+        ).first()
+    
     if tray:
         tray_quantity = tray.tray_quantity or tray.tray_capacity or 0
+        logger.info(f"✅ Tray validated: {tray_id} found with quantity {tray_quantity}")
         return Response({'valid': True, 'tray_quantity': tray_quantity})
     else:
-        # Do NOT allow new trays for delink table (only for half-filled section, handled elsewhere)
+        logger.warning(f"❌ Tray validation failed: {tray_id} not found in batch {batch_id} for lot IDs {lot_ids_to_check}")
         return Response({'valid': False, 'message': 'Invalid Tray ID.'})
 
+
 # Add Jig Btn - Delink Table View
-
-
 class DelinkTableAPIView(APIView):
     """
     Returns tray rows for Delink Table based on tray type, lot qty, and jig capacity.
@@ -1446,6 +1456,11 @@ class JigLoadingManualDraftAPIView(APIView):
             jig_obj.save()
             logger.info(f"💾 Jig {jig_id} marked as drafted for batch {batch_id} by {user.username}")
 
+        # --- Update TotalStockModel with jig_draft status ---
+        stock.jig_draft = True
+        stock.save()
+        logger.info(f"💾 TotalStockModel.jig_draft set to True for lot_id={lot_id}, batch_id={batch_id}")
+
         # --- Draft should NOT split lots - only save form data ---
         logger.info(f"💾 Draft saved without lot splitting - form data saved for later submission")
 
@@ -1470,47 +1485,61 @@ class JigLoadingManualDraftFetchAPIView(APIView):
 class JigSubmitAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def _distribute_cases_to_trays(self, total_cases, tray_capacity):
+    def _distribute_cases_to_trays(self, total_cases, tray_capacity, partial_lot=False):
         """
         Distribute cases into trays based on tray capacity.
         Returns distribution with full trays and partial tray details.
-        For leftover lots, put partial tray first for scanning.
+
+        FIX 2: Natural order — full trays first, partial tray LAST (physical stack order).
+        The partial tray is always the TOP tray because it sits on top of the stack.
+        partial_lot=True is only used for explicit leftover/partial lots where the
+        partial tray must be scanned first.
         """
         if total_cases <= 0 or not tray_capacity or tray_capacity <= 0:
             return None
-            
+
         full_trays = total_cases // tray_capacity
         partial_cases = total_cases % tray_capacity
-        
+
         trays = []
-        
-        # For leftover lots (when there are partial cases), put partial tray first
-        if partial_cases > 0:
+
+        if partial_cases > 0 and partial_lot:
+            # Only for explicit leftover lots: partial tray goes FIRST (scan first)
             trays.append({
                 'tray_number': 1,
                 'cases': partial_cases,
                 'is_full': False,
-                'is_top_tray': True,  # Mark as top tray for scanning
+                'is_top_tray': True,
                 'scan_required': True
             })
-            # Then add full trays
             for i in range(full_trays):
                 trays.append({
-                    'tray_number': i + 2,  # Start from 2 since partial is 1
+                    'tray_number': i + 2,
                     'cases': tray_capacity,
                     'is_full': True,
+                    'is_top_tray': False,
                     'scan_required': False
                 })
         else:
-            # For full trays only, add them in order
+            # FIX: Natural physical order — full trays first, partial tray LAST
             for i in range(full_trays):
                 trays.append({
                     'tray_number': i + 1,
                     'cases': tray_capacity,
                     'is_full': True,
+                    'is_top_tray': False,
                     'scan_required': False
                 })
-        
+            if partial_cases > 0:
+                # Partial tray is physically on TOP of the stack — goes last in list
+                trays.append({
+                    'tray_number': full_trays + 1,
+                    'cases': partial_cases,
+                    'is_full': False,
+                    'is_top_tray': True,   # ✅ Correct: partial tray is the top tray
+                    'scan_required': True
+                })
+
         return {
             'total_cases': total_cases,
             'full_trays_count': full_trays,
@@ -1783,10 +1812,17 @@ class JigSubmitAPIView(APIView):
                 # Initialize tray info variables  
                 complete_delink_tray_info = delink_tray_info
                 complete_half_filled_tray_info = half_filled_tray_info
-                
+
+                # FIX 1: Calculate effective_lot_qty BEFORE the split block so it is
+                # never None when used inside the if original_lot_qty > jig_capacity block
+                if original_lot_qty == jig_capacity:
+                    effective_lot_qty = original_lot_qty - broken_hooks
+                else:
+                    effective_lot_qty = jig_capacity - broken_hooks
+
                 # Handle partial lot splitting with new lot ID for remaining quantity
                 if original_lot_qty > jig_capacity:
-                    loaded_cases_qty = effective_lot_qty
+                    loaded_cases_qty = effective_lot_qty  # ✅ Now always a valid integer
                     remaining_qty = original_lot_qty - jig_capacity
                     
                     # Generate new lot ID for remaining cases
@@ -1832,14 +1868,8 @@ class JigSubmitAPIView(APIView):
                     'jig_capacity': jig_capacity,
                 }
                 
-                # For equal capacity scenario (original_qty == jig_capacity), use existing tray info
-                if original_lot_qty == jig_capacity:
-                    effective_lot_qty = original_lot_qty - broken_hooks
-                    # complete_delink_tray_info and complete_half_filled_tray_info already initialized above
-                else:
-                    # For splitting scenario, use the complete table portion
-                    effective_lot_qty = jig_capacity - broken_hooks 
-                    # complete_delink_tray_info and complete_half_filled_tray_info already initialized above
+                # effective_lot_qty already calculated above before the split block
+                # complete_delink_tray_info and complete_half_filled_tray_info already initialized above
 
                 # Get plating stock number
                 plating_stock_num = batch.plating_stk_no if batch.plating_stk_no else (batch.model_stock_no.plating_stk_no if batch.model_stock_no else '')
@@ -1915,6 +1945,39 @@ class JigSubmitAPIView(APIView):
                     stock.Jig_Load_completed = True
                     stock.jig_draft = False
                 stock.save()
+                
+                # Mark primary draft as submitted
+                if draft:
+                    draft.draft_status = 'submitted'
+                    draft.save()
+                    logger.info(f"✅ Primary draft marked as submitted for lot_id={lot_id}")
+                
+                # For multi-model submissions, mark ALL combined lots as completed and their drafts as submitted
+                if is_multi_model and combined_lot_ids:
+                    for combined_lot in combined_lot_ids:
+                        if combined_lot != lot_id:  # Skip primary lot (already updated above)
+                            try:
+                                # Update stock record
+                                secondary_stock = TotalStockModel.objects.get(lot_id=combined_lot)
+                                secondary_stock.Jig_Load_completed = True
+                                secondary_stock.jig_draft = False
+                                secondary_stock.save()
+                                logger.info(f"✅ Secondary lot {combined_lot} marked as completed")
+                                
+                                # Mark draft as submitted
+                                try:
+                                    secondary_draft = JigLoadingManualDraft.objects.get(
+                                        lot_id=combined_lot, 
+                                        user=user
+                                    )
+                                    secondary_draft.draft_status = 'submitted'
+                                    secondary_draft.save()
+                                    logger.info(f"✅ Secondary draft marked as submitted for lot_id={combined_lot}")
+                                except JigLoadingManualDraft.DoesNotExist:
+                                    logger.info(f"ℹ️ No draft found for secondary lot {combined_lot}")
+                                    
+                            except TotalStockModel.DoesNotExist:
+                                logger.warning(f"⚠️ Secondary lot {combined_lot} not found in TotalStockModel")
 
             except Exception as e:
                 logger.error(f"❌ Failed to create JigCompleted record: {e}")
@@ -2210,156 +2273,187 @@ class JigCompletedDataAPIView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Jig Composition View
-# Shows a visual breakdown of how cases from each model/lot are arranged on
-# the jig — one card per plating colour group with animated case badges.
-# ─────────────────────────────────────────────────────────────────────────────
+# ✅ ISSUE #7 FIX: Hold/Unhold API for Jig Loading Pick Table
+class JigSaveHoldUnholdReasonAPIView(APIView):
+    """
+    Save hold/unhold reason for a lot in Jig Loading pick table
+    
+    POST with:
+    {
+        "lot_id": "LOT001",
+        "remark": "Reason text",
+        "action": "hold"  # or "unhold"
+    }
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            data = request.data if hasattr(request, 'data') else json.loads(request.body.decode('utf-8'))
+            lot_id = data.get('lot_id')
+            remark = data.get('remark', '').strip()
+            action = data.get('action', '').strip().lower()
+
+            logger.info(f"🔒 Hold/Unhold request: lot_id={lot_id}, action={action}, remark={remark[:50] if remark else 'None'}")
+
+            if not lot_id or not remark or action not in ['hold', 'unhold']:
+                logger.error(f"❌ Missing or invalid parameters: lot_id={lot_id}, remark={bool(remark)}, action={action}")
+                return JsonResponse({'success': False, 'error': 'Missing or invalid parameters.'}, status=400)
+
+            # Get TotalStockModel
+            obj = TotalStockModel.objects.filter(lot_id=lot_id).first()
+            if not obj:
+                logger.error(f"❌ Lot not found: {lot_id}")
+                return JsonResponse({'success': False, 'error': 'LOT not found.'}, status=404)
+
+            if action == 'hold':
+                obj.jig_holding_reason = remark
+                obj.jig_hold_lot = True
+                obj.jig_release_reason = ''
+                obj.jig_release_lot = False
+                logger.info(f"✅ Lot {lot_id} HELD with reason: {remark[:50]}")
+            elif action == 'unhold':
+                obj.jig_release_reason = remark
+                obj.jig_hold_lot = False
+                obj.jig_release_lot = True
+                logger.info(f"✅ Lot {lot_id} RELEASED with reason: {remark[:50]}")
+
+            obj.save(update_fields=['jig_holding_reason', 'jig_release_reason', 'jig_hold_lot', 'jig_release_lot'])
+            return JsonResponse({'success': True, 'message': f'Lot {action}ed successfully.'})
+
+        except Exception as e:
+            logger.error(f"❌ Error in hold/unhold: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+class JigSavePickRemarkAPIView(APIView):
+    """
+    Save text/audio remark for Jig Loading pick table row.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            data = request.data if hasattr(request, 'data') else json.loads(request.body.decode('utf-8'))
+            lot_id = (data.get('lot_id') or '').strip()
+            batch_id = (data.get('batch_id') or '').strip()
+            remark = (data.get('remark') or '').strip()
+            remark_type = (data.get('remark_type') or 'text').strip().lower()
+
+            if not lot_id or not batch_id:
+                return JsonResponse({'success': False, 'error': 'lot_id and batch_id are required.'}, status=400)
+            if not remark:
+                return JsonResponse({'success': False, 'error': 'Remark is required.'}, status=400)
+            if len(remark) > 255:
+                return JsonResponse({'success': False, 'error': 'Remark must be 255 characters or less.'}, status=400)
+            if remark_type not in ['text', 'audio']:
+                remark_type = 'text'
+
+            obj = TotalStockModel.objects.filter(lot_id=lot_id, batch_id__batch_id=batch_id).first()
+            if not obj:
+                return JsonResponse({'success': False, 'error': 'Lot not found for this batch.'}, status=404)
+
+            obj.jig_pick_remarks = f"[{remark_type}] {remark}"
+            obj.save(update_fields=['jig_pick_remarks'])
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Remark saved successfully.',
+                'remark': obj.jig_pick_remarks,
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 @method_decorator(login_required, name='dispatch')
 class JigCompositionView(TemplateView):
     template_name = "JigLoading/Jig_Composition.html"
 
-    # Colour palette for model cards — cycles if there are more than 8 models.
-    CARD_COLORS = [
-        "#028084", "#e67e22", "#8e44ad", "#2980b9",
-        "#27ae60", "#c0392b", "#16a085", "#d35400",
-    ]
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        lot_ids_param = self.request.GET.get('lot_ids', '')
+        lot_ids = [x.strip() for x in lot_ids_param.split(',') if x.strip()] if lot_ids_param else []
+        context['selected_lot_ids'] = lot_ids
 
-        lot_id   = self.request.GET.get('lot_id')
-        batch_id = self.request.GET.get('batch_id')
-        jig_id   = self.request.GET.get('jig_id')
+        color_palette = [
+            "#009688", "#0378bd", "#ffc107", "#28a745", "#dc3545",
+            "#8e44ad", "#e67e22", "#16a085", "#2c3e50", "#f39c12",
+            "#1abc9c", "#e84393", "#6c5ce7", "#fdcb6e", "#00b894"
+        ]
+        model_color_map = {}
+        color_index = 0
 
-        cards = []
+        model_list = []
+        for lot_id in lot_ids:
+            tsm = TotalStockModel.objects.filter(lot_id=lot_id).first()
+            if not tsm:
+                continue
 
-        # ── Locate the completed jig record ──────────────────────────────────
-        jig_completed = None
-        if lot_id and batch_id:
-            jig_completed = JigCompleted.objects.filter(
-                lot_id=lot_id, batch_id=batch_id
-            ).first()
+            model_no = (
+                tsm.batch_id.model_stock_no.model_no
+                if tsm.batch_id and tsm.batch_id.model_stock_no
+                else "Unknown"
+            )
 
-        if not jig_completed and jig_id:
-            jig_completed = JigCompleted.objects.filter(jig_id=jig_id).first()
+            if model_no not in model_color_map:
+                model_color_map[model_no] = color_palette[color_index % len(color_palette)]
+                color_index += 1
+            color = model_color_map[model_no]
 
-        if jig_completed:
-            # ── Build per-model data ──────────────────────────────────────────
-            # For multi-model jigs the combined lot IDs are stored as
-            # "PLT_STK_NO:qty,PLT_STK_NO:qty" in no_of_model_cases.
-            if jig_completed.is_multi_model and jig_completed.no_of_model_cases:
-                for idx, segment in enumerate(jig_completed.no_of_model_cases.split(',')):
-                    segment = segment.strip()
-                    if ':' not in segment:
-                        continue
-                    model_no, qty_str = segment.rsplit(':', 1)
-                    try:
-                        qty = int(qty_str)
-                    except ValueError:
-                        qty = 0
+            original_qty = tsm.jig_physical_qty if (tsm.jig_physical_qty_edited and tsm.jig_physical_qty) else (tsm.brass_audit_accepted_qty or 0)
 
-                    color = self.CARD_COLORS[idx % len(self.CARD_COLORS)]
-                    cards.append({
-                        'models': [{'model_no': model_no, 'case_qty': qty}],
-                        'cases':  [{'color': color} for _ in range(qty)],
-                        'color':  color,
-                    })
-            else:
-                # Single-model jig — one card for the whole loaded quantity
-                qty = jig_completed.loaded_cases_qty or 0
-                try:
-                    stock = TotalStockModel.objects.filter(
-                        batch_id__batch_id=jig_completed.batch_id,
-                        lot_id=jig_completed.lot_id
-                    ).first()
-                    model_no = (
-                        getattr(stock.batch_id, 'plating_stk_no', None)
-                        or getattr(stock.model_stock_no, 'model_no', 'N/A')
-                        if stock else 'N/A'
-                    )
-                except Exception:
-                    model_no = 'N/A'
+            # Keep composition focused on remaining non-draft jig details for this lot.
+            # Some branches do not have JigDetails model; guard to avoid runtime NameError.
+            total_used_qty = 0
+            jig_details_model = globals().get('JigDetails')
+            if jig_details_model is not None:
+                jig_details = jig_details_model.objects.filter(lot_id=lot_id, draft_save=False)
+                for jig_detail in jig_details:
+                    if isinstance(jig_detail.no_of_model_cases, int):
+                        total_used_qty += jig_detail.no_of_model_cases
+                    elif isinstance(jig_detail.no_of_model_cases, str) and jig_detail.no_of_model_cases.isdigit():
+                        total_used_qty += int(jig_detail.no_of_model_cases)
 
-                color = self.CARD_COLORS[0]
-                cards.append({
-                    'models': [{'model_no': model_no, 'case_qty': qty}],
-                    'cases':  [{'color': color} for _ in range(qty)],
-                    'color':  color,
+            remaining_qty = max(0, original_qty - total_used_qty)
+            case_qty = remaining_qty if remaining_qty > 0 else original_qty
+
+            model_list.append({
+                "model_no": model_no,
+                "case_qty": case_qty,
+                "case_numbers": list(range(1, case_qty + 1)),
+                "color": color,
+            })
+
+        all_cases = []
+        for model in model_list:
+            for case in model["case_numbers"]:
+                all_cases.append({
+                    "model_no": model["model_no"],
+                    "case_qty": model["case_qty"],
+                    "case_number": case,
+                    "color": model["color"],
                 })
 
-        context['cards']    = cards
-        context['lot_id']   = lot_id
-        context['batch_id'] = batch_id
-        context['jig_id']   = jig_id
+        cards = []
+        for i in range(0, len(all_cases), 12):
+            chunk = all_cases[i:i + 12]
+            models_in_card = []
+            seen = set()
+            for item in chunk:
+                if item["model_no"] not in seen:
+                    models_in_card.append({
+                        "model_no": item["model_no"],
+                        "case_qty": item["case_qty"],
+                        "color": item["color"],
+                    })
+                    seen.add(item["model_no"])
+            cards.append({
+                "models": models_in_card,
+                "cases": chunk,
+                "color": chunk[0]["color"] if chunk else "#01524a",
+            })
+
+        context["cards"] = cards
         return context
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Hold / Unhold API — saves a hold or release reason against a lot
-# ─────────────────────────────────────────────────────────────────────────────
-class JigSaveHoldUnholdReasonAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        lot_id = request.data.get('lot_id')
-        action = request.data.get('action')   # 'hold' | 'unhold'
-        remark = request.data.get('remark', '')
-
-        if not lot_id:
-            return Response({'success': False, 'message': 'lot_id is required'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        if action not in ('hold', 'unhold'):
-            return Response({'success': False, 'message': 'action must be "hold" or "unhold"'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            stock = TotalStockModel.objects.get(lot_id=lot_id)
-        except TotalStockModel.DoesNotExist:
-            return Response({'success': False, 'message': 'Lot not found'},
-                            status=status.HTTP_404_NOT_FOUND)
-
-        if action == 'hold':
-            stock.jig_hold_lot       = True
-            stock.jig_holding_reason = remark
-            stock.jig_release_lot    = False
-            stock.jig_release_reason = ''
-        else:  # unhold
-            stock.jig_hold_lot       = False
-            stock.jig_release_lot    = True
-            stock.jig_release_reason = remark
-
-        stock.save()
-
-        # Also update JigCompleted hold_status for the pick-table display
-        JigCompleted.objects.filter(lot_id=lot_id).update(
-            hold_status='hold' if action == 'hold' else 'normal'
-        )
-
-        return Response({'success': True, 'action': action},
-                        status=status.HTTP_200_OK)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Pick Remark API — saves a pick/process remark on a completed jig record
-# ─────────────────────────────────────────────────────────────────────────────
-class JigSavePickRemarkAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        lot_id   = request.data.get('lot_id')
-        batch_id = request.data.get('batch_id')
-        remark   = request.data.get('remark', '')
-
-        if not lot_id or not batch_id:
-            return Response({'success': False, 'message': 'lot_id and batch_id are required'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        updated = JigCompleted.objects.filter(
-            lot_id=lot_id, batch_id=batch_id
-        ).update(pick_remarks=remark)
-
-        if updated:
-            return Response({'success': True}, status=status.HTTP_200_OK)
-        return Response({'success': False, 'message': 'Record not found'},
-                        status=status.HTTP_404_NOT_FOUND)
