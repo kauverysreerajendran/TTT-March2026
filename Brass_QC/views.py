@@ -5732,18 +5732,7 @@ class PickTrayIdList_Complete_APIView(APIView):
             )
             tray_model_used = 'IQFTrayId'
 
-            # Fallback: If no trays found in IQFTrayId, use BrassTrayId
-            if base_queryset.count() == 0:
-                base_queryset = BrassTrayId.objects.filter(
-                    batch_id__batch_id=batch_id,
-                    tray_quantity__gt=0,
-                    lot_id=lot_id,
-                    rejected_tray=False,
-                    delink_tray=False
-                )
-                tray_model_used = 'BrassTrayId'
-
-            # Final fallback: IQF_Accepted_TrayID_Store (populated before brass_save_ip_checkbox is clicked)
+            # Primary fallback: IQF_Accepted_TrayID_Store (show only trays accepted in IQF)
             if base_queryset.count() == 0:
                 from IQF.models import IQF_Accepted_TrayID_Store as _IQFAcceptedStore
                 _accepted_store_qs = _IQFAcceptedStore.objects.filter(lot_id=lot_id, is_save=True)
@@ -5778,6 +5767,17 @@ class PickTrayIdList_Complete_APIView(APIView):
                             'flags': {'send_brass_qc': send_brass_qc, 'send_brass_audit_to_qc': send_brass_audit_to_qc}
                         }
                     })
+
+            # Final fallback: If IQF_Accepted_TrayID_Store is also empty, use BrassTrayId
+            if base_queryset.count() == 0:
+                base_queryset = BrassTrayId.objects.filter(
+                    batch_id__batch_id=batch_id,
+                    tray_quantity__gt=0,
+                    lot_id=lot_id,
+                    rejected_tray=False,
+                    delink_tray=False
+                )
+                tray_model_used = 'BrassTrayId'
         else:
             # If lot was previously processed in Brass QC or verified, always show the latest BrassTrayId data.
             # This handles lots returning from Brass Audit that had their flags reset.

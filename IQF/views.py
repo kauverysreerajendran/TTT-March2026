@@ -4093,31 +4093,61 @@ def iqf_get_delink_candidates(request):
         return Response({'success': False, 'error': 'Missing lot_id'}, status=400)
     
     try:
-        # 1. Get ALL trays from multiple sources (they might be in different tables)
+        # 1. Get IQF-scope trays ONLY (trays visible in IQF pick table view icon)
+        #    Must match the same source as IQFPickCompleteTableTrayIdListAPIView
         all_trays_dict = {}
         
-        # From TrayId (modelmasterapp - authoritative master tray table, checked FIRST for correct quantities)
-        for tray in TrayId.objects.filter(lot_id=lot_id).values('tray_id', 'tray_quantity'):
-            if tray['tray_id']:
-                all_trays_dict[tray['tray_id']] = tray['tray_quantity'] or 0
+        # Determine lot source from TotalStockModel
+        total_stock = TotalStockModel.objects.filter(lot_id=lot_id).first()
+        came_from_brass_audit = total_stock and getattr(total_stock, 'send_brass_audit_to_iqf', False)
+        came_from_brass_qc = total_stock and (
+            getattr(total_stock, 'brass_qc_rejection', False) or
+            getattr(total_stock, 'brass_qc_few_cases_accptance', False)
+        )
         
-        # From IQFTrayId (derived/processed trays - only add if not already found in TrayId)
-        for tray in IQFTrayId.objects.filter(lot_id=lot_id).values('tray_id', 'tray_quantity'):
-            if tray['tray_id'] and tray['tray_id'] not in all_trays_dict:
-                all_trays_dict[tray['tray_id']] = tray['tray_quantity'] or 0
+        if came_from_brass_audit:
+            print(f"  📊 Lot came from Brass Audit")
+            # Tray-wise rejections from Brass Audit
+            for rec in Brass_Audit_Rejected_TrayScan.objects.filter(lot_id=lot_id).exclude(rejected_tray_id__isnull=True).exclude(rejected_tray_id=''):
+                tid = rec.rejected_tray_id
+                try:
+                    qty = int(rec.rejected_tray_quantity) if rec.rejected_tray_quantity else 0
+                except (ValueError, TypeError):
+                    qty = 0
+                all_trays_dict[tid] = all_trays_dict.get(tid, 0) + qty
+                print(f"  ✅ Brass Audit rejected tray: {tid} (qty {qty})")
+            # Batch-rejected trays from BrassAuditTrayId
+            for tray in BrassAuditTrayId.objects.filter(lot_id=lot_id, rejected_tray=True):
+                if tray.tray_id and tray.tray_id not in all_trays_dict:
+                    all_trays_dict[tray.tray_id] = tray.tray_quantity or 0
+                    print(f"  ✅ Brass Audit batch rejected tray: {tray.tray_id} (qty {tray.tray_quantity})")
+        elif came_from_brass_qc:
+            print(f"  📊 Lot came from Brass QC")
+            # Tray-wise rejections from Brass QC
+            for rec in Brass_QC_Rejected_TrayScan.objects.filter(lot_id=lot_id).exclude(rejected_tray_id__isnull=True).exclude(rejected_tray_id=''):
+                tid = rec.rejected_tray_id
+                try:
+                    qty = int(rec.rejected_tray_quantity) if rec.rejected_tray_quantity else 0
+                except (ValueError, TypeError):
+                    qty = 0
+                all_trays_dict[tid] = all_trays_dict.get(tid, 0) + qty
+                print(f"  ✅ Brass QC rejected tray: {tid} (qty {qty})")
+            # Batch-rejected trays from BrassTrayId
+            for tray in BrassTrayId.objects.filter(lot_id=lot_id, rejected_tray=True):
+                if tray.tray_id and tray.tray_id not in all_trays_dict:
+                    all_trays_dict[tray.tray_id] = tray.tray_quantity or 0
+                    print(f"  ✅ Brass QC batch rejected tray: {tray.tray_id} (qty {tray.tray_quantity})")
+        else:
+            print(f"  📊 Lot is direct IQF (no Brass QC/Audit source)")
+            # Direct IQF: use TrayId master table + IQFTrayId
+            for tray in TrayId.objects.filter(lot_id=lot_id).values('tray_id', 'tray_quantity'):
+                if tray['tray_id']:
+                    all_trays_dict[tray['tray_id']] = tray['tray_quantity'] or 0
+            for tray in IQFTrayId.objects.filter(lot_id=lot_id).values('tray_id', 'tray_quantity'):
+                if tray['tray_id'] and tray['tray_id'] not in all_trays_dict:
+                    all_trays_dict[tray['tray_id']] = tray['tray_quantity'] or 0
         
-        # From BrassTrayId (if from Brass QC)
-        for tray in BrassTrayId.objects.filter(lot_id=lot_id).values('tray_id', 'tray_quantity'):
-            if tray['tray_id'] and tray['tray_id'] not in all_trays_dict:
-                all_trays_dict[tray['tray_id']] = tray['tray_quantity']
-        
-        # From BrassAuditTrayId (if from Brass Audit)
-        for tray in BrassAuditTrayId.objects.filter(lot_id=lot_id).values('tray_id', 'tray_quantity'):
-            if tray['tray_id'] and tray['tray_id'] not in all_trays_dict:
-                all_trays_dict[tray['tray_id']] = tray['tray_quantity']
-        
-        # Also add trays from IQF_Rejected_TrayScan if they exist (they might have been moved)
-        # Note: rejected_tray_quantity is a CharField, so sum manually in Python
+        # Also add trays from IQF_Rejected_TrayScan if they exist and not already found
         for rejection in IQF_Rejected_TrayScan.objects.filter(lot_id=lot_id).values('tray_id', 'rejected_tray_quantity').distinct():
             tid = rejection['tray_id']
             if tid and tid not in all_trays_dict:
@@ -4677,11 +4707,13 @@ def iqf_validate_delink_tray(request):
         return Response({'success': False, 'error': 'Missing tray_id or lot_id'}, status=400)
     
     try:
-        # Check if tray exists in this lot
-        tray_exists = IQFTrayId.objects.filter(
-            lot_id=lot_id,
-            tray_id=tray_id
-        ).exists()
+        # Check if tray exists in this lot (across all relevant tables)
+        tray_exists = (
+            IQFTrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists() or
+            TrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists() or
+            BrassTrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists() or
+            BrassAuditTrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists()
+        )
         
         if not tray_exists:
             return Response({
@@ -4691,10 +4723,11 @@ def iqf_validate_delink_tray(request):
             }, status=400)
 
         # Check if tray is already delinked (delink_tray=True)
-        already_delinked = IQFTrayId.objects.filter(
-            tray_id=tray_id,
-            delink_tray=True
-        ).exists()
+        already_delinked = (
+            IQFTrayId.objects.filter(tray_id=tray_id, delink_tray=True).exists() or
+            TrayId.objects.filter(tray_id=tray_id, delink_tray=True).exists() or
+            BrassTrayId.objects.filter(tray_id=tray_id, delink_tray=True).exists()
+        )
 
         if already_delinked:
             return Response({
@@ -4885,23 +4918,30 @@ def iqf_process_all_tray_data(request):
         # ✅ Process delink trays
         for tray_id in delink_trays:
             try:
-                tray_obj = IQFTrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).first()
-                if tray_obj:
-                    # Update all delink fields
-                    tray_obj.lot_id = None
-                    tray_obj.delink_tray = True
-                    tray_obj.new_tray = False
-                    tray_obj.batch_id = None
-                    tray_obj.tray_quantity = 0
-                    tray_obj.IP_tray_verified = False
-                    tray_obj.rejected_tray = False
-                    tray_obj.iqf_reject_verify = False
-                    tray_obj.top_tray = False
-                    
-                    tray_obj.save(update_fields=[
-                        'lot_id', 'delink_tray', 'new_tray', 'batch_id', 'tray_quantity',
-                        'IP_tray_verified', 'rejected_tray', 'iqf_reject_verify', 'top_tray'
-                    ])
+                # Check if tray exists in ANY relevant table for this lot
+                tray_in_iqf = IQFTrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).first()
+                tray_in_master = TrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists()
+                tray_in_brass = BrassTrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists()
+                tray_in_brass_audit = BrassAuditTrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists()
+                tray_found = tray_in_iqf or tray_in_master or tray_in_brass or tray_in_brass_audit
+                
+                if tray_found:
+                    # Update IQFTrayId if it exists there
+                    if tray_in_iqf:
+                        tray_in_iqf.lot_id = None
+                        tray_in_iqf.delink_tray = True
+                        tray_in_iqf.new_tray = False
+                        tray_in_iqf.batch_id = None
+                        tray_in_iqf.tray_quantity = 0
+                        tray_in_iqf.IP_tray_verified = False
+                        tray_in_iqf.rejected_tray = False
+                        tray_in_iqf.iqf_reject_verify = False
+                        tray_in_iqf.top_tray = False
+                        
+                        tray_in_iqf.save(update_fields=[
+                            'lot_id', 'delink_tray', 'new_tray', 'batch_id', 'tray_quantity',
+                            'IP_tray_verified', 'rejected_tray', 'iqf_reject_verify', 'top_tray'
+                        ])
                     
                     IPTrayId.objects.filter(tray_id=tray_id, lot_id=lot_id).update(delink_tray=True)
                     results['processed_delinks'] += 1
@@ -4985,7 +5025,20 @@ def iqf_process_all_tray_data(request):
                     results['processed_verifications'] += 1
                     print(f"✅ Verified tray: {tray_id} = {verified}, qty = {qty}")
                 else:
-                    results['errors'].append(f"Verification tray {tray_id} not found")
+                    # Tray not in IQFTrayId but may exist in TrayId/BrassTrayId (Brass QC lots)
+                    tray_in_lot = (
+                        TrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists() or
+                        BrassTrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists() or
+                        BrassAuditTrayId.objects.filter(lot_id=lot_id, tray_id=tray_id).exists() or
+                        IQF_Rejected_TrayScan.objects.filter(lot_id=lot_id, tray_id=tray_id).exists()
+                    )
+                    if tray_in_lot:
+                        if verified:
+                            remove_tray_from_acceptance(tray_id, lot_id)
+                        results['processed_verifications'] += 1
+                        print(f"✅ Verified tray: {tray_id} = {verified}, qty = {qty} (not in IQFTrayId, processed via upstream tables)")
+                    else:
+                        results['errors'].append(f"Verification tray {tray_id} not found")
                     
             except Exception as e:
                 results['errors'].append(f"Error processing verification for {verification.get('tray_id', 'unknown')}: {str(e)}")
