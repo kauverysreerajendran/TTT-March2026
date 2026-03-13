@@ -1664,12 +1664,14 @@ class TrayIdScanAPIView(APIView):
                 if not tray_id:
                     continue
                 
-                # Check if tray ID starts with JB or NB
-                if not (tray_id.startswith('JB-') or tray_id.startswith('NB-')):
+                # Allow partial typing: only show error when first two chars are present and not JB/NB
+                prefix = tray_id.upper()
+                first2 = prefix[:2]
+                if len(first2) == 2 and first2 not in ('JB', 'NB'):
                     tray_not_in_system_errors.append({
                         'tray_id': tray_id,
                         'position': i + 1,
-                        'error': f'Tray ID "{tray_id}" is not allowed. Only JB and NB trays are permitted.'
+                        'prefix_error': True,
                     })
                     continue
                 
@@ -1993,12 +1995,14 @@ class ValidateTopTrayAPIView(APIView):
                     'error': f'Tray ID "{tray_id}" not found in system. Only pre-configured trays are allowed.'
                 })
 
-            # Check if tray ID starts with JB or NB
-            if not (tray_id.startswith('JB-') or tray_id.startswith('NB-')):
+            # Allow partial typing: only error when first two chars are present and not JB/NB
+            prefix = tray_id.upper()
+            first2 = prefix[:2]
+            if len(first2) == 2 and first2 not in ('JB', 'NB'):
                 return JsonResponse({
                     'success': True,
                     'valid': False,
-                    'error': f'Tray ID "{tray_id}" is not allowed. Only JB and NB trays are permitted.'
+                    'prefix_error': True,
                 })
 
             # Check if tray exists in this specific batch (TrayId or DraftTrayId)
@@ -2091,8 +2095,10 @@ class TopTrayScanAPIView(APIView):
                     'error': 'Missing batch ID or tray ID.'
                 }, status=400)
 
-            # Check if tray ID starts with JB or NB
-            if not (scanned_tray_id.startswith('JB-') or scanned_tray_id.startswith('NB-')):
+            # Allow partial typing: only error when first two chars are present and not JB/NB
+            prefix = scanned_tray_id.upper()
+            first2 = prefix[:2]
+            if len(first2) == 2 and first2 not in ('JB', 'NB'):
                 return JsonResponse({
                     'success': False,
                     'error': f'Tray ID "{scanned_tray_id}" is not allowed. Only JB and NB trays are permitted.'
@@ -2462,8 +2468,10 @@ class TrayIdUniqueCheckAPIView(APIView):
         if not tray_id:
             return JsonResponse({'exists': False, 'error': 'Missing tray_id'})
 
-        # Check if tray ID starts with JB or NB
-        if not (tray_id.startswith('JB-') or tray_id.startswith('NB-')):
+        # Allow partial typing: only error when first two chars are present and not JB/NB
+        prefix = tray_id.upper()
+        first2 = prefix[:2]
+        if len(first2) == 2 and first2 not in ('JB', 'NB'):
             return JsonResponse({
                 'exists': False,
                 'available': False,

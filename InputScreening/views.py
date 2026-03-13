@@ -3023,11 +3023,11 @@ class IS_AcceptTable(APIView):
                 'brass_qc_accepted_qty_verified': total_stock_obj.brass_qc_accepted_qty_verified,
             }
 
-            # Calculate no_of_trays
-            total_stock = data.get('total_stock', 0)
-            tray_capacity = data.get('tray_capacity', 0)
-            if tray_capacity > 0:
-                data['no_of_trays'] = math.ceil(total_stock / tray_capacity)
+            # Calculate no_of_trays as the count of accepted trays
+            lot_id = data.get('stock_lot_id')
+            if lot_id:
+                accepted_tray_count = IPTrayId.objects.filter(lot_id=lot_id, rejected_tray=False, tray_quantity__gt=0).count()
+                data['no_of_trays'] = accepted_tray_count
             else:
                 data['no_of_trays'] = 0
             
@@ -3058,9 +3058,9 @@ class IS_AcceptTable(APIView):
                 if rejection_store and rejection_store.total_rejection_quantity:
                     total_rejection_qty = rejection_store.total_rejection_quantity
 
-                if total_stock > 0 and total_rejection_qty > 0:
-                    data['display_accepted_qty'] = max(total_stock - total_rejection_qty, 0)
-                    print(f"Calculated accepted qty for {lot_id}: {total_stock} - {total_rejection_qty} = {data['display_accepted_qty']}")
+                if total_stock_obj.total_stock > 0 and total_rejection_qty > 0:
+                    data['display_accepted_qty'] = max(total_stock_obj.total_stock - total_rejection_qty, 0)
+                    print(f"Calculated accepted qty for {lot_id}: {total_stock_obj.total_stock} - {total_rejection_qty} = {data['display_accepted_qty']}")
                 else:
                     data['display_accepted_qty'] = 0
 
@@ -4094,27 +4094,30 @@ class TrayIdList_Complete_APIView(APIView):
         # ✅ FIX: Include delink trays from IP_Accepted_TrayID_Store
         # Delinked trays have lot_id=None in IPTrayId, so they are not returned by the base queryset.
         # The delink tray info is stored in IP_Accepted_TrayID_Store.delink_trays JSON field.
-        try:
-            accepted_store = IP_Accepted_TrayID_Store.objects.filter(lot_id=lot_id, is_save=True).first()
-            if accepted_store and accepted_store.delink_trays:
-                for delink_entry in accepted_store.delink_trays:
-                    delink_tray_id = delink_entry.get('tray_id', '')
-                    delink_tray_qty = delink_entry.get('tray_qty', 0)
-                    data.append({
-                        's_no': row_counter,
-                        'tray_id': delink_tray_id,
-                        'tray_quantity': delink_tray_qty,
-                        'position': row_counter - 1,
-                        'is_top_tray': False,
-                        'rejected_tray': False,
-                        'delink_tray': True,
-                        'rejection_details': [],
-                        'top_tray': False,
-                    })
-                    row_counter += 1
-                print(f"Added {len(accepted_store.delink_trays)} delink trays from IP_Accepted_TrayID_Store")
-        except Exception as e:
-            print(f"Error fetching delink trays from IP_Accepted_TrayID_Store: {e}")
+        # Only include these delink entries when NOT showing accepted-only view, to avoid inflating
+        # the accepted trays count when the frontend requests accepted_ip_stock=True.
+        if not (accepted_ip_stock and not few_cases_accepted_ip_stock):
+            try:
+                accepted_store = IP_Accepted_TrayID_Store.objects.filter(lot_id=lot_id, is_save=True).first()
+                if accepted_store and accepted_store.delink_trays:
+                    for delink_entry in accepted_store.delink_trays:
+                        delink_tray_id = delink_entry.get('tray_id', '')
+                        delink_tray_qty = delink_entry.get('tray_qty', 0)
+                        data.append({
+                            's_no': row_counter,
+                            'tray_id': delink_tray_id,
+                            'tray_quantity': delink_tray_qty,
+                            'position': row_counter - 1,
+                            'is_top_tray': False,
+                            'rejected_tray': False,
+                            'delink_tray': True,
+                            'rejection_details': [],
+                            'top_tray': False,
+                        })
+                        row_counter += 1
+                    print(f"Added {len(accepted_store.delink_trays)} delink trays from IP_Accepted_TrayID_Store")
+            except Exception as e:
+                print(f"Error fetching delink trays from IP_Accepted_TrayID_Store: {e}")
 
         # ✅ FIX: Include delinked trays used for rejection
         # Delinked trays have lot_id=None in IPTrayId, so they are missed by base queryset.
