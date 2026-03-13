@@ -43,10 +43,37 @@
       }
 
       body {
-        background: url("{% static 'assets/images/login.jpg' %}") no-repeat
-          center center fixed !important;
-        background-size: contain !important;
+        background-image: url("{% static 'assets/images/login.jpg' %}");
+        background-repeat: no-repeat;
+        background-position: center center;
+        background-attachment: scroll;
+        /* Fill viewport while preserving aspect ratio (may crop edges) */
+        background-size: cover !important;
         position: relative;
+      }
+      /* Right-side static illustration */
+      .right-vec-container {
+        position: absolute;
+        right: 6vw;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 44vw;
+        max-width: 780px;
+        z-index: 3;
+        pointer-events: none;
+        display: block;
+      }
+      .right-vec-container img {
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+        display: block;
+        filter: none;
+      }
+      @media (max-width: 991px) {
+        .right-vec-container {
+          display: none !important;
+        }
       }
       .bg-blur-overlay {
         position: fixed;
@@ -64,6 +91,85 @@
         background: transparent !important;
         position: relative;
         z-index: 2;
+      }
+      /* New centered card layout (override earlier positioning) */
+      .page-card {
+        width: min(1100px, 92%);
+        margin: 6vh auto;
+        background: #ffffff;
+        border-radius: 14px;
+        box-shadow: 0 24px 60px rgba(18, 52, 67, 0.12);
+        overflow: hidden;
+        display: flex;
+        min-height: 520px;
+      }
+      .page-card .card-left {
+        width: 56%;
+        padding: 56px 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+      }
+      .page-card .card-right {
+        width: 44%;
+        position: relative;
+        background: linear-gradient(
+          90deg,
+          rgba(13, 148, 136, 0.06) 0%,
+          rgba(13, 148, 136, 0.14) 50%,
+          rgba(10, 107, 102, 0.18) 100%
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+      }
+      .card-right::before {
+        content: "";
+        position: absolute;
+        left: -20%;
+        width: 140%;
+        height: 140%;
+        background: radial-gradient(
+          circle at 80% 20%,
+          rgba(13, 148, 136, 0.18),
+          rgba(13, 148, 136, 0.06) 40%,
+          transparent 60%
+        );
+        border-radius: 50%;
+        transform: translateY(-10%);
+        z-index: 0;
+      }
+      .card-right img {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+        pointer-events: none;
+      }
+      /* Make the auth card look like the mock inside the left column */
+      .auth-form-light.text-left.py-5.px-4.px-sm-5 {
+        background: transparent !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+      }
+      /* Responsive: stack vertically on small screens */
+      @media (max-width: 900px) {
+        .page-card {
+          flex-direction: column;
+          min-height: auto;
+        }
+        .page-card .card-left,
+        .page-card .card-right {
+          width: 100%;
+          padding: 28px;
+        }
+        .card-right::before {
+          display: none;
+        }
       }
       /* Image carousel styles */
       .image-carousel {
@@ -140,7 +246,7 @@
         margin-right: 0;
         padding: 14px 22px !important;
         line-height: 1;
-        font-size: 22px !important;
+        font-size: 16px !important;
         border-radius: 12px !important;
         text-transform: none; /* keep original casing */
         letter-spacing: normal;
@@ -238,7 +344,7 @@
         border: 1px solid rgba(255, 255, 255, 0.24);
       }
       .login-subtitle {
-        color: #0d9488; /* teal */
+        color: #383939; /* teal */
         font-weight: 400; /* normal */
         font-family: inherit;
         margin-top: 6px;
@@ -395,44 +501,15 @@
 
   <body>
     <div class="bg-blur-overlay"></div>
-    <!-- Image Carousel Right Side -->
-    <div class="image-carousel" id="imageCarousel">
-      <div class="carousel-slide active">
-        <img
-          src="{% static 'assets/images/model_images/2617-A ISOMETRIC.jpg' %}"
-          alt="Model 2617-A Isometric"
-        />
-      </div>
-      <div class="carousel-slide">
-        <img
-          src="{% static 'assets/images/model_images/2617-A TOP.jpg' %}"
-          alt="Model 2617-A Top"
-        />
-      </div>
-      <div class="carousel-slide">
-        <img
-          src="{% static 'assets/images/model_images/2617-B-ISOMETRIC.jpg' %}"
-          alt="Model 2617-B Isometric"
-        />
-      </div>
-      <div class="carousel-slide">
-        <img
-          src="{% static 'assets/images/model_images/2617-B-TOP.jpg' %}"
-          alt="Model 2617-B Top"
-        />
-      </div>
-    </div>
+
     <div class="container-scroller">
       <div class="container-fluid page-body-wrapper full-page-wrapper">
         <div
           class="content-wrapper d-flex align-items-center justify-content-start auth px-0"
           style="min-height: 100vh"
         >
-          <div
-            class="row w-100 mx-0"
-            style="width: 100%; display: flex; justify-content: flex-start"
-          >
-            <div class="col-lg-4" style="margin-left: 180px">
+          <div class="page-card" role="main">
+            <div class="card-left">
               <div class="auth-form-light text-left py-5 px-4 px-sm-5">
                 <div class="brand-logo">
                   <img
@@ -466,8 +543,7 @@
                       name="username"
                       id="usernameInput"
                       class="form-control form-control-lg"
-                      placeholder="Username"
-                      style="border-radius: 5px !important"
+                      placeholder="Email or phone number"
                     />
                   </div>
                   <div
@@ -492,7 +568,6 @@
                       id="passwordInput"
                       class="form-control form-control-lg"
                       placeholder="Password"
-                      style="padding-right: 44px; border-radius: 5px !important"
                     />
                     <span
                       id="togglePassword"
@@ -503,26 +578,24 @@
                         transform: translateY(-50%);
                         cursor: pointer;
                       "
-                    >
-                    </span>
+                    ></span>
                   </div>
-                  <div class="mt-3">
-                    <button
-                      type="submit"
-                      class="btn btn-block btn-primary btn-lg auth-form-btn"
-                      style="border-radius: 7px !important; border: none"
-                    >
+                  <div
+                    class="mt-3"
+                    style="display: flex; gap: 12px; align-items: center"
+                  >
+                    <button type="submit" class="btn btn-primary auth-form-btn">
                       Login
                     </button>
-                    <!-- ...existing code... -->
-                    <!--                     <div style=" text-align:center;">
-                      <a class="btn btn-outline-light" href="{% url 'social:begin' 'google-oauth2' %}">
-                        Sign in with Google
-                      </a>
-                    </div> -->
                   </div>
                 </form>
               </div>
+            </div>
+            <div class="card-right" aria-hidden="true">
+              <img
+                src="{% static 'assets/images/loginVec.png' %}"
+                alt="illustration"
+              />
             </div>
           </div>
         </div>

@@ -3,13 +3,17 @@
 <!-- Dashboard Styles -->
 <style>
   :root {
-    --primary: #008080;
-    --success: #20b2aa;
-    --info: #40e0d0;
-    --warning: #00ced1;
-    --danger: #48d1cc;
-    --purple: #5f9ea0;
-    --orange: #66cdaa;
+    --c1: #e9fbf9; /* teal tint 1 */
+    --c2: #dff8f6; /* teal tint 2 */
+    --c3: #d2f6f3; /* teal tint 3 */
+    --c4: #eafbf9; /* teal tint 4 */
+    --primary: #073b3a; /* deep teal text */
+    --accent: #008080; /* teal accent */
+    --text-muted: #5f7d7c;
+    --surface: #f4fbfb;
+    --card-bg: #ffffff;
+    --radius-lg: 18px;
+    --radius-md: 12px;
   }
 
   html,
@@ -21,13 +25,13 @@
 
   /* Cover Banner */
   .cover-banner {
-    height: 200px;
-    background: url('{% static "assets/images/banner2.jpg" %}') center/cover
-      no-repeat;
+    height: 120px;
+    background: linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.04)), url(/static/assets/images/img7.jpg) center -68px / 100% auto no-repeat;
     position: relative;
-    border-radius: 20px;
+    border-radius: var(--radius-lg);
     margin-bottom: 2rem;
-    box-shadow: 0 8px 32px rgba(0, 128, 128, 0.3);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+}
   }
 
   .cover-overlay {
@@ -44,38 +48,47 @@
 
   .cover-content {
     text-align: center;
-    color: white;
+    color: #ffffff;
     z-index: 2;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
 
   .cover-title {
-    font-size: 3rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    font-size: 30px;
+    margin-bottom: 0.25rem;
+    letter-spacing: 0.6px;
+    color: #ffffff;
+    font-weight: 600;
+    background: #5151517f;
+    padding: 5px;
+    border-radius: 5px;
   }
 
   .cover-subtitle {
-    font-size: 1.2rem;
-    margin-bottom: 1rem;
-    opacity: 0.9;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+    color: var(--text-muted);
+    opacity: 1;
   }
 
   .cover-date {
-    font-size: 1rem;
-    opacity: 0.8;
+    font-size: 0.8rem;
+    color: var(--text-muted);
   }
 
   /* Main Module Card */
   .module-card {
-    border-radius: 20px;
-    border: none;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+    border: 1px solid rgba(44, 62, 80, 0.04);
+    box-shadow: 0 6px 18px rgba(44, 62, 80, 0.06);
     overflow: hidden;
-    margin-bottom: 2rem;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    margin-bottom: 1.5rem;
+    transition:
+      transform 0.28s ease,
+      box-shadow 0.28s ease;
+    background: var(--card-bg);
     position: relative;
+    padding-bottom: 0.5rem;
   }
 
   .module-card::before {
@@ -84,129 +97,172 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #008080, #20b2aa, #40e0d0, #00ced1);
+    height: 2px;
+    background: rgba(91, 108, 240, 0.2);
     z-index: 1;
   }
 
   .module-card:hover {
-    transform: translateY(-10px) scale(1.02);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    transform: translateY(-6px);
+    box-shadow: 0 12px 28px rgba(44, 62, 80, 0.08);
   }
 
   .module-header {
-    padding: 1.5rem;
-    color: white;
+    padding: 0.9rem 1.25rem;
+    color: var(--primary);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-radius: 20px 20px 0 0;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: var(--card-bg) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   }
 
   .module-header h3 {
     margin: 0;
-    font-weight: 600;
-    font-size: 1.3rem;
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
   }
 
   .module-header .module-icon {
-    font-size: 2rem;
-    opacity: 0.8;
+    font-size: 1.2rem;
+    color: var(--text-muted) !important;
+    opacity: 1;
   }
 
   .stat-cards-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-    padding: 2rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
   }
 
   /* Stat Card */
   .stat-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%);
-    border-radius: 15px;
-    padding: 1.5rem;
-    text-align: center;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    transition: all 0.3s ease;
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 0.65rem;
+    text-align: left;
+    border: 1px solid rgba(7, 59, 58, 0.04);
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-  }
-
-  .stat-card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #008080, #20b2aa, #40e0d0, #00ced1);
-    animation: gradientShift 3s ease infinite;
+    box-shadow: 0 6px 18px rgba(7, 59, 58, 0.03);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "label value" "unit unit";
+    gap: 0.25rem 0.6rem;
   }
 
   .stat-card:hover {
-    transform: translateY(-5px) scale(1.05);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    background: linear-gradient(135deg, #ffffff 0%, #f0f2f5 50%, #e1e5e9 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
   }
 
-  .stat-card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #008080, #20b2aa, #40e0d0, #00ced1);
-    animation: gradientShift 3s ease infinite;
+  .stat-card:nth-child(4n + 1) {
+    background: var(--c1);
   }
-
-  @keyframes gradientShift {
-    0%,
-    100% {
-      background-position: 0 center;
-    }
-    50% {
-      background-position: 100% center;
-    }
+  .stat-card:nth-child(4n + 2) {
+    background: var(--c2);
+  }
+  .stat-card:nth-child(4n + 3) {
+    background: var(--c3);
+  }
+  .stat-card:nth-child(4n + 4) {
+    background: var(--c4);
   }
 
   .stat-label {
-    font-size: 0.85rem;
-    color: #7f8c8d;
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin: 0;
+    text-transform: none;
+    letter-spacing: 0.2px;
+    grid-area: label;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
   }
 
   .stat-value {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: #2c3e50;
-    margin-bottom: 0.5rem;
+    color: var(--primary);
+    margin: 0;
+    grid-area: value;
+    justify-self: end;
   }
 
   .stat-unit {
-    font-size: 0.75rem;
-    color: #95a5a6;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    grid-area: unit;
+    margin-top: 0.15rem;
+  }
+
+  /* Icon chip inside label */
+  .stat-label i {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  /* Per-card accent colors for icon chips */
+  .stat-card:nth-child(4n + 1) {
+    background: linear-gradient(180deg, rgba(6, 128, 128, 0.06), var(--c1));
+  }
+  .stat-card:nth-child(4n + 1) .stat-label i {
+    background: rgba(0, 128, 128, 0.95);
+  }
+
+  .stat-card:nth-child(4n + 2) {
+    background: linear-gradient(180deg, rgba(3, 150, 136, 0.04), var(--c2));
+  }
+  .stat-card:nth-child(4n + 2) .stat-label i {
+    background: rgba(3, 150, 136, 0.95);
+  }
+
+  .stat-card:nth-child(4n + 3) {
+    background: linear-gradient(180deg, rgba(0, 128, 128, 0.04), var(--c3));
+  }
+  .stat-card:nth-child(4n + 3) .stat-label i {
+    background: rgba(0, 120, 120, 0.95);
+  }
+
+  .stat-card:nth-child(4n + 4) {
+    background: linear-gradient(180deg, rgba(0, 140, 140, 0.04), var(--c4));
+  }
+  .stat-card:nth-child(4n + 4) .stat-label i {
+    background: rgba(0, 140, 140, 0.95);
   }
 
   .progress-bar-container {
     width: 100%;
-    height: 6px;
-    background: #ecf0f1;
-    border-radius: 3px;
-    margin-top: 1rem;
+    height: 5px;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 4px;
+    margin-top: 0.75rem;
     overflow: hidden;
   }
 
   .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #008080, #20b2aa);
+    background: rgba(91, 108, 240, 0.65);
     transition: width 0.6s ease;
-    border-radius: 3px;
+    border-radius: 4px;
   }
 
   /* Dashboard Header */
@@ -250,19 +306,55 @@
   }
 
   .carousel-dot {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: #ecf0f1;
+    background: #d1d5db;
     cursor: pointer;
     transition: all 0.3s ease;
-    border: 2px solid transparent;
+    border: none;
   }
 
   .carousel-dot.active {
-    background: #008080;
-    width: 30px;
-    border-radius: 5px;
+    background: var(--accent);
+    width: 24px;
+    border-radius: 4px;
+  }
+
+  /* Two-column layout: left modules, right graph panel */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1rem;
+    align-items: start;
+    margin-top: 0.5rem;
+  }
+
+  .left-modules {
+    min-width: 0;
+  }
+
+  .right-panel {
+    position: relative;
+  }
+
+  .graph-panel {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 8px 20px rgba(7, 59, 58, 0.04);
+  }
+
+  @media (max-width: 992px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+    .right-panel {
+      order: 2;
+    }
+    .left-modules {
+      order: 1;
+    }
   }
 
   /* Responsive */
@@ -290,8 +382,11 @@
 
     .stat-cards-container {
       grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-      padding: 1.5rem;
+      gap: 0.5rem;
+      padding: 0.75rem;
+    }
+    .cover-banner {
+      height: 90px;
     }
 
     .stat-value {
@@ -309,7 +404,7 @@
     }
 
     .cover-title {
-      font-size: 1.5rem;
+      font-size: 1.6rem;
     }
 
     .cover-title img {
@@ -380,7 +475,7 @@
 
   .bar {
     width: 40px;
-    background: linear-gradient(to top, #008080, #20b2aa);
+    background: linear-gradient(to top, var(--accent), rgba(91, 108, 240, 0.5));
     border-radius: 5px 5px 0 0;
     transition: height 0.5s ease;
     min-height: 5px;
@@ -430,219 +525,249 @@
   <!-- Cover Banner -->
   <div class="cover-banner">
     <div class="cover-overlay">
-      <div class="cover-content">
-        <h2 class="cover-title">
-          <img
-            src="{% static 'assets/logo/titan_logo.png' %}"
-            alt="Titan Logo"
-            style="height: 3rem; margin-right: -1.5rem; vertical-align: middle"
-          />
-          Watchcase Tracker Dashboard
-        </h2>
-        <p class="cover-subtitle">
-          Real-time operations overview and analytics
-        </p>
-        <div class="cover-date">
-          <i class="mdi mdi-calendar"></i> {{ current_date }}
-        </div>
-      </div>
+
     </div>
   </div>
 
-  <!-- Module Cards Container -->
-  <div id="modulesContainer" class="modules-container">
-    {% if dashboard_stats %} {% for stat in dashboard_stats %}
-    <div class="module-card">
-      <!-- Module Header with Color -->
-      <div class="module-header" style="background: {{ stat.color }};">
-        <div>
-          <h3>{{ stat.label }}</h3>
-        </div>
-        <div class="module-icon">
-          <i class="mdi {{ stat.icon }}"></i>
-        </div>
-      </div>
-
-      <!-- Stat Cards -->
-      {% if stat.label == "Day Planning" %}
-      <div class="stat-cards-container">
-        <!-- Total Lot Card -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-folder-multiple"></i> {{ stat.labels.total_lots }}
-          </div>
-          <div class="stat-value">{{ stat.yet_to_start }}</div>
-          <div class="stat-unit">
-            Total Batches - {{ stat.yet_to_start }}/{{ stat.total_lot }}
-          </div>
-        </div>
-
-        <!-- Processed Card -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-check-circle"></i> Processed
-          </div>
-          <div class="stat-value">{{ stat.processed }}</div>
-          <div class="stat-unit">Completed</div>
-        </div>
-
-        <!-- Jumbo Tray Count Card -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-arrow-right-circle"></i> Jumbo Tray Count
-          </div>
-          <div class="stat-value">{{ stat.in_progress }}</div>
-          <div class="stat-unit">Loaded batches</div>
-        </div>
-
-        <!-- Normal Tray Count Card -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-package-variant"></i> Normal Tray Count
-          </div>
-          <div class="stat-value">{{ stat.drafted }}</div>
-          <div class="stat-unit">Loaded batches</div>
-        </div>
-      </div>
-      {% elif stat.label == "Input Screening" %}
-      <div class="stat-cards-container">
-        <!-- Total Rows in Pick Table -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-table"></i> Total Rows in Pick Table
-          </div>
-          <div class="stat-value">{{ stat.total_input_qty }}</div>
-          <div class="stat-unit">Rows</div>
-        </div>
-
-        <!-- Accepted Count -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-check-circle"></i> Accepted Count
-          </div>
-          <div class="stat-value">{{ stat.accepted_qty }}</div>
-          <div class="stat-unit">Count</div>
-        </div>
-
-        <!-- Rejected Count -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-close-circle"></i> Rejected Count
-          </div>
-          <div class="stat-value">{{ stat.rejected_qty }}</div>
-          <div class="stat-unit">Count</div>
-        </div>
-
-        <!-- Completed Count -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-check-all"></i> Completed Count
-          </div>
-          <div class="stat-value">{{ stat.completed_qty }}</div>
-          <div class="stat-unit">Count</div>
-        </div>
-      </div>
-      {% else %}
-      <div class="stat-cards-container">
-        <!-- Total Lot Card -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-folder-multiple"></i> {{ stat.labels.total_lots }}
-          </div>
-          <div class="stat-value">{{ stat.total_lot }}</div>
-          <div class="stat-unit">Active batches</div>
-        </div>
-
-        <!-- Progress Card with Detailed Breakdown -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-progress-check"></i> {{ stat.labels.progress }}
-          </div>
-          <div class="stat-value">{{ stat.processed }}</div>
-          <div class="stat-unit">Released/Processed</div>
-          <div class="progress-bar-container">
-            <div
-              class="progress-bar"
-              style="width: {{ stat.processed_percent }}%"
-            ></div>
-          </div>
-          <div
-            style="
-              font-size: 0.75rem;
-              color: #7f8c8d;
-              margin-top: 0.5rem;
-              line-height: 1.4;
-            "
-          >
-            <div>📋 Yet to Start: {{ stat.yet_to_start }}</div>
-            <div>✏️ Draft: {{ stat.drafted }}</div>
-          </div>
-        </div>
-
-        <!-- In Progress Card -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-arrow-right-circle"></i> {{
-            stat.labels.in_progress }}
-          </div>
-          <div class="stat-value">{{ stat.in_progress }}</div>
-          <div class="stat-unit">Processing queue</div>
-          <div class="progress-bar-container">
-            <div
-              class="progress-bar"
-              style="width: {{ stat.in_progress_percent }}%; background: linear-gradient(90deg, #20b2aa, #40e0d0);"
-            ></div>
-          </div>
-        </div>
-
-        <!-- Status Summary Card -->
-        <div class="stat-card">
-          <div class="stat-label">
-            <i class="mdi mdi-chart-pie"></i> {{ stat.labels.status_overview }}
-          </div>
-          <div style="font-size: 0.9rem; color: #2c3e50; margin-bottom: 0.5rem">
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                margin: 0.3rem 0;
-              "
-            >
-              <span>Released:</span>
-              <strong>{{ stat.processed }}</strong>
+  <!-- Module Cards + Graph (two-column) -->
+  <div class="dashboard-grid">
+    <div class="left-modules">
+      <!-- Module Cards Container -->
+      <div id="modulesContainer" class="modules-container">
+        {% if dashboard_stats %} {% for stat in dashboard_stats %}
+        <div class="module-card">
+          <!-- Module Header with Color -->
+          <div class="module-header" style="background: {{ stat.color }};">
+            <div>
+              <h3>{{ stat.label }}</h3>
             </div>
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                margin: 0.3rem 0;
-              "
-            >
-              <span>In Queue:</span>
-              <strong>{{ stat.in_progress }}</strong>
+            <div class="module-icon">
+              <i class="mdi {{ stat.icon }}"></i>
             </div>
           </div>
+
+          <!-- Stat Cards -->
+          {% if stat.label == "Day Planning" %}
+          <div class="stat-cards-container">
+            <!-- Total Lot Card -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-folder-multiple"></i> Total Batches
+              </div>
+              <div class="stat-value">{{ stat.yet_to_start }}</div>
+              <div class="stat-unit">
+                {{ stat.yet_to_start }}/{{ stat.total_lot }}
+              </div>
+            </div>
+
+            <!-- Processed Card -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-check-circle"></i> Processed
+              </div>
+              <div class="stat-value">{{ stat.processed }}</div>
+              <div class="stat-unit">Completed</div>
+            </div>
+
+            <!-- Jumbo Tray Count Card -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-arrow-right-circle"></i> Jumbo Tray Count
+              </div>
+              <div class="stat-value">{{ stat.in_progress }}</div>
+              <div class="stat-unit">Loaded batches</div>
+            </div>
+
+            <!-- Normal Tray Count Card -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-package-variant"></i> Normal Tray Count
+              </div>
+              <div class="stat-value">{{ stat.drafted }}</div>
+              <div class="stat-unit">Loaded batches</div>
+            </div>
+          </div>
+          {% elif stat.label == "Input Screening" %}
+          <div class="stat-cards-container">
+            <!-- Total Rows in Pick Table -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-table"></i> Total Rows in Pick Table
+              </div>
+              <div class="stat-value">{{ stat.total_input_qty }}</div>
+              <div class="stat-unit">Rows</div>
+            </div>
+
+            <!-- Accepted Count -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-check-circle"></i> Accepted Count
+              </div>
+              <div class="stat-value">{{ stat.accepted_qty }}</div>
+              <div class="stat-unit">Count</div>
+            </div>
+
+            <!-- Rejected Count -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-close-circle"></i> Rejected Count
+              </div>
+              <div class="stat-value">{{ stat.rejected_qty }}</div>
+              <div class="stat-unit">Count</div>
+            </div>
+
+            <!-- Completed Count -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-check-all"></i> Completed Count
+              </div>
+              <div class="stat-value">{{ stat.completed_qty }}</div>
+              <div class="stat-unit">Count</div>
+            </div>
+          </div>
+          {% else %}
+          <div class="stat-cards-container">
+            <!-- Total Lot Card -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-folder-multiple"></i> Total Lots
+              </div>
+              <div class="stat-value">{{ stat.total_lot }}</div>
+              <div class="stat-unit">Active batches</div>
+            </div>
+
+            <!-- Progress Card with Detailed Breakdown -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-progress-check"></i> {{ stat.labels.progress
+                }}
+              </div>
+              <div class="stat-value">{{ stat.processed }}</div>
+              <div class="stat-unit">Released/Processed</div>
+              <div class="progress-bar-container">
+                <div
+                  class="progress-bar"
+                  style="width: {{ stat.processed_percent }}%"
+                ></div>
+              </div>
+              <div
+                style="
+                  font-size: 0.75rem;
+                  color: #7f8c8d;
+                  margin-top: 0.5rem;
+                  line-height: 1.4;
+                "
+              >
+                <div>📋 Yet to Start: {{ stat.yet_to_start }}</div>
+                <div>✏️ Draft: {{ stat.drafted }}</div>
+              </div>
+            </div>
+
+            <!-- In Progress Card -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-arrow-right-circle"></i> {{
+                stat.labels.in_progress }}
+              </div>
+              <div class="stat-value">{{ stat.in_progress }}</div>
+              <div class="stat-unit">Processing queue</div>
+              <div class="progress-bar-container">
+                <div
+                  class="progress-bar"
+                  style="width: {{ stat.in_progress_percent }}%; background: linear-gradient(90deg, #20b2aa, #40e0d0);"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Status Summary Card -->
+            <div class="stat-card">
+              <div class="stat-label">
+                <i class="mdi mdi-chart-pie"></i> {{ stat.labels.status_overview
+                }}
+              </div>
+              <div
+                style="font-size: 0.9rem; color: #2c3e50; margin-bottom: 0.5rem"
+              >
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 0.3rem 0;
+                  "
+                >
+                  <span>Released:</span>
+                  <strong>{{ stat.processed }}</strong>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 0.3rem 0;
+                  "
+                >
+                  <span>In Queue:</span>
+                  <strong>{{ stat.in_progress }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
         </div>
+        {% endfor %} {% else %}
+        <div class="empty-state">
+          <i class="mdi mdi-inbox-multiple"></i>
+          <h4>No data available</h4>
+          <p>
+            Start by creating batches in your modules to see statistics here.
+          </p>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
     </div>
-    {% endfor %} {% else %}
-    <div class="empty-state">
-      <i class="mdi mdi-inbox-multiple"></i>
-      <h4>No data available</h4>
-      <p>Start by creating batches in your modules to see statistics here.</p>
+
+    <!-- Right graph panel -->
+    <aside class="right-panel">
+      <div class="graph-panel">
+        <div class="graph-container">
+          <h5>Module Overview</h5>
+          <div class="mini-bar-chart">
+            <div class="bar-item">
+              <div class="bar" style="height: 60%"></div>
+              <span>Mon</span>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 80%"></div>
+              <span>Tue</span>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 45%"></div>
+              <span>Wed</span>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 70%"></div>
+              <span>Thu</span>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 55%"></div>
+              <span>Fri</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Carousel Navigation Dots -->
+    {% if dashboard_stats %}
+    <div class="carousel-nav">
+      {% for stat in dashboard_stats %}
+      <div
+        class="carousel-dot"
+        data-module-index="{{ forloop.counter0 }}"
+      ></div>
+      {% endfor %}
     </div>
     {% endif %}
   </div>
-
-  <!-- Carousel Navigation Dots -->
-  {% if dashboard_stats %}
-  <div class="carousel-nav">
-    {% for stat in dashboard_stats %}
-    <div class="carousel-dot" data-module-index="{{ forloop.counter0 }}"></div>
-    {% endfor %}
-  </div>
-  {% endif %}
 </div>
 
 <!-- Scripts -->
