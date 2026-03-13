@@ -1,49 +1,24 @@
-from django.shortcuts import render
 from django.shortcuts import render, redirect, get_object_or_404
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from modelmasterapp.models import *  # Import the TrayId model
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from modelmasterapp.models import *
-from modelmasterapp.models import *
-from django.contrib import messages
-from datetime import timedelta
-import datetime
-import datetime as _dt
-from django.utils.safestring import mark_safe
-import re
-import openpyxl
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.renderers import TemplateHTMLRenderer
-from rest_framework.parsers import MultiPartParser
-from rest_framework import status
-import openpyxl
-import re
-import datetime
 from django.contrib import messages
 from django.utils.safestring import mark_safe
 from django.db.models import OuterRef, Subquery, Q
-import json
-from django.http import JsonResponse
-from rest_framework.views import APIView
-from rest_framework.renderers import TemplateHTMLRenderer
-from rest_framework.parsers import MultiPartParser, JSONParser
-import math
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.db import transaction, IntegrityError
 from django.utils.timezone import now
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from datetime import timedelta, datetime
+import datetime as _dt
+import json
+import re
+import math
+import openpyxl
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.renderers import TemplateHTMLRenderer
+from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from .models import *
@@ -1957,7 +1932,7 @@ class TrayIdScanAPIView(APIView):
             return JsonResponse({'success': False, 'error': 'Unexpected error: ' + str(e)}, status=500)
 
     def generate_new_lot_id(self):
-        timestamp = datetime.datetime.now().strftime("%d%m%Y%H%M%S")
+        timestamp = datetime.now().strftime("%d%m%Y%H%M%S")
         last_lot = TotalStockModel.objects.order_by('-id').first()
         if last_lot and last_lot.lot_id and last_lot.lot_id.startswith("LID"):
             last_seq_no = int(last_lot.lot_id[-4:])
