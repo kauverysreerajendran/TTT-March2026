@@ -3549,7 +3549,18 @@ function updateSubmitButtonState() {
   const emptyHooks = emptyHooksElement ? parseInt(emptyHooksElement.value || "0") : 0;
   
   // Calculate if submit should be enabled (opposite of save: enable when empty_hooks == 0)
-  const canSubmit = emptyHooks === 0 && window.backendOverallValid === true;
+  // Prefer backend-provided overall_valid, but allow frontend to enable when currentModalData indicates valid
+  var backendValid = window.backendOverallValid === true;
+  var frontendValid = false;
+  if (window.currentModalData && window.currentModalData.modal_validation) {
+    frontendValid = window.currentModalData.modal_validation.overall_valid === true;
+  }
+  // Live DOM check: all delink tray inputs have been individually backend-validated
+  // (.tray-valid-alert is only added by showTrayValidationSuccess after a successful backend response)
+  var delinkInputs = document.querySelectorAll('#delinkTableSection .tray-id-input');
+  var liveAllTraysValid = delinkInputs.length > 0 &&
+    Array.from(delinkInputs).every(function(inp) { return inp.parentNode.querySelector('.tray-valid-alert'); });
+  const canSubmit = emptyHooks === 0 && (backendValid || frontendValid || liveAllTraysValid);
 
   // Update button state
   submitBtn.disabled = !canSubmit;
@@ -3609,12 +3620,22 @@ function recalcLoadedCasesQty() {
   const displayTotal = Math.min(total, parseInt(denominator));
   loadedCaseQtyElem.textContent = `${displayTotal}/${denominator}`;
   
+  // Update emptyHooksInput to reflect current loaded quantity
+  const emptyHooksInput = document.getElementById('emptyHooksInput');
+  if (emptyHooksInput) {
+    const newEmptyHooks = Math.max(0, parseInt(denominator) - displayTotal);
+    emptyHooksInput.value = newEmptyHooks;
+  }
+  
   // Update submit button state
   updateSubmitButtonState();
 }
 
 // Manual Draft - Fetch and restore data when opening modal
 function openJigAddModal(batchId, lotId, jigQrId) {
+  // Reset Add Model state for fresh session
+  combinedModels = [];
+  previouslyCombinedRows = new Set();
 
 // Set Lot Qty from table row if available
 const lotQtyInput = document.getElementById("reallotQty");
@@ -3860,6 +3881,13 @@ function renderModalContent(data) {
   window.backendOverallValid = data.modal_validation?.overall_valid === true;
 
   window.currentModalValidation = data.modal_validation || {};
+  // Preserve existing modal context when backend doesn't return batch/lot (do not overwrite with empty values)
+  window.currentModalContext = window.currentModalContext || {};
+  window.currentModalContext.batchId = data.batch_id || window.currentModalContext.batchId || '';
+  window.currentModalContext.lotId = data.lot_id || window.currentModalContext.lotId || '';
+  window.currentModalContext.jigQrId = data.jig_id || window.currentModalContext.jigQrId || '';
+  // Store actual tray capacity from backend so Add Model button can use it instead of hardcoded values
+  window.currentModalContext.trayCapacity = data.tray_distribution?.current_lot?.tray_capacity || window.currentModalContext.trayCapacity || 8;
   document.getElementById("modalPlatingStockNo").textContent = (
     data.form_title.split(":")[1] || ""
   ).trim();
@@ -4021,10 +4049,10 @@ function renderDelinkTableFromData(delinkTable) {
   // Clear existing content
   delinkTableSection.innerHTML = '';
   
-  // Update delink count in header
-  const delinkCount = document.querySelector('.delink-count');
+  // Update delink count in header (use the same element id used elsewhere)
+  const delinkCount = document.getElementById('delinkTrayCount');
   if (delinkCount) {
-    delinkCount.textContent = `(No of Trays: ${delinkTable.length})`;
+    delinkCount.textContent = delinkTable.length;
   }
   
   // Render tray inputs based on delink table data
@@ -5113,21 +5141,18 @@ document.addEventListener('DOMContentLoaded', function() {
       const lotId = window.currentModalContext.lotId;
       const platingStockNo = document.getElementById('modalPlatingStockNo')?.textContent || '';
       
-      // Get current quantity and empty hooks from modal inputs
-      const loadedCasesDisplay = document.getElementById('loadedCasesQtyDisplay')?.textContent || '0/0';
-      const loadedCasesQty = parseInt(loadedCasesDisplay.split('/')[0]) || 0;
-      const emptyHooks = parseInt(document.getElementById('emptyHooksInput')?.value) || 0;
+      // Get current quantity from reallotQty (reliable: set by openJigAddModal from backend data.lot_qty).
+      // Do NOT use emptyHooksInput — recalcLoadedCasesQty() resets it to jigCapacity before scanning.
       const jigCapacity = parseInt(document.getElementById('jigCapacityInput')?.value) || 0;
+      const loadedCasesQty = parseInt(document.getElementById('reallotQty')?.value) || 0;
+      const emptyHooks = Math.max(0, jigCapacity - loadedCasesQty);
       
       // Get tray type and capacity
       const trayTypeElement = document.getElementById('trayTypeInput');
       const trayType = trayTypeElement ? trayTypeElement.value : 'Normal';
       
-      // Calculate tray capacity based on tray type
-      let trayCapacity = 8; // Default
-      if (trayType === 'Jumbo') trayCapacity = 12;
-      else if (trayType === 'Normal') trayCapacity = 8;
-      else if (trayType === 'Small') trayCapacity = 4;
+      // FIX: use actual tray capacity from backend (stored in currentModalContext), not hardcoded mapping
+      const trayCapacity = window.currentModalContext?.trayCapacity || 8;
       
       // Get current row's plating color, polish finish, and jig type from the table
       console.log('🔍 Looking for current row with lot ID:', lotId);
@@ -5231,7 +5256,7 @@ function enterAddModelMode(modelNumber, lotId, batchId, currentQty, jigCapacity,
   currentModelNumber = modelNumber;
   currentLotId = lotId;
   currentBatchId = batchId;
-  currentQuantity = currentQty;
+  currentQuantity = currentQty;  // = jigCapacity - emptyHooks (corrected in caller)
   currentJigCapacity = jigCapacity;
   currentEmptyHooks = emptyHooks;
   currentTrayType = trayType;
@@ -5593,11 +5618,9 @@ function updateSelectionSummaryAndButton() {
             const qty = parseInt(qtyInput.value) || 0;
             
             // Get lot ID and batch ID from hidden cells or data attributes
-            const lotIdCell = row.cells[1]; // Assuming lot ID is in 2nd column
-            const batchIdCell = row.cells[0]; // Assuming batch ID is in 1st column (hidden)
-            
-            const lotId = lotIdCell ? lotIdCell.textContent.trim() : '';
-            const batchId = batchIdCell ? batchIdCell.textContent.trim() : '';
+            // Use data attributes — correct lot/batch IDs set on <tr> by backend template
+            const lotId = row.getAttribute('data-stock-lot-id') || '';
+            const batchId = row.getAttribute('data-batch-id') || '';
             
             selectedModelsData.push({
               platingStockNo: platingStockNo,
@@ -5695,13 +5718,13 @@ function proceedWithCombination(selectedModels, newTotalQuantity, newEmptyHooks)
   // Add selected models to combinedModels
   for (let selected of selectedModels) {
     combinedModels.push({
-      modelNumber: selected.platingStkNo,
+      modelNumber: selected.platingStockNo,
       lotId: selected.lotId,
       batchId: selected.batchId,
       quantity: selected.qty,
-      platingColor: selected.platingColor,
-      polishFinish: selected.polishFinish,
-      jigType: selected.jigType
+      platingColor: selected.platingColor || selected.polishingStockNo || '',
+      polishFinish: selected.polishFinish || selected.polishingStockNo || '',
+      jigType: selected.jigType || ''
     });
   }
   
@@ -5766,6 +5789,12 @@ function updateModalWithCombinedModels(allModels, newTotalQuantity, newEmptyHook
   const emptyHooksInput = document.getElementById('emptyHooksInput');
   if (emptyHooksInput) {
     emptyHooksInput.value = newEmptyHooks;
+  }
+  
+  // Update lot qty with combined total
+  const reallotQtyInput = document.getElementById('reallotQty');
+  if (reallotQtyInput) {
+    reallotQtyInput.value = newTotalQuantity;
   }
   
   // Create/Update model tabs in modal header
@@ -5902,57 +5931,80 @@ function recalculateTrayDistributionForAllModels(allModels) {
   }
   
   // Calculate total trays needed
-  const totalQuantity = allModels.reduce((sum, model) => sum + model.qty, 0);
+  const totalQuantity = allModels.reduce((sum, model) => sum + (model.qty || model.quantity || 0), 0);
   const totalTrays = Math.ceil(totalQuantity / currentTrayCapacity);
   
   console.log(`📊 Total quantity: ${totalQuantity}, Trays needed: ${totalTrays}, Tray capacity: ${currentTrayCapacity}`);
   console.log(`📊 Models breakdown:`, allModels.map(m => `${m.platingStockNo}: ${m.qty}`).join(', '));
   
-  // Update delink count header
-  const delinkTrayCount = document.getElementById('delinkTrayCount');
-  if (delinkTrayCount) {
-    delinkTrayCount.textContent = totalTrays;
-    console.log(`✅ Updated delink tray count to: ${totalTrays}`);
-  } else {
-    console.error('❌ delinkTrayCount element not found');
-  }
-  
   // Clear existing tray inputs
   delinkTableSection.innerHTML = '';
-  
-  // Create tray inputs for total quantity
-  for (let i = 0; i < totalTrays; i++) {
-    const trayTab = document.createElement('div');
-    trayTab.className = 'tray-scan-tab model-bg-1';
-    
-    // Calculate quantity for this tray
-    let trayQty;
-    if (i === 0 && totalQuantity % currentTrayCapacity !== 0) {
-      // First tray might be partial (top tray)
-      trayQty = totalQuantity % currentTrayCapacity;
-    } else {
-      // Full tray
-      trayQty = currentTrayCapacity;
+
+  // Build per-model tray allocation so each tray is tagged with the correct lot/batch
+  let trayIndex = 0;
+  allModels.forEach((model, modelIdx) => {
+    const qty = model.qty || model.quantity || 0;
+    if (!qty) return;
+
+    // Determine how many full trays and if there's a partial for this model
+    const fullTrays = Math.floor(qty / currentTrayCapacity);
+    const partialCases = qty % currentTrayCapacity;
+
+    // Helper to create a tray tab
+    const createTrayTab = (casesCount, isPartial = false) => {
+      const trayTab = document.createElement('div');
+      const bgClass = `model-bg-${(modelIdx % 5) + 1}`;
+      trayTab.className = `tray-scan-tab ${bgClass}`;
+
+      trayTab.innerHTML = `
+        <input
+          type="text"
+          id="tray-${trayIndex}"
+          class="tray-id-input ${bgClass}"
+          placeholder="Scan Tray ${trayIndex + 1} Id"
+          data-row-index="${trayIndex}"
+          data-batch-id="${model.batchId || ''}"
+          data-lot-id="${model.lotId || ''}"
+          data-tray-qty="${casesCount}"
+          data-model-idx="${modelIdx}"
+          data-partial="${isPartial ? '1' : '0'}"
+        />
+      `;
+
+      delinkTableSection.appendChild(trayTab);
+      trayIndex++;
+    };
+
+    // If partial exists, put partial tray FIRST for this model (scan required)
+    if (partialCases > 0) {
+      createTrayTab(partialCases, true);
     }
-    
-    trayTab.innerHTML = `
-      <input 
-        type="text" 
-        id="tray-${i}"
-        class="tray-id-input model-bg-1" 
-        placeholder="Scan Tray ${i + 1} Id"
-        data-row-index="${i}"
-        data-tray-qty="${trayQty}"
-      />
-    `;
-    
-    delinkTableSection.appendChild(trayTab);
-  }
+
+    // Create full trays
+    for (let f = 0; f < fullTrays; f++) {
+      createTrayTab(currentTrayCapacity, false);
+    }
+  });
   
   // Update tray distribution summary
   updateTrayDistributionSummary(allModels, totalQuantity, totalTrays);
   
   console.log('✅ Tray distribution recalculated');
+
+  // Ensure header shows actual number of inputs rendered (includes half-filled inputs)
+  try {
+    const delinkTrayCount = document.getElementById('delinkTrayCount');
+    const modalInputs = delinkTableSection.querySelectorAll('.tray-id-input').length;
+    const halfFilledSection = document.getElementById('halfFilledTraySection');
+    const halfInputs = halfFilledSection ? halfFilledSection.querySelectorAll('.tray-id-input, .half-filled-tray-input').length : 0;
+    const visibleCount = modalInputs + halfInputs;
+    if (delinkTrayCount) {
+      delinkTrayCount.textContent = visibleCount || totalTrays;
+      console.log(`✅ Set delink tray count to rendered inputs: ${visibleCount}`);
+    }
+  } catch (err) {
+    console.error('Error updating delink tray count from DOM', err);
+  }
 }
 
 // Update tray distribution summary
@@ -5971,10 +6023,11 @@ function updateTrayDistributionSummary(allModels, totalQuantity, totalTrays) {
     html += `<div style="font-weight: 600; margin-top: 10px; color: #1565C0;">Model Breakdown:</div>`;
   }
   allModels.forEach((model, index) => {
+    const modelQty = model.qty || model.quantity || 0;
     const bgColor = index === 0 ? '#e8f5e9' : '#e3f2fd';
     const borderColor = index === 0 ? '#4CAF50' : '#2196F3';
     html += `<div style="margin: 5px 0; padding: 5px; background: ${bgColor}; border-left: 3px solid ${borderColor}; border-radius: 4px;">`;
-    html += `📦 ${model.platingStockNo}: <b>${model.qty}</b> cases`;
+    html += `📦 ${model.platingStockNo}: <b>${modelQty}</b> cases`;
     if (index === 0) html += ` <span style="font-size: 11px; color: #4CAF50;">(Primary)</span>`;
     html += `</div>`;
   });
@@ -6069,7 +6122,7 @@ function combineModelsAndUpdateModal(newTotalQty, newEmptyHooks, selectedRows) {
     // Update loaded cases qty display
     const loadedCasesQtyDisplay = document.getElementById('loadedCasesQtyDisplay');
     if (loadedCasesQtyDisplay) {
-      loadedCasesQtyDisplay.textContent = `${newTotalQuantity}/${currentJigCapacity}`;
+      loadedCasesQtyDisplay.textContent = `${newTotalQty}/${currentJigCapacity}`;
     }
     
     // Update empty hooks
@@ -6108,6 +6161,22 @@ function combineModelsAndUpdateModal(newTotalQty, newEmptyHooks, selectedRows) {
       timer: 3000,
       showConfirmButton: false
     });
+    // Update tray distribution summary for combined models (include primary + selected)
+    try {
+      const mappedModels = [{ platingStockNo: currentModelNumber, qty: currentQuantity }].concat(selectedRows.map(r => ({ platingStockNo: r.platingStock_no || r.platingStockNo || '', qty: r.qty })));
+      updateTrayDistributionSummary(mappedModels, newTotalQty, totalTrays);
+      const delinkTrayCount = document.getElementById('delinkTrayCount');
+      if (delinkTrayCount) delinkTrayCount.textContent = totalTrays;
+    } catch (err) {
+      console.error('Error updating tray distribution summary after combineModelsAndUpdateModal', err);
+    }
+    
+    // Update modal validation for combined flows
+    const allValid = $('#delinkTableSection .tray-id-input').toArray().every(input => $(input).next('.validation-result').hasClass('valid'));
+    if (window.currentModalData && window.currentModalData.modal_validation) {
+      window.currentModalData.modal_validation.overall_valid = (newEmptyHooks === 0 && allValid);
+    }
+    updateSubmitButtonState();
   }
 }
 
@@ -6143,6 +6212,13 @@ function updateDelinkTableWithCombinedData(totalQty, selectedRows) {
     delinkTable.innerHTML = trayHTML;
     
     console.log(`✅ Updated delink table with ${totalTrays} trays`);
+    // Keep header in sync with rendered inputs
+    try {
+      const delinkTrayCount = document.getElementById('delinkTrayCount');
+      if (delinkTrayCount) delinkTrayCount.textContent = totalTrays;
+    } catch (err) {
+      console.error('Error setting delinkTrayCount in updateDelinkTableWithCombinedData', err);
+    }
   }
 }
 

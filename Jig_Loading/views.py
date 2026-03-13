@@ -295,7 +295,11 @@ class JigAddModalDataView(TemplateView):
                 modal_data['delink_tray_info'] = draft.delink_tray_info or []
                 modal_data['partial_tray_info'] = draft_data.get('partial_tray_info', [])
                 modal_data['half_filled_tray_info'] = draft.half_filled_tray_info or []
-                modal_data['tray_distribution'] = draft_data.get('tray_distribution', modal_data.get('tray_distribution'))
+                # NOTE: Do NOT override tray_distribution from draft.
+                # The draft stores {delink, partial, half_filled} which lacks current_lot.tray_capacity.
+                # The freshly computed tray_distribution (with current_lot.tray_capacity) must be preserved
+                # so the frontend can read the correct tray capacity for Add Model.
+                # modal_data['tray_distribution'] = draft_data.get('tray_distribution', modal_data.get('tray_distribution'))
                 # Only restore broken hooks from draft if user didn't provide a new value
                 if broken_hooks_param in [None, '']:
                     modal_data['broken_buildup_hooks'] = draft.broken_hooks or modal_data.get('broken_buildup_hooks')
@@ -774,6 +778,19 @@ class JigAddModalDataView(TemplateView):
         """
         Prepare validation rules and constraints for modal data.
         """
+        # Ensure `loaded_cases_qty` is treated as a numeric value for validation.
+        # Some flows set `loaded_cases_qty` to a display string like "0/75";
+        # parse the numeric part safely without changing other fields.
+        loaded_qty_value = modal_data.get('loaded_cases_qty', 0)
+        try:
+            if isinstance(loaded_qty_value, str) and '/' in loaded_qty_value:
+                # format like "0/75" -> take the right-hand side as total
+                loaded_qty_numeric = int(loaded_qty_value.split('/')[-1])
+            else:
+                loaded_qty_numeric = int(loaded_qty_value)
+        except Exception:
+            loaded_qty_numeric = 0
+
         # Fix hooks balance calculation for half-filled tray scenarios
         if modal_data['broken_buildup_hooks'] > 0:
             # When broken hooks present: loaded_hooks should equal effective capacity
@@ -786,7 +803,7 @@ class JigAddModalDataView(TemplateView):
         
         validation = {
             'jig_capacity_valid': modal_data['jig_capacity'] > 0,
-            'loaded_cases_valid': modal_data['loaded_cases_qty'] > 0,
+            'loaded_cases_valid': loaded_qty_numeric > 0,
             'hooks_balance_valid': hooks_balance_valid,
             'broken_hooks_valid': modal_data['broken_buildup_hooks'] >= 0,
             'nickel_bath_valid': modal_data['nickel_bath_type'] in ['Bright', 'Satin', 'Matt'],
@@ -1413,6 +1430,10 @@ class JigLoadingManualDraftAPIView(APIView):
         half_filled_tray_qty = sum(t['cases'] for t in half_filled_tray_info)
         loaded_cases_qty = 0  # No trays scanned yet
 
+        # Calculate is_multi_model
+        combined_lot_ids = draft_data.get('combined_lot_ids', [])
+        is_multi_model = len(combined_lot_ids) > 1
+
         obj, created = JigLoadingManualDraft.objects.update_or_create(
             batch_id=batch_id,
             lot_id=lot_id,
@@ -1431,6 +1452,7 @@ class JigLoadingManualDraftAPIView(APIView):
                 'broken_hooks': broken_hooks,
                 'loaded_cases_qty': loaded_cases_qty,
                 'plating_stock_num': plating_stock_num,
+                'is_multi_model': is_multi_model,
             }
         )
         
@@ -1534,7 +1556,7 @@ class JigSubmitAPIView(APIView):
         effective_lot_qty = None
         
         # Handle combined lot IDs from Add Model functionality
-        combined_lot_ids = data.get('combined_lot_ids', [])
+        combined_lot_ids = json.loads(data.get('combined_lot_ids', '[]'))
         is_multi_model = len(combined_lot_ids) > 1
         
         logger.info(f"🚀 SUBMIT REQUEST: batch_id={batch_id}, lot_id={lot_id}, jig_qr_id={jig_qr_id}, user={user.username}")
@@ -1773,6 +1795,22 @@ class JigSubmitAPIView(APIView):
             stock.jig_draft = False
             stock.save()
 
+            # Mark all combined lots as completed so they disappear from pick table
+            if is_multi_model and combined_lot_ids:
+                logger.info(f"📌 Marking {len(combined_lot_ids)} combined lots as completed")
+                for combined_lot in combined_lot_ids:
+                    try:
+                        combined_stock = TotalStockModel.objects.filter(lot_id=combined_lot).first()
+                        if combined_stock:
+                            combined_stock.Jig_Load_completed = True
+                            combined_stock.jig_draft = False
+                            combined_stock.save()
+                            logger.info(f"✅ Marked combined lot {combined_lot} as completed")
+                        else:
+                            logger.warning(f"⚠️ Could not find TotalStockModel for combined lot {combined_lot}")
+                    except Exception as e:
+                        logger.error(f"❌ Error marking combined lot {combined_lot} as completed: {e}")
+
             # Mark draft as submitted
             if draft:
                 draft.draft_status = 'submitted'
@@ -1780,9 +1818,21 @@ class JigSubmitAPIView(APIView):
 
             # Create JigCompleted record - This is what the user expects to see in "Complete table"
             try:
-                # Initialize tray info variables  
-                complete_delink_tray_info = delink_tray_info
-                complete_half_filled_tray_info = half_filled_tray_info
+                # Initialize tray info variables
+                complete_delink_tray_info = list(delink_tray_info) if delink_tray_info else []
+                complete_half_filled_tray_info = list(half_filled_tray_info) if half_filled_tray_info else []
+
+                # Include tray rows from the combined lots so the "Complete" table shows all tray ids/qtys
+                if is_multi_model and combined_lot_ids:
+                    for combined_lot in combined_lot_ids:
+                        try:
+                            # Append any trays scanned against the combined lot so
+                            # they appear in the complete delink table view.
+                            combined_trays = JigLoadTrayId.objects.filter(lot_id=combined_lot, batch_id=batch)
+                            for ct in combined_trays:
+                                complete_delink_tray_info.append({'tray_id': ct.tray_id, 'cases': ct.tray_quantity, 'lot_id': combined_lot})
+                        except Exception as e:
+                            logger.warning(f"⚠️ Could not include combined lot {combined_lot} in complete table: {e}")
                 
                 # Handle partial lot splitting with new lot ID for remaining quantity
                 if original_lot_qty > jig_capacity:

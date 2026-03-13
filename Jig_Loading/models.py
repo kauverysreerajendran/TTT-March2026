@@ -177,6 +177,7 @@ class JigLoadingManualDraft(models.Model):
     loaded_cases_qty = models.IntegerField(default=0, blank=True, null=True)
     plating_stock_num = models.CharField(max_length=100, blank=True, null=True)
     draft_status = models.CharField(max_length=20, choices=[('active', 'Active'), ('submitted', 'Submitted')], default='active')
+    is_multi_model = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ['batch_id', 'lot_id', 'user']  # <-- FIXED!
